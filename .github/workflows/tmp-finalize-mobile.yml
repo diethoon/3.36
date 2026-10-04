@@ -1,0 +1,35 @@
+name: tmp-finalize-mobile
+
+on:
+  push:
+    branches: [mobile-migration-v1]
+
+permissions:
+  contents: write
+
+jobs:
+  finalize:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Finalize validated mobile patch
+        run: |
+          set -e
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git fetch --no-tags --depth=1 origin e00f38d17383d09ae404040b9577dd0732861a3a
+          git reset --soft e00f38d17383d09ae404040b9577dd0732861a3a
+          find .github/workflows -maxdepth 1 -type f -name 'tmp-*' -delete
+          git add -A
+          echo "STAGED_DIFF_STAT"
+          git diff --cached --stat
+          git diff --cached --check
+          test -f Wayward_MOD_v3.36.html
+          git commit -m "fix(mobile): compact prep controls and wife detail tabs"
+          git push origin HEAD:mobile-migration-v1
+
+      - name: Verify clean workflow tree
+        run: |
+          test -z "$(find .github/workflows -maxdepth 1 -type f -name 'tmp-*' -print)"
+          echo "TMP_WORKFLOWS=NONE"
