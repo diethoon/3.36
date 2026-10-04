@@ -5,7 +5,7 @@ on:
   pull_request:
     branches: [main]
 permissions:
-  contents: read
+  contents: write
 jobs:
   extract:
     runs-on: ubuntu-latest
@@ -49,4 +49,4 @@ jobs:
           PY
           git add .github/tmp-mobile-layout2-snips.txt
           git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" commit -m "chore: add exact mobile layout snippets"
-          git push origin mobile-migration-v1
+          git push origin actions/mobile-layout2
