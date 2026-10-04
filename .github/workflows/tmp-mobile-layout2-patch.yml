@@ -308,9 +308,18 @@ jobs:
             (b'height:22px !important',1),
             (b'hideStats:!1,forceVisibility:!0',1)
           ]
-          data=src.read_bytes()
+          def count_stream(needle):
+              n=0; carry=b""
+              with src.open("rb") as f:
+                  while True:
+                      ch=f.read(64*1024)
+                      if not ch: break
+                      d=carry+ch
+                      n += d.count(needle)
+                      carry=d[-max(0,len(needle)-1):]
+              return n
           for needle,expected in checks:
-              got=data.count(needle)
+              got=count_stream(needle)
               print("CHECK",needle,got)
               if expected==0 and got!=0:raise SystemExit("UNEXPECTED_MARKER")
               if expected>0 and got<expected:raise SystemExit("MISSING_MARKER")
