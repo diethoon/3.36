@@ -1,0 +1,114 @@
+name: tmp-mobile-layout2-run3
+on:
+  push:
+    branches: [mobile-migration-v1]
+permissions:
+  contents: write
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: mobile-migration-v1
+      - name: Patch and verify
+        shell: bash
+        run: |
+                    cat > /tmp/patch.b64 <<'B64'
+          ZnJvbSBwYXRobGliIGltcG9ydCBQYXRoCmltcG9ydCBzdWJwcm9jZXNzLHJlCnA9UGF0aCgiV2F5d2Fy
+          ZF9NT0RfdjMuMzYuaHRtbCIpCkNIPTY1NTM2CmRlZiByZXBsYWNlX29uY2Uob2xkLG5ldyk6CiAgICB0
+          bXA9cC53aXRoX3N1ZmZpeCgiLnRtcCIpOyBrZWVwPW1heCgwLGxlbihvbGQpLTEpOyBjYXJyeT1iIiI7
+          IGhpdHM9MAogICAgd2l0aCBwLm9wZW4oInJiIikgYXMgcyx0bXAub3Blbigid2IiKSBhcyBkOgogICAg
+          ICAgIHdoaWxlIFRydWU6CiAgICAgICAgICAgIGM9cy5yZWFkKENIKQogICAgICAgICAgICBpZiBub3Qg
+          YzogYnJlYWsKICAgICAgICAgICAgZGF0YT1jYXJyeStjOyBwb3M9MAogICAgICAgICAgICB3aGlsZSBU
+          cnVlOgogICAgICAgICAgICAgICAgaT1kYXRhLmZpbmQob2xkLHBvcykKICAgICAgICAgICAgICAgIGlm
+          IGk8MDogYnJlYWsKICAgICAgICAgICAgICAgIGQud3JpdGUoZGF0YVtwb3M6aV0pOyBkLndyaXRlKG5l
+          dyk7IHBvcz1pK2xlbihvbGQpOyBoaXRzKz0xCiAgICAgICAgICAgIGRhdGE9ZGF0YVtwb3M6XQogICAg
+          ICAgICAgICBpZiBsZW4oZGF0YSk+a2VlcDoKICAgICAgICAgICAgICAgIGlmIGtlZXA6IGQud3JpdGUo
+          ZGF0YVs6LWtlZXBdKTsgY2Fycnk9ZGF0YVsta2VlcDpdCiAgICAgICAgICAgICAgICBlbHNlOiBkLndy
+          aXRlKGRhdGEpOyBjYXJyeT1iIiIKICAgICAgICAgICAgZWxzZTogY2Fycnk9ZGF0YQogICAgICAgIGQu
+          d3JpdGUoY2FycnkpCiAgICBpZiBoaXRzIT0xOgogICAgICAgIHRtcC51bmxpbmsobWlzc2luZ19vaz1U
+          cnVlKTsgcmFpc2UgU3lzdGVtRXhpdChmInJlcGxhY2Vfb25jZSBleHBlY3RlZCAxIGdvdCB7aGl0c30i
+          KQogICAgdG1wLnJlcGxhY2UocCkKcmVwbGFjZV9vbmNlKGInd29tZW4ubWFwKCh7aWQsaW5kZXgsd2lm
+          ZX0pPT51LmpzeChCRCx7aWQsd2lmZSxpbmRleCxjYW5TZWV9LGlkKSknLGInd29tZW4ubWFwKCh7aWQs
+          aW5kZXgsd2lmZX0pPT51LmpzeChCRCx7aWQsd2lmZSxpbmRleCxjYW5TZWV9LGlkKSksdS5qc3goTTM2
+          TW9iaWxlUm9vbUFjdGl2aXR5LHtyb29tLGNhblNlZX0pJykKcmVwbGFjZV9vbmNlKGInZnVuY3Rpb24g
+          TTM2TW9iaWxlUm9vbUFjdGl2aXR5KCl7JyxiJ2Z1bmN0aW9uIE0zNk1vYmlsZVJvb21BY3Rpdml0eSh7
+          cm9vbTp0YXJnZXRSb29tLGNhblNlZTp0YXJnZXRDYW5TZWV9PXt9KXsnKQpyZXBsYWNlX29uY2UoYicn
+          JyAgY29uc3Qgc3RhdGU9cmUoZD0+ZC5zdGF0ZSkscHJveGltaXR5PVJ0KGQ9PmQucHJveGltaXR5TW9k
+          ZSksY3VycmVudD12dChzdGF0ZSksaWRzPU9iamVjdC5rZXlzKHN0YXRlLmNoYXJhY3RlcnMpOwogIGNv
+          bnN0IHJvb21zPVlpZShzdGF0ZSx3eCx7cHJveGltaXR5fSksZXh0cmE9bmV3IFNldDsKICBpZighd3gu
+          aW5jbHVkZXMoY3VycmVudCkpZXh0cmEuYWRkKGN1cnJlbnQpOwogIGZvcihjb25zdCBpZCBvZiBpZHMp
+          e2NvbnN0IHJvb209SG4oc3RhdGUsaWQpO2lmKHJvb20mJiF3eC5pbmNsdWRlcyhyb29tKSlleHRyYS5h
+          ZGQocm9vbSl9CiAgY29uc3Qgb3JkZXI9Wy4uLmV4dHJhLC4uLnJvb21zXTsnJycsYicnJyAgY29uc3Qg
+          c3RhdGU9cmUoZD0+ZC5zdGF0ZSkscHJveGltaXR5PVJ0KGQ9PmQucHJveGltaXR5TW9kZSksY3VycmVu
+          dD12dChzdGF0ZSk7CiAgY29uc3Qgb3JkZXI9dGFyZ2V0Um9vbT9bdGFyZ2V0Um9vbV06WWllKHN0YXRl
+          LHd4LHtwcm94aW1pdHl9KTsnJycpCnJlcGxhY2Vfb25jZShiJ2NvbnN0IGNhblNlZT1yb29tPT09Y3Vy
+          cmVudHx8IXByb3hpbWl0eTsnLGInY29uc3QgY2FuU2VlPXRhcmdldENhblNlZT8/KHJvb209PT1jdXJy
+          ZW50fHwhcHJveGltaXR5KTsnKQpyZXBsYWNlX29uY2UoYid1LmpzeChNMzZNb2JpbGVSb29tQWN0aXZp
+          dHkse30pJyxiJycpCmNzcz1iJycnPHN0eWxlIGlkPSJ3YXl3YXJkLW1vYmlsZS1jbGVhbnVwLXY3Ij4K
+          QG1lZGlhKG1heC13aWR0aDoxMDIzcHgpewoubTM2LW1vYmlsZS10YWJze2ZsZXg6MCAwIDIycHggIWlt
+          cG9ydGFudDtoZWlnaHQ6MjJweCAhaW1wb3J0YW50O21pbi1oZWlnaHQ6MjJweCAhaW1wb3J0YW50O21h
+          eC1oZWlnaHQ6MjJweCAhaW1wb3J0YW50fQoubTM2LW1vYmlsZS10YWJzID4gYnV0dG9ue2hlaWdodDoy
+          MnB4ICFpbXBvcnRhbnQ7bWluLWhlaWdodDowICFpbXBvcnRhbnQ7cGFkZGluZzowIC4xNXJlbSAhaW1w
+          b3J0YW50O2ZvbnQtc2l6ZTouNTJyZW0gIWltcG9ydGFudDtsaW5lLWhlaWdodDoyMnB4ICFpbXBvcnRh
+          bnQ7bGV0dGVyLXNwYWNpbmc6LjAzZW0gIWltcG9ydGFudDt3aGl0ZS1zcGFjZTpub3dyYXAgIWltcG9y
+          dGFudH0KLm0zNi1tb2JpbGUtcm9vbS1hY3Rpdml0eXtwYWRkaW5nOjAgIWltcG9ydGFudDttYXJnaW46
+          LjA4cmVtIDAgLjIycmVtICFpbXBvcnRhbnR9Ci5tMzYtbW9iaWxlLXJvb20tYWN0aXZpdHkgPiBkaXYg
+          PiBkaXY6Zmlyc3QtY2hpbGR7ZGlzcGxheTpub25lICFpbXBvcnRhbnR9Ci5tMzYtbW9iaWxlLXJvb20t
+          YWN0aXZpdHkgPiBkaXZ7bWFyZ2luOjAgIWltcG9ydGFudH0KLm0zNi1tb2JpbGUtcm9vbS1hY3Rpdml0
+          eSAuZ3JvdXB7bWluLXdpZHRoOjAgIWltcG9ydGFudDtkaXNwbGF5OmZsZXggIWltcG9ydGFudDtmbGV4
+          LXdyYXA6d3JhcCAhaW1wb3J0YW50O2FsaWduLWl0ZW1zOmNlbnRlciAhaW1wb3J0YW50O2dhcDouMTJy
+          ZW0gIWltcG9ydGFudDtwYWRkaW5nOi4wNXJlbSAuMDhyZW0gIWltcG9ydGFudDttYXJnaW46MCAhaW1w
+          b3J0YW50O2xpbmUtaGVpZ2h0OjEgIWltcG9ydGFudH0KLm0zNi1tb2JpbGUtcm9vbS1hY3Rpdml0eSAu
+          Z3JvdXAgPiBzcGFue21pbi13aWR0aDowICFpbXBvcnRhbnQ7Zm9udC1zaXplOi41NXJlbSAhaW1wb3J0
+          YW50O2xpbmUtaGVpZ2h0OjEgIWltcG9ydGFudH0KLm0zNi1tb2JpbGUtcm9vbS1hY3Rpdml0eSAuZ3Jv
+          dXAgPiBzcGFuOm50aC1jaGlsZCgyKXttYXgtd2lkdGg6NXJlbSAhaW1wb3J0YW50fQoubTM2LW1vYmls
+          ZS1yb29tLWFjdGl2aXR5IC5ncm91cCA+IHNwYW4udGV4dC1waW5rLTQwMHtmbGV4OjAgMCAxMDAlICFp
+          bXBvcnRhbnQ7bWFyZ2luLWxlZnQ6LjRyZW0gIWltcG9ydGFudDtmb250LXNpemU6LjU0cmVtICFpbXBv
+          cnRhbnQ7bGluZS1oZWlnaHQ6MS4wNSAhaW1wb3J0YW50fQoubTM2LW1vYmlsZS1yb29tLWFjdGl2aXR5
+          IC5ncm91cCA+IHNwYW4uZmxleHtmbGV4LXNocmluazowICFpbXBvcnRhbnQ7d2hpdGUtc3BhY2U6bm93
+          cmFwICFpbXBvcnRhbnR9Ci5tMzYtbW9iaWxlLXdpZmUtc3RhdHVze21pbi13aWR0aDowICFpbXBvcnRh
+          bnR9Ci5tMzYtbW9iaWxlLXdpZmUtc3RhdHVzID4gZGl2e21hcmdpbjouMDhyZW0gMCAhaW1wb3J0YW50
+          O3BhZGRpbmc6LjJyZW0gLjIycmVtICFpbXBvcnRhbnR9Ci5tMzYtbW9iaWxlLXdpZmUtc3RhdHVzIC5n
+          cmlke2dyaWQtdGVtcGxhdGUtY29sdW1uczpyZXBlYXQoNSxtaW5tYXgoMCwxZnIpKSAhaW1wb3J0YW50
+          O2dhcDouMXJlbSAhaW1wb3J0YW50O21hcmdpbi10b3A6LjEycmVtICFpbXBvcnRhbnR9Ci5tMzYtbW9i
+          aWxlLXdpZmUtc3RhdHVzIC5ncmlkID4gc3BhbnttaW4td2lkdGg6MCAhaW1wb3J0YW50O2ZsZXgtZGly
+          ZWN0aW9uOmNvbHVtbiAhaW1wb3J0YW50O2FsaWduLWl0ZW1zOnN0cmV0Y2ggIWltcG9ydGFudDtnYXA6
+          LjA1cmVtICFpbXBvcnRhbnR9Ci5tMzYtbW9iaWxlLXdpZmUtc3RhdHVzIC5ncmlkID4gc3BhbiA+IHNw
+          YW46Zmlyc3QtY2hpbGR7d2lkdGg6YXV0byAhaW1wb3J0YW50O3RleHQtYWxpZ246Y2VudGVyICFpbXBv
+          cnRhbnQ7Zm9udC1zaXplOi40NXJlbSAhaW1wb3J0YW50O2xldHRlci1zcGFjaW5nOjAgIWltcG9ydGFu
+          dDt3aGl0ZS1zcGFjZTpub3dyYXAgIWltcG9ydGFudDtvdmVyZmxvdzpoaWRkZW4gIWltcG9ydGFudH0K
+          Lm0zNi1tb2JpbGUtd2lmZS1zdGF0dXMgLmdyaWQgPiBzcGFuID4gc3BhbjpudGgtY2hpbGQoMil7d2lk
+          dGg6MTAwJSAhaW1wb3J0YW50O21pbi13aWR0aDowICFpbXBvcnRhbnQ7aGVpZ2h0OjNweCAhaW1wb3J0
+          YW50fQp9Cjwvc3R5bGU+JycnCnJlcGxhY2Vfb25jZShiIjwvaGVhZD4iLGNzcytiIjwvaGVhZD4iKQpv
+          dXQ9UGF0aCgiL3RtcC9ub2RlY2hlY2siKTsgb3V0Lm1rZGlyKGV4aXN0X29rPVRydWUpCmZvciBmIGlu
+          IG91dC5nbG9iKCIqLmpzIik6IGYudW5saW5rKCkKYnVmPWIiIjsgYWN0aXZlPUZhbHNlOyBpZHg9MDsg
+          aD1Ob25lOyBrZWVwPTIwNDgKd2l0aCBwLm9wZW4oInJiIikgYXMgZjoKICAgIHdoaWxlIFRydWU6CiAg
+          ICAgICAgYz1mLnJlYWQoQ0gpCiAgICAgICAgaWYgbm90IGM6IGJyZWFrCiAgICAgICAgYnVmKz1jCiAg
+          ICAgICAgd2hpbGUgVHJ1ZToKICAgICAgICAgICAgaWYgbm90IGFjdGl2ZToKICAgICAgICAgICAgICAg
+          IG09cmUuc2VhcmNoKGJyIjxzY3JpcHRcYltePl0qPiIsYnVmLHJlLkkpCiAgICAgICAgICAgICAgICBp
+          ZiBub3QgbToKICAgICAgICAgICAgICAgICAgICBpZiBsZW4oYnVmKT5rZWVwOiBidWY9YnVmWy1rZWVw
+          Ol0KICAgICAgICAgICAgICAgICAgICBicmVhawogICAgICAgICAgICAgICAgYnVmPWJ1ZlttLmVuZCgp
+          Ol07IGlkeCs9MTsgaD0ob3V0L2Yic3tpZHh9LmpzIikub3Blbigid2IiKTsgYWN0aXZlPVRydWUKICAg
+          ICAgICAgICAgZWxzZToKICAgICAgICAgICAgICAgIG09cmUuc2VhcmNoKGJyIjwvc2NyaXB0XHMqPiIs
+          YnVmLHJlLkkpCiAgICAgICAgICAgICAgICBpZiBub3QgbToKICAgICAgICAgICAgICAgICAgICBpZiBs
+          ZW4oYnVmKT5rZWVwOiBoLndyaXRlKGJ1Zls6LWtlZXBdKTsgYnVmPWJ1Zlsta2VlcDpdCiAgICAgICAg
+          ICAgICAgICAgICAgYnJlYWsKICAgICAgICAgICAgICAgIGgud3JpdGUoYnVmWzptLnN0YXJ0KCldKTsg
+          YnVmPWJ1ZlttLmVuZCgpOl07IGguY2xvc2UoKTsgaD1Ob25lOyBhY3RpdmU9RmFsc2UKaWYgYWN0aXZl
+          IGFuZCBoOiBoLmNsb3NlKCkKc2NyaXB0cz1saXN0KG91dC5nbG9iKCIqLmpzIikpCmlmIG5vdCBzY3Jp
+          cHRzOiByYWlzZSBTeXN0ZW1FeGl0KCJOT19TQ1JJUFRfQkxPQ0tTIikKZm9yIGYgaW4gc2NyaXB0czoK
+          ICAgIHI9c3VicHJvY2Vzcy5ydW4oWyJub2RlIiwiLS1jaGVjayIsc3RyKGYpXSxjYXB0dXJlX291dHB1
+          dD1UcnVlLHRleHQ9VHJ1ZSkKICAgIGlmIHIucmV0dXJuY29kZToKICAgICAgICBwcmludChyLnN0ZGVy
+          cik7IHJhaXNlIFN5c3RlbUV4aXQoIk5PREVfQ0hFQ0tfRkFJTCAiK2YubmFtZSkKcHJpbnQoIk5PREVf
+          Q0hFQ0s9UEFTUyIsbGVuKHNjcmlwdHMpKQpwcmludCgiSFRNTF9CWVRFUz0iLHAuc3RhdCgpLnN0X3Np
+          emUpCnByaW50KCJFT0ZfU1RSRUFNPVBBU1MiKQ==
+          B64
+          base64 -d /tmp/patch.b64 > /tmp/patch.py
+          python3 /tmp/patch.py
+          git diff --check
+          git add Wayward_MOD_v3.36.html
+          for f in $(git ls-files '.github/workflows/tmp-mobile-layout2-*' '.github/tmp-mobile-layout2-*'); do git rm -f "$f"; done
+          git rm -f .github/workflows/tmp-mobile-probe.yml || true
+          git commit -m "fix(mobile): compact choice tabs and relocate room activity"
+          git push origin mobile-migration-v1
