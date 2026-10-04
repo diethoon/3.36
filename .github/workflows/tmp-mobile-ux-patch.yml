@@ -189,7 +189,7 @@ jobs:
                   buf += chunk
                   while True:
                       if not in_script:
-                          m=re.search(br"<script\\b[^>]*>",buf,re.I)
+                          m=re.search(br"<script\b[^>]*>",buf,re.I)
                           if not m:
                               if len(buf)>keep:
                                   buf=buf[-keep:]
@@ -199,7 +199,7 @@ jobs:
                           handle=(outdir/f"script-{script_index}.js").open("wb")
                           in_script=True
                       else:
-                          m=re.search(br"</script\\s*>",buf,re.I)
+                          m=re.search(br"</script\s*>",buf,re.I)
                           if not m:
                               if len(buf)>keep:
                                   handle.write(buf[:-keep])
