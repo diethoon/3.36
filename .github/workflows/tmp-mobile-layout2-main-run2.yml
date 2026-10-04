@@ -1,15 +1,14 @@
 name: tmp-mobile-layout2-main-run2
 on:
   push:
-    branches: [main]
-  pull_request:
-    branches: [main]
+    branches: [mobile-migration-v1]
 
 permissions:
   contents: write
 
 jobs:
   patch:
+    if: ${{ !startsWith(github.event.head_commit.message, 'fix(mobile): compact wife status and activity layout') }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
