@@ -1,0 +1,81 @@
+name: tmp-mobile-activity-move-audit
+
+on:
+  push:
+    branches: [mobile-migration-v1]
+
+permissions:
+  contents: write
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Stream targeted activity and portrait audit
+        shell: bash
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+
+          SRC=Path("Wayward_MOD_v3.36.html")
+          CHUNK=65536
+          needles=[
+            ("activity_fn",b"function M36MobileCurrentActivity("),
+            ("activity_call",b"u.jsx(M36MobileCurrentActivity,{}"),
+            ("tollen",b"톨렌 베이커"),
+            ("arrived",b"방금 도착"),
+            ("activity_label",b"활동"),
+            ("wife_wait",b"엘레나는 대기 중"),
+            ("status_wait",b"대기 중"),
+          ]
+
+          hits={k:[] for k,_ in needles}
+          maxn=max(len(n) for _,n in needles)
+          carry=b""; offset=0
+          with SRC.open("rb") as f:
+              while True:
+                  b=f.read(CHUNK)
+                  if not b: break
+                  q=carry+b
+                  base=offset-len(carry)
+                  for k,n in needles:
+                      p=0
+                      while True:
+                          i=q.find(n,p)
+                          if i<0: break
+                          hits[k].append(base+i)
+                          p=i+1
+                  carry=q[-(maxn-1):]
+                  offset += len(b)
+
+          print("FILE_BYTES",SRC.stat().st_size)
+          for k,_ in needles:
+              print(k,"COUNT",len(hits[k]),"LOC",hits[k][:12])
+
+          targets=[]
+          for k in ["activity_fn","activity_call","tollen","arrived","activity_label","wife_wait"]:
+              targets += hits[k][:3]
+          targets=sorted(set(targets))
+
+          def ctx(pos,r=1800):
+              with SRC.open("rb") as f:
+                  f.seek(max(0,pos-r))
+                  return f.read(r*2).decode("utf-8","replace")
+
+          for i,pos in enumerate(targets[:12]):
+              print(f"--- TARGET {i} POS {pos} ---")
+              print(ctx(pos))
+              print(f"--- END TARGET {i} ---")
+
+          print("AUDIT_DONE")
+          PY
+
+      - name: Remove temporary audit workflow
+        shell: bash
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git rm .github/workflows/tmp-mobile-activity-move-audit.yml
+          git commit -m "chore: remove temporary activity move audit"
+          git push
