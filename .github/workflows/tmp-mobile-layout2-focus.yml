@@ -1,0 +1,77 @@
+name: tmp-mobile-layout2-focus
+on:
+  push:
+    branches: [mobile-migration-v1]
+permissions:
+  contents: write
+jobs:
+  extract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: mobile-migration-v1
+      - name: Extract exact focus contexts
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+          src=Path("Wayward_MOD_v3.36.html")
+          out=Path(".github/tmp-mobile-layout2-focus.txt")
+          CHUNK=64*1024
+
+          def find_one(term):
+              b=term.encode(); carry=b""; pos=0
+              with src.open("rb") as f:
+                  while True:
+                      c=f.read(CHUNK)
+                      if not c: return []
+                      data=carry+c;base=pos-len(carry);start=0;res=[]
+                      while True:
+                          i=data.find(b,start)
+                          if i<0:break
+                          res.append(base+i);start=i+len(b)
+                      if res:return res[:8]
+                      pos+=len(c);carry=data[-32768:]
+
+          def func(name):
+              pos=find_one(f"function {name}(")[0]
+              with src.open("rb") as f:
+                  f.seek(pos); data=f.read(700000)
+              s=data.find(b"{", data.find(b")"))
+              depth=0;q=None;esc=False;line=False;block=False
+              for i in range(s,len(data)):
+                  x=data[i];y=data[i+1] if i+1<len(data) else None
+                  if line:
+                      if x==10:line=False
+                      continue
+                  if block:
+                      if x==42 and y==47:block=False
+                      continue
+                  if q:
+                      if esc:esc=False
+                      elif x==92:esc=True
+                      elif x==q:q=None
+                      continue
+                  if x in (39,34,96):q=x;continue
+                  if x==47 and y==47:line=True;continue
+                  if x==47 and y==42:block=True;continue
+                  if x==123:depth+=1
+                  elif x==125:
+                      depth-=1
+                      if depth==0:return data[:i+1].decode("utf-8","replace")
+              return data.decode("utf-8","replace")
+
+          parts=[f"FILE_BYTES={src.stat().st_size}"]
+          for name in ["e3","M315StaffCard","HD"]:
+              parts += [f"\n## FUNCTION {name}",func(name)]
+          for term in ["선택지","이야기","가게","엘레나가 응대 중","헬메르","식사와 맥주","6골드"]:
+              ps=find_one(term)
+              parts.append(f"\n## TERM {term} POS={ps}")
+              for p in ps[:2]:
+                  with src.open("rb") as f:
+                      f.seek(max(0,p-3000));parts.append(f.read(8000).decode("utf-8","replace"))
+          out.write_text("\n".join(parts),encoding="utf-8")
+          PY
+          git add .github/tmp-mobile-layout2-focus.txt
+          git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" commit -m "chore: add temporary mobile layout focus context"
+          git push origin mobile-migration-v1
