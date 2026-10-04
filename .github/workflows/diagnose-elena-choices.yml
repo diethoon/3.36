@@ -1,4 +1,4 @@
-name: Diagnose Elena choice callsite
+name: Diagnose Elena uOe callsite
 on:
   push:
     branches: [mobile-migration-v1]
@@ -6,7 +6,6 @@ on:
       - ".github/workflows/diagnose-elena-choices.yml"
 permissions:
   contents: read
-
 jobs:
   inspect:
     if: github.actor != 'github-actions[bot]'
@@ -16,21 +15,14 @@ jobs:
         with:
           ref: mobile-migration-v1
           fetch-depth: 1
-
-      - name: Stream inspect uOe callsites
+      - name: Locate uOe definition and callsites
         shell: bash
         run: |
           python3 <<'PY'
           from pathlib import Path
           p=Path("Wayward_MOD_v3.36.html"); CH=65536
-          needles=[
-            b"function uOe(",
-            b"u.jsx(uOe,",
-            b"u.jsx(uOe,{",
-            b"children:uOe",
-            b"uOe({"
-          ]
-          carry=b""; base=0; hits={n:[] for n in needles}
+          needles=[b"function uOe(",b"u.jsx(uOe,",b"u.jsx(uOe,{"] 
+          hits={n:[] for n in needles}; carry=b""; base=0
           with p.open("rb") as f:
             while True:
               c=f.read(CH)
@@ -42,20 +34,14 @@ jobs:
                   i=d.find(n,s)
                   if i<0: break
                   hits[n].append(db+i); s=i+1
-              carry=d[-max(len(n) for n in needles)+1:]; base+=len(c)
-          for n,pos in hits.items():
-            print("\n###",n.decode("utf-8","replace"),"COUNT",len(pos))
-            for off in pos[:20]:
-              print("OFFSET",off)
+              keep=max(len(n) for n in needles)-1
+              carry=d[-keep:] if keep else b""; base+=len(c)
+          for n,poses in hits.items():
+            print("NEEDLE",n.decode(),"COUNT",len(poses))
+            for off in poses[:30]:
               with p.open("rb") as f:
-                f.seek(max(0,off-1800)); print(f.read(5200).decode("utf-8","replace"))
+                f.seek(max(0,off-500)); ctx=f.read(len(n)+1200)
+              print("OFFSET",off)
+              print(ctx.decode("utf-8","replace"))
+          print("HTML_BYTES",p.stat().st_size)
           PY
-
-      - name: Remove diagnostic workflow
-        shell: bash
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git rm .github/workflows/diagnose-elena-choices.yml
-          git commit -m "Remove Elena choice callsite diagnostic"
-          git push origin HEAD:mobile-migration-v1
