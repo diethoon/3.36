@@ -17,7 +17,7 @@ jobs:
       - name: Restore HTML from known correct pre-move state
         shell: bash
         run: |
-          git fetch --no-tags origin fc34832804d2dcea88c2a963fe54a8ccc7fc002d:refs/remotes/origin/fc348-correct
+          git fetch --no-tags origin fc34832804d2d8576816bad9f7ca4a0325894e50:refs/remotes/origin/fc348-correct
           git show refs/remotes/origin/fc348-correct:Wayward_MOD_v3.36.html > /tmp/Wayward_MOD_v3.36.html
           mv /tmp/Wayward_MOD_v3.36.html Wayward_MOD_v3.36.html
       - name: Bounded placement checks
