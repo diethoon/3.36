@@ -1,0 +1,53 @@
+name: tmp-mobile-structure-check
+
+on:
+  push:
+    branches: [mobile-migration-v1]
+
+permissions:
+  contents: read
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Stream mobile structure
+        shell: python
+        run: |
+          from pathlib import Path
+          p=Path("Wayward_MOD_v3.36.html")
+          needles=[
+            "function M36MobilePersistentStatus()",
+            "function M36MobileCurrentActivity()",
+            'u.jsx(M36MobilePersistentStatus,{})',
+            'u.jsx(M36MobileCurrentActivity,{})',
+            ".mobile-layout",
+            "orientation: portrait",
+            "orientation: landscape",
+            "max-width:1023px",
+            "mobile-action-scroll",
+            "mobile-action-panel",
+            "desk:hidden"
+          ]
+          chunk=64*1024
+          for n in needles:
+            nb=n.encode();carry=b"";offset=0;hits=0
+            shown=0
+            with p.open("rb") as f:
+              while True:
+                c=f.read(chunk)
+                if not c: break
+                d=carry+c;base=offset-len(carry);st=0
+                while True:
+                  i=d.find(nb,st)
+                  if i<0: break
+                  hits+=1
+                  if shown<2:
+                    s=d[max(0,i-500):min(len(d),i+1800)].decode("utf-8",errors="replace").replace("\n"," ")
+                    print(f"NEEDLE={n!r} BYTE={base+i} CONTEXT={s}")
+                    shown+=1
+                  st=i+len(nb)
+                carry=d[-(len(nb)-1):] if len(nb)>1 else b""
+                offset+=len(c)
+            print(f"SUMMARY {n} HITS={hits}")
