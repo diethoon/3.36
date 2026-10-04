@@ -228,7 +228,15 @@ jobs:
                           cur.open("ab").write(buf[:a]);buf=buf[a+9:];cur=None;inside=False
                   if eof:break
           if inside or buf:raise SystemExit("SCRIPT_EOF_FAIL")
-          for f in files:subprocess.run(["node","--check",str(f)],check=True)
+          for f in files:
+              p=subprocess.run(["node","--check",str(f)],text=True,capture_output=True)
+              if p.returncode!=0:
+                  print("NODE_CHECK_FAIL",f)
+                  print(p.stdout)
+                  print(p.stderr)
+                  subprocess.run(["nl","-ba",str(f)],check=False)
+                  raise SystemExit(p.returncode)
+          print("NODE_CHECK=PASS",len(files))
           print("NODE_CHECK=PASS",len(files))
           PY
 
