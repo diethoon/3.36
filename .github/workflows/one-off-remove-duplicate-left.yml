@@ -1,0 +1,181 @@
+name: One-off remove duplicate left mobile activity
+on:
+  push:
+    branches:
+      - mobile-migration-v1
+    paths:
+      - ".github/workflows/one-off-remove-duplicate-left.yml"
+permissions:
+  contents: write
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout work branch
+        uses: actions/checkout@v4
+        with:
+          ref: mobile-migration-v1
+          fetch-depth: 1
+
+      - name: Remove only duplicate left activity render
+        shell: bash
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+          import shutil
+
+          p = Path("Wayward_MOD_v3.36.html")
+          CH = 65536
+          old = b'u.jsx(M36MobileRoomActivity,{room,canSee})'
+          new = b''
+
+          def count_stream(needle):
+              total = 0
+              carry = b''
+              with p.open('rb') as f:
+                  while True:
+                      chunk = f.read(CH)
+                      if not chunk:
+                          break
+                      data = carry + chunk
+                      total += data.count(needle)
+                      carry = data[-(len(needle)-1):] if len(needle) > 1 else b''
+              return total
+
+          before = count_stream(old)
+          print("DUPLICATE_LEFT_CALLS_BEFORE", before)
+          if before != 1:
+              raise SystemExit("EXPECTED_ONE_LEFT_CALL")
+
+          tmp = p.with_suffix(".patch.tmp")
+          carry = b''
+          replaced = 0
+          with p.open('rb') as src, tmp.open('wb') as dst:
+              while True:
+                  chunk = src.read(CH)
+                  if not chunk:
+                      break
+                  buf = carry + chunk
+                  safe = max(0, len(buf) - len(old) + 1)
+                  part, carry = buf[:safe], buf[safe:]
+                  n = part.count(old)
+                  if n:
+                      replaced += n
+                      part = part.replace(old, new)
+                  dst.write(part)
+
+              n = carry.count(old)
+              if n:
+                  replaced += n
+                  carry = carry.replace(old, new)
+              dst.write(carry)
+
+          if replaced != 1:
+              tmp.unlink(missing_ok=True)
+              raise SystemExit(f"REPLACEMENT_COUNT_FAIL {replaced}")
+
+          shutil.move(tmp, p)
+
+          after = count_stream(old)
+          right = count_stream(b'u.jsx(M36MobileStoreStatus,{}),u.jsx(M36MobileStockStatus,{})')
+          activity = count_stream(b'u.jsx(M36MobileRoomActivity,{room:playerLoc,canSee:!0})')
+          print("DUPLICATE_LEFT_CALLS_AFTER", after)
+          print("RIGHT_STATUS_RENDER", right)
+          print("RIGHT_ACTIVITY_RENDER", activity)
+
+          if after != 0:
+              raise SystemExit("LEFT_DUPLICATE_REMAINS")
+          if right != 1:
+              raise SystemExit("RIGHT_STATUS_RENDER_MISSING")
+          if activity != 1:
+              raise SystemExit("RIGHT_ACTIVITY_RENDER_MISSING")
+
+          size = 0
+          tail = b''
+          with p.open('rb') as f:
+              while True:
+                  chunk = f.read(CH)
+                  if not chunk:
+                      break
+                  size += len(chunk)
+                  tail = (tail + chunk)[-256:]
+          print("HTML_BYTES", size)
+          print("EOF_TAIL", repr(tail))
+          if size < 19000000:
+              raise SystemExit("SIZE_CHECK_FAIL")
+          PY
+
+      - name: Extract scripts and node-check
+        shell: bash
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+          import re, subprocess
+
+          p = Path("Wayward_MOD_v3.36.html")
+          out = Path("/tmp/nodecheck")
+          out.mkdir(exist_ok=True)
+          CH = 65536
+          KEEP = 2048
+          buf = b''
+          active = False
+          idx = 0
+          h = None
+
+          with p.open('rb') as f:
+              while True:
+                  c = f.read(CH)
+                  if not c:
+                      break
+                  buf += c
+                  while True:
+                      if not active:
+                          m = re.search(br'<script\b[^>]*>', buf, re.I)
+                          if not m:
+                              if len(buf) > KEEP:
+                                  buf = buf[-KEEP:]
+                              break
+                          buf = buf[m.end():]
+                          idx += 1
+                          h = (out / f"s{idx}.js").open('wb')
+                          active = True
+                      else:
+                          m = re.search(br'</script\s*>', buf, re.I)
+                          if not m:
+                              if len(buf) > KEEP:
+                                  h.write(buf[:-KEEP])
+                                  buf = buf[-KEEP:]
+                              break
+                          h.write(buf[:m.start()])
+                          buf = buf[m.end():]
+                          h.close()
+                          h = None
+                          active = False
+
+          if active:
+              raise SystemExit("UNTERMINATED_SCRIPT_BLOCK")
+
+          scripts = sorted(out.glob("*.js"))
+          if not scripts:
+              raise SystemExit("NO_SCRIPT_BLOCKS")
+
+          for s in scripts:
+              r = subprocess.run(["node", "--check", str(s)], capture_output=True, text=True)
+              if r.returncode:
+                  print(r.stderr)
+                  raise SystemExit("NODE_CHECK_FAIL " + s.name)
+
+          print("NODE_CHECK=PASS", len(scripts))
+          PY
+          git diff --check
+
+      - name: Commit and remove workflow
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm .github/workflows/one-off-remove-duplicate-left.yml
+          git add Wayward_MOD_v3.36.html
+          git commit -m "Remove duplicate left mobile activity panel"
+          git push origin HEAD:mobile-migration-v1
