@@ -98,7 +98,7 @@ jobs:
         run: |
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
-          git rm .github/workflows/restore-correct-status.yml .github/workflows/finalize-shop-overview-v3.yml
+          git rm .github/workflows/restore-correct-status.yml
           git add Wayward_MOD_v3.36.html
           git commit -m "Restore shop navigation and move status block right"
           git push origin HEAD:mobile-migration-v1
