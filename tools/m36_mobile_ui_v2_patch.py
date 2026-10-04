@@ -63,9 +63,9 @@ function M36MobileCurrentActivity(){
     u.jsx("div",{className:"m36-mobile-current-activity-meta",children:meta})
   ]});
 }
-"""
+""".encode("utf-8")
 
-css = b"""<style id="wayward-mobile-ui-v2">
+css = """<style id="wayward-mobile-ui-v2">
 @media (max-width:1023px) {
   .m36-mobile-status { flex:0 0 auto; padding:.2rem .25rem; border-bottom:1px solid rgba(68,64,60,.72); }
   .m36-mobile-status-row { display:flex; align-items:baseline; gap:.4rem; min-width:0; line-height:1.15; }
@@ -80,7 +80,7 @@ css = b"""<style id="wayward-mobile-ui-v2">
   .m36-mobile-current-activity-meta { margin-top:.1rem; color:rgb(120 113 108); font-size:.58rem; }
 }
 </style>
-"""
+""".encode("utf-8")
 
 def count_stream(needle: bytes) -> int:
     count = 0
