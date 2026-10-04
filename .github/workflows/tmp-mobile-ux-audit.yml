@@ -1,0 +1,71 @@
+name: tmp-mobile-ux-audit
+on:
+  push:
+    branches: [mobile-migration-v1]
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: mobile-migration-v1
+
+      - name: Streaming audit
+        shell: bash
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+
+          p = Path("Wayward_MOD_v3.36.html")
+          size = p.stat().st_size
+          print("FILE_BYTES", size)
+
+          terms = [
+              "function M36MobileStockStatus",
+              "오후 영업 준비",
+              "물자 채우기",
+              "대출",
+              "이야기",
+              "가게",
+              "엘레나",
+              "M36MobileRoomActivity",
+              "M36MobileStatusPanel",
+          ]
+          CHUNK = 64 * 1024
+          KEEP = 16384
+
+          with p.open("rb") as f:
+              pos = 0
+              carry = b""
+              seen = set()
+              while True:
+                  chunk = f.read(CHUNK)
+                  if not chunk:
+                      break
+                  data = carry + chunk
+                  base = pos - len(carry)
+                  for term in terms:
+                      needle = term.encode("utf-8")
+                      start = 0
+                      while True:
+                          i = data.find(needle, start)
+                          if i < 0:
+                              break
+                          abspos = base + i
+                          key = (term, abspos)
+                          if key not in seen:
+                              seen.add(key)
+                              lo = max(0, i - 2200)
+                              hi = min(len(data), i + max(6000, len(needle) + 200))
+                              snippet = data[lo:hi].decode("utf-8", "replace")
+                              print(f"\n=== TERM={term} POS={abspos} ===")
+                              print(snippet)
+                          start = i + max(1, len(needle))
+                  pos += len(chunk)
+                  carry = data[-KEEP:]
+          print("EOF_STREAM_SCAN=PASS")
+          PY
