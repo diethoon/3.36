@@ -1,0 +1,49 @@
+name: tmp-mobile-wife-snips
+on:
+  push:
+    branches: [mobile-migration-v1]
+
+permissions:
+  contents: write
+
+jobs:
+  extract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: mobile-migration-v1
+
+      - name: Extract bounded source snippets
+        shell: bash
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+          src=Path("Wayward_MOD_v3.36.html")
+          out=Path(".github/tmp-mobile-wife-snips.txt")
+          spans={
+            "fF":(18627661,90000),
+            "rI":(18798163,140000),
+            "LF":(18841823,120000),
+            "eOe":(18894608,90000),
+            "AOe":(18955108,30000),
+          }
+          parts=[f"FILE_BYTES={src.stat().st_size}"]
+          for name,(start,length) in spans.items():
+              with src.open("rb") as f:
+                  f.seek(start)
+                  remaining=length
+                  chunks=[]
+                  while remaining:
+                      b=f.read(min(64*1024,remaining))
+                      if not b: break
+                      chunks.append(b)
+                      remaining-=len(b)
+              parts.append(f"\n## {name} POS={start} LEN={length}")
+              parts.append(b"".join(chunks).decode("utf-8","replace"))
+          out.write_text("\n".join(parts),encoding="utf-8")
+          print(out.stat().st_size)
+          PY
+          git add .github/tmp-mobile-wife-snips.txt
+          git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" commit -m "chore: add temporary mobile wife source snippets"
+          git push origin mobile-migration-v1
