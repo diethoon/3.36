@@ -1,0 +1,103 @@
+name: Restore correct status placement
+on:
+  push:
+    branches: [mobile-migration-v1]
+    paths: [.github/workflows/restore-correct-status.yml]
+permissions:
+  contents: write
+jobs:
+  restore:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: mobile-migration-v1
+          fetch-depth: 1
+      - name: Restore HTML from known correct pre-move state
+        shell: bash
+        run: |
+          git fetch --no-tags origin fc34832804d2dcea88c2a963fe54a8ccc7fc002d:refs/remotes/origin/fc348-correct
+          git show refs/remotes/origin/fc348-correct:Wayward_MOD_v3.36.html > /tmp/Wayward_MOD_v3.36.html
+          mv /tmp/Wayward_MOD_v3.36.html Wayward_MOD_v3.36.html
+      - name: Bounded placement checks
+        shell: bash
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+          p=Path("Wayward_MOD_v3.36.html"); CH=65536
+          needles=[
+            b'u.jsx("div",{className:"shrink-0",children:u.jsx(xOe,{})}),',
+            b'children:[u.jsx(M36MobileStoreStatus,{}),u.jsx(M36MobileStockStatus,{})',
+            b'function M36MobileStoreStatus(){',
+            b'function M36MobileRoomActivity(',
+            b'm36-mobile-store-gauges',
+          ]
+          def count(n):
+            z=0; carry=b""
+            with p.open("rb") as f:
+              while True:
+                c=f.read(CH)
+                if not c: break
+                d=carry+c; z+=d.count(n)
+                carry=d[-(len(n)-1):] if len(n)>1 else b""
+            return z
+          for n in needles:
+            c=count(n)
+            print(n,c)
+            if c != 1: raise SystemExit("PLACEMENT_CHECK_FAIL")
+          size=0; tail=b""
+          with p.open("rb") as f:
+            while True:
+              c=f.read(CH)
+              if not c: break
+              size+=len(c); tail=(tail+c)[-256:]
+          print("HTML_BYTES",size)
+          print("EOF_TAIL",repr(tail))
+          if size < 19000000: raise SystemExit("SIZE_CHECK_FAIL")
+          PY
+      - name: Node syntax check
+        shell: bash
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+          import re, subprocess
+          p=Path("Wayward_MOD_v3.36.html"); out=Path("/tmp/nodecheck"); out.mkdir(exist_ok=True)
+          CH=65536; KEEP=2048; buf=b""; active=False; idx=0; h=None
+          with p.open("rb") as f:
+            while True:
+              c=f.read(CH)
+              if not c: break
+              buf+=c
+              while True:
+                if not active:
+                  m=re.search(br'<script\b[^>]*>',buf,re.I)
+                  if not m:
+                    if len(buf)>KEEP: buf=buf[-KEEP:]
+                    break
+                  buf=buf[m.end():]; idx+=1; h=(out/f"s{idx}.js").open("wb"); active=True
+                else:
+                  m=re.search(br'</script\s*>',buf,re.I)
+                  if not m:
+                    if len(buf)>KEEP: h.write(buf[:-KEEP]); buf=buf[-KEEP:]
+                    break
+                  h.write(buf[:m.start()]); buf=buf[m.end():]; h.close(); h=None; active=False
+          if active: raise SystemExit("UNTERMINATED_SCRIPT")
+          scripts=sorted(out.glob("*.js"))
+          if not scripts: raise SystemExit("NO_SCRIPTS")
+          for s in scripts:
+            r=subprocess.run(["node","--check",str(s)],capture_output=True,text=True)
+            if r.returncode:
+              print(r.stderr); raise SystemExit("NODE_CHECK_FAIL "+s.name)
+          print("NODE_CHECK=PASS",len(scripts))
+          PY
+          git diff --check
+      - name: Commit correct placement and remove workflow
+        shell: bash
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git rm .github/workflows/restore-correct-status.yml .github/workflows/finalize-shop-overview-v3.yml
+          git add Wayward_MOD_v3.36.html
+          git commit -m "Restore shop navigation and move status block right"
+          git push origin HEAD:mobile-migration-v1
