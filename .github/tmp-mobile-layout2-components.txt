@@ -1,0 +1,73 @@
+FILE_BYTES=19578970
+
+## function lb(
+
+function lb({bars:e,wide:t=!1,inline:o=!1}){return u.jsx("span",{className:o?"flex items-center gap-x-2.5":`grid ${t?"grid-cols-[repeat(auto-fill,minmax(6rem,1fr))] gap-x-3 gap-y-1":"grid-cols-[repeat(auto-fill,minmax(4rem,1fr))] gap-x-1.5 gap-y-0.5"}`,children:e.map(n=>{const s=Math.max(0,Math.min(100,n.value));return u.jsxs("span",{className:`flex items-center ${t||o?"gap-1.5":"gap-1"} min-w-0 ${o?"flex-1":""} ${n.muted?"opacity-40":""}`,title:n.title,children:[u.jsx("span",{className:`${o?"text-[0.62rem]":t?"text-[0.62rem] w-14":"text-[0.56rem] w-[2.4rem]"} shrink-0 text-right uppercase tracking-wider text-stone-500 leading-tight break-words`,children:n.label}),u.jsx("span",{className:`${t||o?"h-1":"h-[3px]"} flex-1 ${o?"min-w-[1.25rem]":""} rounded-full bg-stone-700 overflow-hidden`,children:u.jsx("span",{className:`block h-full rounded-full ${n.tone}`,style:{width:`${s}%`}})})]},n.key)})})}
+
+---END---
+
+## function IF(
+
+function IF({dot:e,wash:t,name:o,line:n,meters:s,selected:r=!1,className:a="",...i}){return u.jsxs("div",{...i,className:`flex items-start gap-1.5 px-1.5 py-1 my-0.5 rounded border cursor-default ${t} ${r?"border-stone-600":"border-transparent hover:border-stone-700"} ${a}`,children:[u.jsx("span",{className:`w-1.5 h-1.5 mt-[0.35rem] rounded-full flex-shrink-0 ${e}`,"aria-hidden":!0}),u.jsxs("div",{className:"flex-1 min-w-0",children:[u.jsxs("div",{className:"flex items-baseline gap-1.5 min-w-0 leading-snug",children:[o,n]}),s&&u.jsx("div",{className:"mt-1",children:s})]})]})}
+
+---END---
+
+## function M36MobileStatusPanel
+
+function M36MobileStatusPanel(){
+  const state=re(d=>d.state),proximity=Rt(d=>d.proximityMode),current=vt(state),ids=Object.keys(state.characters);
+  const rooms=Yie(state,wx,{proximity}),extra=new Set;
+  if(!wx.includes(current))extra.add(current);
+  for(const id of ids){const room=Hn(state,id);if(room&&!wx.includes(room))extra.add(room)}
+  const order=[...extra,...rooms];
+  return u.jsx("div",{className:"m36-mobile-status-panel min-w-0",children:order.map(room=>{
+    const canSee=room===current||!proximity;
+    const women=ids.map((id,index)=>({id,index,wife:state.characters[id]})).filter(row=>row.wife&&Hn(state,row.id)===room);
+    const staff=m315StaffAt(state,room);
+    const count=women.length+staff.length+(room===current?1:0);
+    if(count===0)return null;
+    return u.jsxs("div",{className:"mb-2",children:[
+      u.jsxs("div",{className:"flex items-center gap-2 mb-0.5",children:[
+        u.jsx("span",{className:`text-[0.62rem] font-semibold uppercase tracking-widest ${room===current?"text-amber-400/90":canSee?"text-stone-500":"text-stone-600"}`,children:gs(room).replace(/^the /,"")}),
+        u.jsx("span",{className:"text-[0.62rem] text-stone-600",children:room===current?"현재 위치":String(count)}),
+        u.jsx("span",{className:"flex-1 h-px bg-stone-800"})
+      ]}),
+      room===current&&u.jsx(bOe,{}),
+      staff.map(row=>u.jsx(M315StaffCard,{row,canSee},`mod-staff-status:${row.kind}`)),
+      women.map(({id,index,wife})=>u.jsx(BD,{id,wife,index,canSee},id))
+    ]},room);
+  })});
+}
+
+---END---
+
+## function M36MobileRoomActivity
+
+function M36MobileRoomActivity(){
+  const state=re(d=>d.state),proximity=Rt(d=>d.proximityMode),current=vt(state),ids=Object.keys(state.characters);
+  const rooms=Yie(state,wx,{proximity}),extra=new Set;
+  if(!wx.includes(current))extra.add(current);
+  for(const id of ids){const room=Hn(state,id);if(room&&!wx.includes(room))extra.add(room)}
+  const order=[...extra,...rooms];
+  const sections=order.map(room=>{
+    const canSee=room===current||!proximity;
+    const patrons=state.customers.filter(customer=>Zi(customer)&&ht(state,customer.id)===room);
+    const visitors=b7(state,room);
+    return {room,canSee,patrons,visitors};
+  }).filter(section=>section.patrons.length>0||section.visitors.length>0);
+  if(sections.length===0)return null;
+  return u.jsxs("section",{className:"m36-mobile-room-activity shrink-0 min-w-0 px-1 pb-1",children:sections.map(({room,canSee,patrons,visitors})=>u.jsxs("div",{className:"mb-1.5",children:[
+    u.jsxs("div",{className:"flex items-center gap-2 mb-0.5",children:[
+      u.jsx("span",{className:`text-[0.62rem] font-semibold uppercase tracking-widest ${room===current?"text-amber-400/90":canSee?"text-stone-500":"text-stone-600"}`,children:gs(room).replace(/^the /,"")}),
+      u.jsx("span",{className:"text-[0.62rem] text-stone-600",children:String(patrons.length+visitors.length)}),
+      u.jsx("span",{className:"flex-1 h-px bg-stone-800"})
+    ]}),
+    patrons.map(customer=>canSee?u.jsx(e3,{customer},customer.id):u.jsxs("div",{className:"flex items-center gap-1.5 px-1.5 py-0.5 text-[0.7rem] text-stone-500",children:[
+      u.jsx("span",{className:"w-1.5 h-1.5 rounded-full bg-stone-700 flex-shrink-0","aria-hidden":!0}),
+      u.jsx("span",{className:"truncate",children:customer.name})
+    ]},customer.id)),
+    visitors.map(({of,person})=>u.jsx(wOe,{of,person},person.id))
+  ]},room))});
+}
+
+---END---
