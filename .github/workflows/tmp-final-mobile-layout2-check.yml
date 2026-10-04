@@ -1,0 +1,75 @@
+name: tmp-final-mobile-layout2-check
+on:
+  push:
+    branches: [mobile-migration-v1]
+permissions:
+  contents: write
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: mobile-migration-v1
+      - name: Verify bounded
+        shell: bash
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+          import re, subprocess
+          p=Path("Wayward_MOD_v3.36.html")
+          CH=65536
+          needles=[(b'function M36MobileRoomActivity({room:targetRoom,canSee:targetCanSee}={})',1),
+                   (b'u.jsx(M36MobileRoomActivity,{room,canSee})',1),
+                   (b'u.jsx(M36MobileRoomActivity,{})',0),
+                   (b'wayward-mobile-cleanup-v7',1),
+                   (b'height:22px !important',1),
+                   (b'm36-mobile-wife-status',1)]
+          counts={n:0 for n,_ in needles}; total=0; tail=b''; carry=b''
+          with p.open('rb') as f:
+            while True:
+              c=f.read(CH)
+              if not c: break
+              total+=len(c); d=carry+c
+              for n,_ in needles: counts[n]+=d.count(n)
+              carry=d[-max(len(n) for n,_ in needles)+1:]
+              tail=(tail+c)[-256:]
+          if total < 19000000: raise SystemExit("SIZE_CHECK_FAIL")
+          print("HTML_BYTES",total)
+          print("EOF_TAIL",repr(tail))
+          for n,e in needles:
+            print("CHECK",n,counts[n])
+            if (e==0 and counts[n]!=0) or (e>0 and counts[n]<e): raise SystemExit("MARKER_CHECK_FAIL")
+          out=Path('/tmp/nodecheck'); out.mkdir(exist_ok=True)
+          buf=b''; active=False; idx=0; h=None; keep=2048
+          with p.open('rb') as f:
+            while True:
+              c=f.read(CH)
+              if not c: break
+              buf+=c
+              while True:
+                if not active:
+                  m=re.search(br'<script\b[^>]*>',buf,re.I)
+                  if not m:
+                    if len(buf)>keep: buf=buf[-keep:]
+                    break
+                  buf=buf[m.end():]; idx+=1; h=(out/f's{idx}.js').open('wb'); active=True
+                else:
+                  m=re.search(br'</script\s*>',buf,re.I)
+                  if not m:
+                    if len(buf)>keep: h.write(buf[:-keep]); buf=buf[-keep:]
+                    break
+                  h.write(buf[:m.start()]); buf=buf[m.end():]; h.close(); h=None; active=False
+          if active and h: h.close()
+          scripts=list(out.glob('*.js'))
+          if not scripts: raise SystemExit('NO_SCRIPT_BLOCKS')
+          for s in scripts:
+            r=subprocess.run(['node','--check',str(s)],capture_output=True,text=True)
+            if r.returncode:
+              print(r.stderr); raise SystemExit('NODE_CHECK_FAIL '+s.name)
+          print('NODE_CHECK=PASS',len(scripts))
+          PY
+          git diff --check
+          git ls-files '.github/workflows/tmp-mobile-layout2-*' '.github/tmp-mobile-layout2-*' '.github/mobile-layout2-trigger.txt' | tee /tmp/tmpfiles
+          test ! -s /tmp/tmpfiles
+          git status --short
