@@ -17,6 +17,7 @@ jobs:
         run: |
           python3 <<'PY'
           from pathlib import Path
+          import subprocess
           SRC=Path("Wayward_MOD_v3.36.html")
           TMP=SRC.with_suffix(".mclean.tmp")
           CHUNK=65536
