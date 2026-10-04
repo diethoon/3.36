@@ -1,0 +1,175 @@
+name: tmp-mobile-top-final
+
+on:
+  push:
+    branches: [mobile-migration-v1]
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Apply final mobile top layout
+        shell: bash
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+          import subprocess
+
+          SRC=Path("Wayward_MOD_v3.36.html")
+          TMP=SRC.with_suffix(".mobilefinal.tmp")
+
+          old_left='r==="story"&&u.jsxs(u.Fragment,{children:[u.jsx(qF,{limit:3}),u.jsx("div",{className:"mb-2 pb-2 border-b border-stone-800",children:u.jsx(GF,{})}),T]})'
+          new_left='r==="story"&&u.jsxs(u.Fragment,{children:[u.jsx(qF,{limit:3}),T]})'
+          old_narr='return u.jsx(koStoryRootRenderer30(r.logOrder)("div",{ref:a,className:"text-sm",children:['
+          new_narr='return u.jsx(koStoryRootRenderer30(r.logOrder)("div",{ref:a,className:"text-sm mobile-narration",children:['
+          old_cleanup='<style id="wayward-mobile-cleanup-v4">'
+          new_cleanup='''<style id="wayward-mobile-cleanup-v5">
+          @media(max-width:1023px) and (orientation:portrait){
+            .mobile-layout{grid-template-columns:minmax(0,60%) minmax(0,40%) !important;}
+            .mobile-layout>.mobile-main-panel{grid-column:1 !important;border-left:0 !important;border-right:1px solid rgba(120,113,108,.48) !important;}
+            .mobile-layout>.mobile-action-panel{grid-column:2 !important;}
+            .mobile-layout:has(>.mobile-action-panel:first-child){grid-template-columns:minmax(0,40%) minmax(0,60%) !important;}
+            .mobile-layout:has(>.mobile-action-panel:first-child)>.mobile-action-panel{grid-column:1 !important;}
+            .mobile-layout:has(>.mobile-action-panel:first-child)>.mobile-main-panel{grid-column:2 !important;border-left:1px solid rgba(120,113,108,.48) !important;border-right:0 !important;}
+          }
+          @media(max-width:1023px){
+            .m36-mobile-prep-detail{display:none !important;}
+            .m36-mobile-current-activity-meta{display:none !important;}
+            .mobile-narration{margin-left:-.15rem !important;margin-right:-.15rem !important;}
+            .mobile-narration .items-start{padding-left:.15rem !important;padding-right:0 !important;}
+            .mobile-narration [class*="w-10"][class*="tabular-nums"]{width:2.4rem !important;margin-right:.1rem !important;}
+          }
+          </style>'''
+
+          mode_label=False
+          mode_status=False
+          mode_css=False
+          seen={"label":0,"status":0,"css":0,"status_call":0,"left":0,"narr":0,"cleanup":0}
+
+          with SRC.open("r",encoding="utf-8",newline="") as src,TMP.open("w",encoding="utf-8",newline="") as dst:
+              for line in src:
+                  if mode_label:
+                      if line.startswith("function M36MobilePersistentStatus("):
+                          mode_label=False
+                          mode_status=True
+                      continue
+                  if mode_status:
+                      if line.startswith("function M36MobileCurrentActivity("):
+                          mode_status=False
+                          dst.write(line)
+                      continue
+                  if mode_css:
+                      if ".m36-mobile-nav-button {" in line:
+                          mode_css=False
+                      continue
+
+                  if "function M36MobileStatusLabel(" in line:
+                      seen["label"]+=1;mode_label=True;continue
+                  if "function M36MobilePersistentStatus(" in line:
+                      seen["status"]+=1;mode_status=True;continue
+                  if ".m36-mobile-status {" in line:
+                      seen["css"]+=1;mode_css=True;continue
+
+                  if "u.jsx(M36MobilePersistentStatus,{})" in line:
+                      seen["status_call"]+=line.count("u.jsx(M36MobilePersistentStatus,{})")
+                      line=line.replace("u.jsx(M36MobilePersistentStatus,{})","u.jsx(GF,{})")
+
+                  if old_left in line:
+                      seen["left"]+=line.count(old_left)
+                      line=line.replace(old_left,new_left)
+
+                  if old_narr in line:
+                      seen["narr"]+=line.count(old_narr)
+                      line=line.replace(old_narr,new_narr)
+
+                  if old_cleanup in line:
+                      seen["cleanup"]+=line.count(old_cleanup)
+                      line=new_cleanup.rstrip("\n")+"\n"
+
+                  dst.write(line)
+
+          TMP.replace(SRC)
+
+          print("PATCH_TARGETS",seen)
+          for k in ["label","status","css","status_call","left","narr","cleanup"]:
+              if seen[k]!=1: raise SystemExit("TARGET "+k+"="+str(seen[k]))
+
+          def count_stream(needle):
+              nb=needle.encode();carry=b"";total=0;k=max(0,len(nb)-1)
+              with SRC.open("rb") as f:
+                  while True:
+                      b=f.read(65536)
+                      if not b: break
+                      q=carry+b;total+=q.count(nb);carry=q[-k:] if k else b""
+              return total
+
+          checks={
+              "status_fn":count_stream("function M36MobilePersistentStatus("),
+              "label_fn":count_stream("function M36MobileStatusLabel("),
+              "status_call":count_stream("u.jsx(M36MobilePersistentStatus,{})"),
+              "gf_calls":count_stream("u.jsx(GF,{})"),
+              "cleanup_v5":count_stream("wayward-mobile-cleanup-v5"),
+              "status_css":count_stream(".m36-mobile-status"),
+              "nav_css":count_stream(".m36-mobile-nav-grid"),
+              "narration":count_stream("mobile-narration")
+          }
+          print("VERIFY",checks)
+          if checks["status_fn"] or checks["label_fn"] or checks["status_call"]: raise SystemExit("OLD_STATUS_REMAINS")
+          if checks["gf_calls"]!=1 or checks["cleanup_v5"]!=1: raise SystemExit("GF_OR_LAYOUT_FAIL")
+          if checks["status_css"] or checks["nav_css"]: raise SystemExit("DEAD_STATUS_CSS_REMAINS")
+
+          # Bounded inline script EOF/syntax validation.
+          out=Path("/tmp/m36js");out.mkdir(exist_ok=True)
+          for f in out.glob("*.js"):f.unlink()
+          files=[];buf=b"";inside=False;cur=None;idx=0
+          with SRC.open("rb") as f:
+              while True:
+                  b=f.read(65536);eof=not b;buf+=b
+                  while True:
+                      if not inside:
+                          a=buf.find(b"<script")
+                          if a<0:
+                              if eof:buf=b""
+                              else:buf=buf[-8192:]
+                              break
+                          z=buf.find(b">",a+7)
+                          if z<0:buf=buf[a:];break
+                          idx+=1;cur=out/f"{idx}.js";cur.write_bytes(b"");files.append(cur);buf=buf[z+1:];inside=True
+                      else:
+                          a=buf.find(b"</script>")
+                          if a<0:
+                              if eof:cur.open("ab").write(buf);buf=b"";inside=False
+                              else:
+                                  k=len(b"</script>")-1
+                                  if len(buf)>k:cur.open("ab").write(buf[:-k])
+                                  buf=buf[-k:]
+                              break
+                          cur.open("ab").write(buf[:a]);buf=buf[a+9:];cur=None;inside=False
+                  if eof:break
+          for f in files:subprocess.run(["node","--check",str(f)],check=True)
+          print("NODE_CHECK=PASS",len(files))
+          PY
+
+      - name: Validate commit cleanup
+        shell: bash
+        run: |
+          git diff --check
+          git diff --numstat
+          git status --short
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add Wayward_MOD_v3.36.html
+          git commit -m "fix(mobile): move full status block to top of action panel"
+          for f in \
+            .github/workflows/tmp-mobile-top-final.yml \
+            .github/workflows/tmp-mobile-top-relayout.yml \
+            .github/workflows/tmp-mobile-top-relayout-v2.yml
+          do
+            if [ -f "$f" ]; then git rm "$f"; fi
+          done
+          git commit -m "chore: remove temporary mobile top relayout tooling" || true
+          git push
