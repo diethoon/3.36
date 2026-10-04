@@ -1,0 +1,30 @@
+name: tmp-mobile-layout2-ranges
+on:
+  push:
+    branches: [mobile-migration-v1]
+permissions:
+  contents: write
+jobs:
+  extract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: mobile-migration-v1
+      - name: Extract bounded ranges
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+          src=Path("Wayward_MOD_v3.36.html")
+          spans={"BD":(18794000,70000),"e3":(18917000,90000),"rI":(18797000,150000)}
+          out=Path(".github/tmp-mobile-layout2-ranges.txt")
+          parts=[]
+          for name,(s,n) in spans.items():
+              with src.open("rb") as f:
+                  f.seek(s); data=f.read(n)
+              parts += [f"\n## {name} {s}:{s+n}",data.decode("utf-8","replace"),"---END---"]
+          out.write_text("\n".join(parts),encoding="utf-8")
+          PY
+          git add .github/tmp-mobile-layout2-ranges.txt
+          git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" commit -m "chore: add temporary bounded mobile layout ranges"
+          git push origin mobile-migration-v1
