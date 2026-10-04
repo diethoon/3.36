@@ -66,3 +66,5 @@ jobs:
           git add Wayward_MOD_v3.36.html .github/workflows
           git commit -m "feat: add single orientation-preserving fullscreen button"
           git push origin HEAD:fullscreen-v2
+
+# trigger
