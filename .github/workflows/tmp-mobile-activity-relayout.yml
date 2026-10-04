@@ -82,7 +82,8 @@ jobs:
           }
           '''.encode("utf-8")
 
-          css=b'''<style id="wayward-mobile-activity-v1">
+          css=b'<style id="wayward-mobile-activity-v1">@media(max-width:1023px){.mobile-main-panel div.border-t.border-stone-700:has([data-m331-action-status="portrait"]){display:none !important;}.m36-mobile-room-activity{margin-top:.15rem;}}</style>\n'
+<style id="wayward-mobile-activity-v1">
           @media(max-width:1023px){
             .mobile-main-panel div.border-t.border-stone-700:has([data-m331-action-status="portrait"]){display:none !important;}
             .m36-mobile-room-activity{margin-top:.15rem;}
