@@ -1,4 +1,4 @@
-name: Diagnose Elena choices
+name: Diagnose Elena choice callsite
 on:
   push:
     branches: [mobile-migration-v1]
@@ -8,7 +8,7 @@ permissions:
   contents: read
 
 jobs:
-  diagnose:
+  inspect:
     if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
     steps:
@@ -17,61 +17,38 @@ jobs:
           ref: mobile-migration-v1
           fetch-depth: 1
 
-      - name: Stream search choice labels and nearby render code
+      - name: Stream inspect uOe callsites
         shell: bash
         run: |
           python3 <<'PY'
           from pathlib import Path
-
-          p = Path("Wayward_MOD_v3.36.html")
-          CH = 65536
-          needles = [
-              "계속 일하기".encode(),
-              "상황은 그대로 두기".encode(),
-              "대화에 끼기".encode(),
-              "그녀를 부르기".encode(),
+          p=Path("Wayward_MOD_v3.36.html"); CH=65536
+          needles=[
+            b"function uOe(",
+            b"u.jsx(uOe,",
+            b"u.jsx(uOe,{",
+            b"children:uOe",
+            b"uOe({"
           ]
-
-          def find_all(needle):
-              hits = []
-              carry = b""
-              base = 0
-              with p.open("rb") as f:
-                  while True:
-                      c = f.read(CH)
-                      if not c:
-                          break
-                      d = carry + c
-                      data_base = base - len(carry)
-                      s = 0
-                      while True:
-                          i = d.find(needle, s)
-                          if i < 0:
-                              break
-                          hits.append(data_base + i)
-                          s = i + 1
-                      keep = len(needle) - 1
-                      carry = d[-keep:] if keep else b""
-                      base += len(c)
-              return hits
-
-          for n in needles:
-              hits = find_all(n)
-              print("\n=== NEEDLE", n.decode(), "COUNT", len(hits), "===")
-              for pos in hits[:20]:
-                  with p.open("rb") as f:
-                      f.seek(max(0, pos - 2200))
-                      ctx = f.read(len(n) + 5000)
-                  print("OFFSET", pos)
-                  print(ctx.decode("utf-8", "replace"))
-
-          print("\n=== FILE SIZE / EOF ===")
-          size = p.stat().st_size
+          carry=b""; base=0; hits={n:[] for n in needles}
           with p.open("rb") as f:
-              f.seek(max(0, size - 512))
-              tail = f.read(512)
-          print("HTML_BYTES", size)
-          print("EOF_TAIL", repr(tail))
+            while True:
+              c=f.read(CH)
+              if not c: break
+              d=carry+c; db=base-len(carry)
+              for n in needles:
+                s=0
+                while True:
+                  i=d.find(n,s)
+                  if i<0: break
+                  hits[n].append(db+i); s=i+1
+              carry=d[-max(len(n) for n in needles)+1:]; base+=len(c)
+          for n,pos in hits.items():
+            print("\n###",n.decode("utf-8","replace"),"COUNT",len(pos))
+            for off in pos[:20]:
+              print("OFFSET",off)
+              with p.open("rb") as f:
+                f.seek(max(0,off-1800)); print(f.read(5200).decode("utf-8","replace"))
           PY
 
       - name: Remove diagnostic workflow
@@ -80,5 +57,5 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git rm .github/workflows/diagnose-elena-choices.yml
-          git commit -m "Remove Elena choice diagnostic workflow"
+          git commit -m "Remove Elena choice callsite diagnostic"
           git push origin HEAD:mobile-migration-v1
