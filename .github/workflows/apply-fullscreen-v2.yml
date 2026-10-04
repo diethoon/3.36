@@ -19,7 +19,7 @@ jobs:
           new='u.jsx("button",{onClick:async()=>{const e=document.documentElement,t=document.fullscreenElement||document.webkitFullscreenElement;if(t){const o=document.exitFullscreen||document.webkitExitFullscreen;o&&await o.call(document);try{screen.orientation?.unlock?.()}catch{}}else{const o=e.requestFullscreen||e.webkitRequestFullscreen;if(o)try{await o.call(e);const t=screen.orientation?.type,n=t&&t.startsWith("portrait")?"portrait":"landscape";await screen.orientation?.lock?.(n)}catch{}}},title:"전체 화면","aria-label":"전체 화면",className:"m34-header-control",children:"⛶"}),u.jsx("button",{onClick:()=>t(!0),title:"메뉴 (Esc)","aria-label":"메뉴 열기",className:"m34-header-control",children:"☰"})'.encode()
           if b.count(old)!=1:
               raise SystemExit(f"ABORT_MENU_TARGET_COUNT={b.count(old)}")
-          for marker in [b'requestFullscreen',b'webkitRequestFullscreen',b'screen.orientation.lock',b'children:"⛶"']:
+          for marker in [b'requestFullscreen',b'webkitRequestFullscreen',b'screen.orientation.lock','children:"⛶"'.encode()]:
               if b.count(marker):
                   raise SystemExit(f"ABORT_EXISTING_FULLSCREEN_CODE={marker!r}:{b.count(marker)}")
           out=b.replace(old,new,1)
@@ -67,4 +67,4 @@ jobs:
           git commit -m "feat: add single orientation-preserving fullscreen button"
           git push origin HEAD:fullscreen-v2
 
-# trigger
+# trigger2
