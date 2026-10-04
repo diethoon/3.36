@@ -24,8 +24,9 @@ jobs:
 
           old_left='r==="story"&&u.jsxs(u.Fragment,{children:[u.jsx(qF,{limit:3}),u.jsx("div",{className:"mb-2 pb-2 border-b border-stone-800",children:u.jsx(GF,{})}),T]})'
           new_left='r==="story"&&u.jsxs(u.Fragment,{children:[u.jsx(qF,{limit:3}),T]})'
+          old_call='u.jsx(M36MobilePersistentStatus,{})'
           old_narr='return koStoryRootRenderer30(r.logOrder)("div",{ref:a,className:"text-sm",children:['
-          new_narr='return u.jsx(koStoryRootRenderer30(r.logOrder)("div",{ref:a,className:"text-sm mobile-narration",children:['
+          new_narr='return koStoryRootRenderer30(r.logOrder)("div",{ref:a,className:"text-sm mobile-narration",children:['
           old_cleanup='<style id="wayward-mobile-cleanup-v4">'
           new_cleanup='''<style id="wayward-mobile-cleanup-v5">
           @media(max-width:1023px) and (orientation:portrait){
@@ -37,6 +38,8 @@ jobs:
             .mobile-layout:has(>.mobile-action-panel:first-child)>.mobile-main-panel{grid-column:2 !important;border-left:1px solid rgba(120,113,108,.48) !important;border-right:0 !important;}
           }
           @media(max-width:1023px){
+            .m36-mobile-status{display:none !important;}
+            .m36-mobile-nav-grid,.m36-mobile-nav-button{display:none !important;}
             .m36-mobile-prep-detail{display:none !important;}
             .m36-mobile-current-activity-meta{display:none !important;}
             .mobile-narration{margin-left:-.15rem !important;margin-right:-.15rem !important;}
@@ -45,45 +48,45 @@ jobs:
           }
           </style>'''
 
-          mode_css=False
-          seen={"css":0,"status_call":0,"left":0,"narr":0,"cleanup":0}
+          def count_stream(needle):
+              nb=needle.encode();carry=b"";total=0;k=max(0,len(nb)-1)
+              with SRC.open("rb") as f:
+                  while True:
+                      b=f.read(65536)
+                      if not b: break
+                      q=carry+b;total+=q.count(nb);carry=q[-k:] if k else b""
+              return total
 
-          with SRC.open("r",encoding="utf-8",newline="") as src,TMP.open("w",encoding="utf-8",newline="") as dst:
-              for line in src:
-                  if mode_css:
-                      if ".m36-mobile-nav-button {" in line:
-                          mode_css=False
-                      continue
+          checks_before={
+              "old_call":count_stream(old_call),
+              "old_left":count_stream(old_left),
+              "old_narr":count_stream(old_narr),
+              "old_cleanup":count_stream(old_cleanup),
+              "new_cleanup":count_stream("wayward-mobile-cleanup-v5")
+          }
+          print("BEFORE",checks_before)
+          for k,want in [("old_call",1),("old_left",1),("old_narr",1),("old_cleanup",1),("new_cleanup",0)]:
+              if checks_before[k]!=want: raise SystemExit("TARGET "+k+"="+str(checks_before[k]))
 
-                  if ".m36-mobile-status {" in line:
-                      seen["css"]+=1
-                      mode_css=True
-                      continue
-
-                  if "u.jsx(M36MobilePersistentStatus,{})" in line:
-                      seen["status_call"]+=line.count("u.jsx(M36MobilePersistentStatus,{})")
-                      line=line.replace("u.jsx(M36MobilePersistentStatus,{})","u.jsx(GF,{})")
-
-                  if old_left in line:
-                      seen["left"]+=line.count(old_left)
-                      line=line.replace(old_left,new_left)
-
-                  if old_narr in line:
-                      seen["narr"]+=line.count(old_narr)
-                      line=line.replace(old_narr,new_narr)
-
-                  if old_cleanup in line:
-                      seen["cleanup"]+=line.count(old_cleanup)
-                      line=new_cleanup.rstrip("\n")+"\n"
-
-                  dst.write(line)
-
+          maxlen=max(len(x.encode()) for x in [old_left,old_call,old_narr,old_cleanup])
+          repl=[
+              (old_call,'u.jsx(GF,{})'),
+              (old_left,new_left),
+              (old_narr,new_narr),
+              (old_cleanup,new_cleanup.rstrip("\n"))
+          ]
+          carry=b""
+          with SRC.open("rb") as s,TMP.open("wb") as d:
+              while True:
+                  b=s.read(65536)
+                  if not b: break
+                  q=carry+b;safe=max(0,len(q)-maxlen+1);out=q[:safe];carry=q[safe:]
+                  for x,z in repl:out=out.replace(x.encode(),z.encode())
+                  d.write(out)
+              out=carry
+              for x,z in repl:out=out.replace(x.encode(),z.encode())
+              d.write(out)
           TMP.replace(SRC)
-
-          expected={"css":1,"status_call":1,"left":1,"narr":1,"cleanup":1}
-          print("PATCH_TARGETS",seen)
-          for k,want in expected.items():
-              if seen[k]!=want: raise SystemExit("TARGET "+k+"="+str(seen[k])+" != "+str(want))
 
           def count_stream(needle):
               nb=needle.encode();carry=b"";total=0;k=max(0,len(nb)-1)
@@ -95,18 +98,17 @@ jobs:
               return total
 
           checks={
-              "status_call":count_stream("u.jsx(M36MobilePersistentStatus,{})"),
+              "status_call":count_stream(old_call),
               "gf_calls":count_stream("u.jsx(GF,{})"),
               "cleanup_v5":count_stream("wayward-mobile-cleanup-v5"),
-              "status_css":count_stream(".m36-mobile-status"),
-              "nav_css":count_stream(".m36-mobile-nav-grid"),
+              "cleanup_v4":count_stream("wayward-mobile-cleanup-v4"),
+              "status_visible_css":count_stream(".m36-mobile-status{display:none"),
+              "nav_visible_css":count_stream(".m36-mobile-nav-grid,.m36-mobile-nav-button"),
               "narration":count_stream("mobile-narration")
           }
           print("VERIFY",checks)
-          if checks["status_call"] or checks["gf_calls"]!=2 or checks["cleanup_v5"]!=1: raise SystemExit("LAYOUT_MOVE_FAIL")
-          if checks["status_css"] or checks["nav_css"]: raise SystemExit("DEAD_STATUS_CSS_REMAINS")
-          if checks["gf_calls"]!=2 or checks["cleanup_v5"]!=1: raise SystemExit("GF_OR_LAYOUT_FAIL")
-          if checks["status_css"] or checks["nav_css"]: raise SystemExit("DEAD_STATUS_CSS_REMAINS")
+          if checks["status_call"]!=0 or checks["gf_calls"]!=2 or checks["cleanup_v5"]!=1 or checks["cleanup_v4"]!=0: raise SystemExit("LAYOUT_MOVE_FAIL")
+          if checks["narration"]<1: raise SystemExit("NARRATION_RULE_MISSING")
 
           # Bounded inline script EOF/syntax validation.
           out=Path("/tmp/m36js");out.mkdir(exist_ok=True)
