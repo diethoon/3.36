@@ -38,7 +38,7 @@ jobs:
           const end = s.indexOf('function M36MobileRoomActivity(', start);
           if (start < 0 || end < 0) throw new Error('M36MobileStatusPanel block not found');
 
-          const newStatus = \`function M36MobileStoreStatus(){
+          const newStatus = `function M36MobileStoreStatus(){
             const state=re(d=>d.state),wife=g(state),playerLoc=be(state);
             const playerEnergy=Math.round(state.player?.stats?.energy??0);
             const playerMagic=state.player?.magic;
@@ -80,7 +80,7 @@ jobs:
               u.jsx(M36MobileRoomActivity,{room:playerLoc,canSee:!0})
             ]});
           }
-          \`;
+          `;
 
           s = s.slice(0, start) + newStatus + s.slice(end);
 
@@ -95,7 +95,7 @@ jobs:
 
           const cssAnchor = '</style>\\n<style id="wayward-mobile-stock-v1">';
           if (!s.includes(cssAnchor)) throw new Error('CSS anchor not found');
-          const css = \`<style id="wayward-mobile-store-status-v1">
+          const css = `<style id="wayward-mobile-store-status-v1">
           @media(max-width:1023px){
             .m36-mobile-store-status{margin:.25rem 0 .1rem;padding:.2rem .25rem .3rem;border-top:1px solid rgba(68,64,60,.72)}
             .m36-mobile-store-status-line{display:flex;align-items:baseline;gap:.35rem;min-width:0;padding:.1rem 0;line-height:1.1}
@@ -112,7 +112,7 @@ jobs:
             .m36-mobile-store-status .m36-mobile-room-line > div{min-width:0;flex:1 1 auto}
           }
           </style>
-          \`;
+          `;
           s = s.replace(cssAnchor, css + cssAnchor);
 
           fs.writeFileSync(path, s);
