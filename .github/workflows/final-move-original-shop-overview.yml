@@ -174,8 +174,7 @@ jobs:
               b'M36MobileStoreStatus': 0,
               b'wayward-mobile-store-status-v1': 0,
               b'u.jsx("div",{className:"shrink-0",children:u.jsx(xOe,{})}),': 0,
-              b'function M36MobileRoomActivity({room:targetRoom,canSee:targetCanSee}={}){
-': 1,
+              b'function M36MobileRoomActivity(': 1,
           }
           for needle, expected in checks.items():
               got = count_stream(needle)
