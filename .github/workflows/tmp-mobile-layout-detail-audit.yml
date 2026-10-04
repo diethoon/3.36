@@ -1,0 +1,85 @@
+name: tmp-mobile-layout-detail-audit
+
+on:
+  push:
+    branches: [mobile-migration-v1]
+
+permissions:
+  contents: write
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Targeted mobile layout extraction
+        shell: bash
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+          SRC=Path("Wayward_MOD_v3.36.html")
+          CHUNK=64*1024
+          b=bytearray()
+          with SRC.open("rb") as f:
+              while 1:
+                  c=f.read(CHUNK)
+                  if not c: break
+                  b.extend(c)
+          s=b.decode("utf-8","replace")
+
+          def ctx(label, needle, before=2200, after=5000):
+              p=s.find(needle)
+              print("\n===== "+label+" @"+str(p)+" =====")
+              if p<0:
+                  print("NOT_FOUND"); return
+              print(s[max(0,p-before):p+after])
+
+          print("[COUNTS]")
+          for n in [
+              'mobile-action-panel','mobile-main-panel','mobile-layout',
+              'M36MobilePersistentStatus','M36MobileCurrentActivity','M36MobileStockStatus',
+              'u.jsx(M36MobilePersistentStatus,{})','u.jsx(M36MobileCurrentActivity,{})',
+              'u.jsx(M36MobileStockStatus,{})','actionPanelSide',
+              'w-[37%]','grid-template-columns:minmax(0,40%) minmax(0,60%)',
+              'grid-template-columns:minmax(0,44%) minmax(0,56%)',
+          ]:
+              print(n, s.count(n))
+
+          ctx("AOe-mobile-action", 'mobile-action-panel', 1200, 5200)
+          ctx("AOe-mobile-main", 'mobile-main-panel', 800, 6200)
+          ctx("function x3e", 'function x3e()', 500, 7000)
+          ctx("persistent status", 'function M36MobilePersistentStatus()', 300, 4500)
+          ctx("current activity", 'function M36MobileCurrentActivity()', 300, 2500)
+          ctx("stock status", 'function M36MobileStockStatus()', 300, 3500)
+
+          # Extract the exact mobile CSS block by its known unique marker.
+          for marker in [
+              '/* id="lyp110" */',
+              '.mobile-layout {',
+              '.m36-mobile-status {',
+          ]:
+              p=s.find(marker)
+              if p>=0:
+                  print("\n===== CSS "+marker+" =====")
+                  print(s[max(0,p-1200):p+7000])
+
+          # Find every occurrence of key labels and show compact source context,
+          # not the complete surrounding line.
+          for lab in ["현재 위치","오후 영업 준비","물자 채우기","대출","당신","피파"]:
+              print("\n===== LABEL "+lab+" =====")
+              start=0;count=0
+              while 1:
+                  p=s.find(lab,start)
+                  if p<0 or count>=12: break
+                  print("@",p, repr(s[max(0,p-180):p+260]))
+                  start=p+len(lab); count+=1
+
+          PY
+      - name: Cleanup
+        shell: bash
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git rm .github/workflows/tmp-mobile-layout-detail-audit.yml
+          git commit -m "chore: remove temporary mobile layout detail audit"
+          git push
