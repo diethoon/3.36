@@ -29,10 +29,6 @@ REPLACEMENTS = [
         b'className:' + BT + b'flex-1 min-w-0 flex flex-col min-h-0 ' + main_tail + BT,
         b'className:' + BT + b'mobile-main-panel flex-1 min-w-0 flex flex-col min-h-0 ' + main_tail + BT,
     ),
-    (
-        b'<meta name="viewport" content="width=device-width, initial-scale=0.8, maximum-scale=5.0, viewport-fit=cover" />',
-        b'<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, viewport-fit=cover" />',
-    ),
 ]
 
 CSS = b"""<style id="wayward-mobile-migration-v1">
