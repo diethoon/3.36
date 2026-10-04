@@ -1,0 +1,55 @@
+name: tmp-mobile-top-detail-audit
+
+on:
+  push:
+    branches: [mobile-migration-v1]
+
+permissions:
+  contents: write
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Extract exact owners in bounded windows
+        shell: bash
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+          P=Path("Wayward_MOD_v3.36.html")
+          C=65536
+
+          def find_bytes(needle):
+              nb=needle.encode(); carry=b""; base=0
+              with P.open("rb") as f:
+                  while True:
+                      b=f.read(C)
+                      if not b: return -1
+                      q=carry+b
+                      i=q.find(nb)
+                      if i>=0: return base+i-len(carry)
+                      base += len(b)
+                      carry=q[-(len(nb)-1):] if len(nb)>1 else b""
+
+          def window(label,needle,before=1000,after=16000):
+              p=find_bytes(needle)
+              print(f"\n=== {label} offset={p} ===")
+              if p<0:return
+              with P.open("rb") as f:
+                  f.seek(max(0,p-before))
+                  print(f.read(before+after).decode("utf-8","replace"))
+
+          window("rI","function rI(",1500,22000)
+          window("eOe","function eOe(",800,9000)
+          window("narration qF","function qF(",800,9000)
+          window("mobile current main","function AOe(",800,10000)
+          PY
+      - name: Cleanup
+        shell: bash
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git rm .github/workflows/tmp-mobile-top-detail-audit.yml
+          git commit -m "chore: remove temporary top detail audit"
+          git push
