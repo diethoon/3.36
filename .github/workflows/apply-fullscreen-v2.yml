@@ -39,8 +39,12 @@ jobs:
           s=b.decode("utf-8")
           new='u.jsx("button",{onClick:async()=>{const e=document.documentElement,t=document.fullscreenElement||document.webkitFullscreenElement;if(t){const o=document.exitFullscreen||document.webkitExitFullscreen;o&&await o.call(document);try{screen.orientation?.unlock?.()}catch{}}else{const o=e.requestFullscreen||e.webkitRequestFullscreen;if(o)try{await o.call(e);const t=screen.orientation?.type,n=t&&t.startsWith("portrait")?"portrait":"landscape";await screen.orientation?.lock?.(n)}catch{}}},title:"전체 화면","aria-label":"전체 화면",className:"m34-header-control",children:"⛶"}),u.jsx("button",{onClick:()=>t(!0),title:"메뉴 (Esc)","aria-label":"메뉴 열기",className:"m34-header-control",children:"☰"})'.encode()
           if b.count(new)!=1: raise SystemExit(f"FAIL_FULLSCREEN_FRAGMENT_COUNT={b.count(new)}")
-          if b.count('children:"⛶"'.encode())!=1: raise SystemExit(f"FAIL_FULLSCREEN_ICON_COUNT={b.count(b'children:"⛶"')}")
-          if b.count('aria-label:"전체 화면"'.encode())!=1: raise SystemExit(f"FAIL_FULLSCREEN_ARIA_COUNT={b.count(b'aria-label:"전체 화면"')}")
+          icon='children:"⛶"'.encode()
+          aria='aria-label:"전체 화면"'.encode()
+          icon_count=b.count(icon)
+          aria_count=b.count(aria)
+          if icon_count!=1: raise SystemExit(f"FAIL_FULLSCREEN_ICON_COUNT={icon_count}")
+          if aria_count!=1: raise SystemExit(f"FAIL_FULLSCREEN_ARIA_COUNT={aria_count}")
           if b.count(b'screen.orientation.lock')!=0: raise SystemExit("FAIL_LITERAL_LOCK_REFERENCE")
           scripts=re.findall(r"<script(?:\s[^>]*)?>(.*?)</script>",s,re.I|re.S)
           checked=0
@@ -67,4 +71,4 @@ jobs:
           git commit -m "feat: add single orientation-preserving fullscreen button"
           git push origin HEAD:fullscreen-v2
 
-# trigger3
+# trigger4
