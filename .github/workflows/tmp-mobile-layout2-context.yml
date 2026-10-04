@@ -1,0 +1,81 @@
+name: tmp-mobile-layout2-context
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [mobile-migration-v1]
+
+permissions:
+  contents: write
+
+jobs:
+  extract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: mobile-migration-v1
+
+      - name: Extract targeted mobile UI
+        shell: bash
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+
+          src=Path("Wayward_MOD_v3.36.html")
+          out=Path(".github/tmp-mobile-layout2-context.txt")
+          CHUNK=64*1024
+          KEEP=65536
+
+          terms=[
+            "function M36MobileStatusPanel",
+            "function BD(",
+            "function e3(",
+            "function rI(",
+            'm36-mobile-tabs',
+            "function AOe(",
+            'children:"선택지"',
+            "엘레나가 응대 중",
+            "기분",
+            "신뢰",
+            "흥분도",
+            "주목도"
+          ]
+
+          hits={t:[] for t in terms}
+          with src.open("rb") as f:
+              pos=0; carry=b""
+              while True:
+                  c=f.read(CHUNK)
+                  if not c: break
+                  data=carry+c
+                  base=pos-len(carry)
+                  for t in terms:
+                      b=t.encode()
+                      s=0
+                      while True:
+                          i=data.find(b,s)
+                          if i<0: break
+                          p=base+i
+                          if p not in hits[t]: hits[t].append(p)
+                          s=i+max(1,len(b))
+                  pos+=len(c); carry=data[-KEEP:]
+
+          def read_at(p,n=24000):
+              with src.open("rb") as f:
+                  f.seek(max(0,p-6000))
+                  return f.read(n).decode("utf-8","replace")
+
+          lines=[f"FILE_BYTES={src.stat().st_size}"]
+          for t,ps in hits.items():
+              lines.append(f"\n## {t} POSITIONS={ps[:8]}")
+              for p in ps[:3]:
+                  lines.append(f"--- POS {p} ---")
+                  lines.append(read_at(p))
+                  lines.append("--- END ---")
+          out.write_text("\n".join(lines),encoding="utf-8")
+          print(out.stat().st_size)
+          PY
+          git add .github/tmp-mobile-layout2-context.txt
+          git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" commit -m "chore: add temporary mobile layout context"
+          git push origin mobile-migration-v1
