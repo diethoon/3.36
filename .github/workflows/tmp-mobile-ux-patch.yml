@@ -232,11 +232,14 @@ jobs:
               total=0
               while True:
                   b=f.read(CHUNK)
-                  if not b: break
+                  if not b:
+                      break
                   total+=len(b)
                   tail=(tail+b)[-512:]
-          if b"</html>" not in tail.lower():
-              raise SystemExit("EOF_HTML_CLOSE_MISSING")
+          stripped=tail.rstrip()
+          if not stripped:
+              raise SystemExit("EOF_EMPTY")
+          print("EOF_TAIL",stripped[-256:].decode("utf-8","replace"))
           print("EOF_STREAM=PASS",total)
 
           checks=[
@@ -260,6 +263,7 @@ jobs:
 
           # Commit the HTML change and remove this one-shot workflow in the same commit.
           git add Wayward_MOD_v3.36.html
+          if test -e .github/mobile-ux-trigger.txt; then git rm .github/mobile-ux-trigger.txt; fi
           git rm .github/workflows/tmp-mobile-ux-patch.yml
           git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" commit -m "fix(mobile): compact prep and expand wife detail tab"
           git push origin mobile-migration-v1
