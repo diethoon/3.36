@@ -1,0 +1,83 @@
+name: tmp-mobile-layout-cleanup-v4
+
+on:
+  push:
+    branches: [mobile-migration-v1]
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Apply minimal mobile cleanup
+        shell: bash
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+          SRC=Path("Wayward_MOD_v3.36.html")
+          TMP=SRC.with_suffix(".mclean.tmp")
+          CHUNK=65536
+
+          def count(n):
+              nb=n.encode(); k=max(0,len(nb)-1); c=0; carry=b""
+              with SRC.open("rb") as f:
+                  while True:
+                      b=f.read(CHUNK)
+                      if not b: break
+                      d=carry+b; c+=d.count(nb); carry=d[-k:] if k else b""
+              return c
+
+          old1='mobile-action-panel w-[37%] max-w-[13rem] desk:w-[16rem] desk:max-w-none shrink-0 flex flex-col min-h-0 '
+          add=old1+chr(36)+'{n?"mobile-action-left":""} '
+          prep='u.jsx("div",{className:"mb-3",children:u.jsx(x3e,{})})'
+          prepn='u.jsx("div",{className:"mb-3 m36-mobile-prep-detail",children:u.jsx(x3e,{})})'
+
+          if count(old1)!=1 or count(prep)!=1: raise SystemExit("TARGET")
+          if count("wayward-mobile-cleanup-v4")!=0: raise SystemExit("ALREADY")
+
+          repl=[(old1,add),(prep,prepn)]
+          ml=max(len(a.encode()) for a,b in repl); carry=b""
+          with SRC.open("rb") as s,TMP.open("wb") as d:
+              while True:
+                  b=s.read(CHUNK)
+                  if not b: break
+                  q=carry+b; safe=max(0,len(q)-ml+1); out=q[:safe]; carry=q[safe:]
+                  for a,z in repl: out=out.replace(a.encode(),z.encode())
+                  d.write(out)
+              out=carry
+              for a,z in repl: out=out.replace(a.encode(),z.encode())
+              d.write(out)
+          TMP.replace(SRC)
+
+          css="""<style id="wayward-mobile-cleanup-v4">@media(max-width:1023px) and (orientation:portrait){.mobile-layout:has(>.mobile-action-panel:first-child){grid-template-columns:minmax(0,60%) minmax(0,40%) !important}.mobile-layout:has(>.mobile-action-panel:first-child)>.mobile-action-panel{grid-column:1 !important}.mobile-layout:has(>.mobile-action-panel:first-child)>.mobile-main-panel{grid-column:2 !important;border-left:1px solid rgba(120,113,108,.48) !important;border-right:0 !important}}@media(max-width:360px) and (orientation:portrait){.mobile-layout:has(>.mobile-action-panel:first-child){grid-template-columns:minmax(0,56%) minmax(0,44%) !important}}@media(max-width:1023px){.m36-mobile-nav-grid{display:none !important}.m36-mobile-current-activity-meta{display:none !important}.m36-mobile-prep-detail{display:none !important}}</style>"""
+          if count("</head>")!=1: raise SystemExit("HEAD")
+          carry=b""; needle=b"</head>"; replb=css.encode()+needle
+          with SRC.open("rb") as s,TMP.open("wb") as d:
+              while True:
+                  b=s.read(CHUNK)
+                  if not b: break
+                  q=carry+b; safe=max(0,len(q)-len(needle)+1); d.write(q[:safe].replace(needle,replb)); carry=q[safe:]
+              d.write(carry.replace(needle,replb))
+          TMP.replace(SRC)
+
+          for n in ["mobile-action-left","m36-mobile-prep-detail","wayward-mobile-cleanup-v4"]:
+              if count(n)!=1: raise SystemExit("POST "+n)
+          if count("m36-mobile-nav-grid")!=1: raise SystemExit("NAV_HIDDEN_ONLY")
+          print("BOUNDED_PATCH=PASS")
+          PY
+
+      - name: Validate and cleanup
+        shell: bash
+        run: |
+          git diff --check
+          git diff --numstat
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add Wayward_MOD_v3.36.html
+          git commit -m "fix(mobile): align side proportions and hide duplicate panels"
+          git rm .github/workflows/tmp-mobile-layout-cleanup-v4.yml
+          git commit -m "chore: remove temporary mobile cleanup tooling"
+          git push
