@@ -1,0 +1,47 @@
+name: tmp-mobile-top-owner-final-audit
+
+on:
+  push:
+    branches: [mobile-migration-v1]
+
+permissions:
+  contents: write
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Locate mobile top status owner
+        shell: bash
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+          P=Path("Wayward_MOD_v3.36.html"); C=65536
+          def find_all(n):
+              nb=n.encode();carry=b"";base=0;out=[]
+              with P.open("rb") as f:
+                  while 1:
+                      b=f.read(C)
+                      if not b:break
+                      q=carry+b;pos=0
+                      while 1:
+                          i=q.find(nb,pos)
+                          if i<0:break
+                          out.append(base+i-len(carry));pos=i+len(nb)
+                      base+=len(b);carry=q[-(len(nb)-1):] if len(nb)>1 else b""
+              return out
+          for n in ["function LF(","function mDe(","function GF(","현재 위치"]:
+              hs=find_all(n);print("\n",n,hs[-20:])
+              for p in hs[-4:]:
+                  with P.open("rb") as f:
+                      f.seek(max(0,p-1200));print("\nOFF",p);print(f.read(10000).decode("utf-8","replace"))
+          PY
+      - name: Cleanup
+        shell: bash
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git rm .github/workflows/tmp-mobile-top-owner-final-audit.yml
+          git commit -m "chore: remove temporary mobile top owner audit"
+          git push
