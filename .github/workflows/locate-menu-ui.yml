@@ -1,35 +1,74 @@
-name: locate-menu-ui
+name: apply-fullscreen-button
 on:
   push:
     branches: [fullscreen-button]
 permissions:
-  contents: read
+  contents: write
 jobs:
-  locate:
+  patch:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Locate actual menu UI
+        with:
+          fetch-depth: 2
+      - name: Patch only the menu-adjacent UI
         shell: python
         run: |
           from pathlib import Path
-          s = Path("Wayward_MOD_v3.36.html").read_text(encoding="utf-8", errors="replace")
-          needles = ["☰", "&#9776;", "menu-button", "menuButton", "toggleMenu", "openMenu"]
-          seen=set()
-          for n in needles:
-              pos=0
-              while True:
-                  i=s.find(n,pos)
-                  if i<0: break
-                  pos=i+len(n)
-                  a=max(0,i-1800); b=min(len(s),i+2200)
-                  c=s[a:b]
-                  if any(x in c for x in ["<button","<div","onclick","addEventListener","aria-label","class=","id="]):
-                      if i not in seen:
-                          seen.add(i)
-                          print(f"=== MATCH {n!r} OFFSET {i} ===")
-                          print(c)
-                  if len(seen)>=20: break
-              if len(seen)>=20: break
-          print("TOTAL_MATCHES_SHOWN",len(seen))
-          print("RETRY_MARKER", "menu-ui")
+          p = Path("Wayward_MOD_v3.36.html")
+          s = p.read_text(encoding="utf-8", errors="strict")
+          old = 'u.jsx("button",{onClick:()=>t(!0),title:"메뉴 (Esc)","aria-label":"메뉴 열기",className:"m34-header-control",children:"☰"})'
+          new = 'u.jsx("button",{onClick:()=>{const e=document.documentElement,t=document.fullscreenElement||document.webkitFullscreenElement;if(t){const o=document.exitFullscreen||document.webkitExitFullscreen;o&&o.call(document)}else{const o=e.requestFullscreen||e.webkitRequestFullscreen;o&&o.call(e)}},title:"전체 화면","aria-label":"전체 화면",className:"m34-header-control",children:"⛶"}),u.jsx("button",{onClick:()=>t(!0),title:"메뉴 (Esc)","aria-label":"메뉴 열기",className:"m34-header-control",children:"☰"})'
+          count = s.count(old)
+          print("OLD_MATCH_COUNT", count)
+          if count != 1:
+              raise SystemExit("ABORT: expected exactly one menu target")
+          s2 = s.replace(old, new, 1)
+          if s2.count(new) != 1:
+              raise SystemExit("ABORT: fullscreen insertion verification failed")
+          p.write_text(s2, encoding="utf-8", newline="")
+          print("BYTE_DELTA", len(s2.encode("utf-8")) - len(s.encode("utf-8")))
+          print("NEW_MATCH_COUNT", s2.count(new))
+      - name: Syntax and structural validation
+        shell: python
+        run: |
+          from pathlib import Path
+          import re, subprocess, tempfile
+          s = Path("Wayward_MOD_v3.36.html").read_text(encoding="utf-8", errors="strict")
+          old = 'u.jsx("button",{onClick:()=>t(!0),title:"메뉴 (Esc)","aria-label":"메뉴 열기",className:"m34-header-control",children:"☰"})'
+          new = 'u.jsx("button",{onClick:()=>{const e=document.documentElement,t=document.fullscreenElement||document.webkitFullscreenElement;if(t){const o=document.exitFullscreen||document.webkitExitFullscreen;o&&o.call(document)}else{const o=e.requestFullscreen||e.webkitRequestFullscreen;o&&o.call(e)}},title:"전체 화면","aria-label":"전체 화면",className:"m34-header-control",children:"⛶"}),u.jsx("button",{onClick:()=>t(!0),title:"메뉴 (Esc)","aria-label":"메뉴 열기",className:"m34-header-control",children:"☰"})'
+          if s.count(new) != 1:
+              raise SystemExit("FAIL: new UI fragment count is not 1")
+          if s.count(old) != 0:
+              raise SystemExit("FAIL: old menu-only fragment still exists")
+          scripts = re.findall(r"<script(?:\s[^>]*)?>(.*?)</script>", s, flags=re.I|re.S)
+          checked = 0
+          for idx, js in enumerate(scripts):
+              if not js.strip(): continue
+              if re.search(r'type=["\'](?:application/json|importmap)', s[max(0, s.find(js)-120):s.find(js)+40], re.I):
+                  continue
+              with tempfile.NamedTemporaryFile("w", suffix=".js", encoding="utf-8", delete=False) as f:
+                  f.write(js)
+                  name=f.name
+              r = subprocess.run(["node","--check",name], capture_output=True, text=True)
+              Path(name).unlink(missing_ok=True)
+              checked += 1
+              if r.returncode != 0:
+                  print(r.stderr[-4000:])
+                  raise SystemExit(f"FAIL: script block {idx} syntax check failed")
+          print("SCRIPT_BLOCKS_FOUND", len(scripts))
+          print("SCRIPT_BLOCKS_CHECKED", checked)
+          print("FULLSCREEN_TARGET_VALID", True)
+      - name: Commit minimal change and remove temporary inspection workflows
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          rm -f .github/workflows/inspect-fullscreen-target.yml .github/workflows/locate-menu-ui.yml
+          git add Wayward_MOD_v3.36.html .github/workflows
+          if git diff --cached --quiet; then
+            echo "NO_CHANGES"
+            exit 0
+          fi
+          git commit -m "feat: add fullscreen button before menu"
+          git push origin HEAD:fullscreen-button
