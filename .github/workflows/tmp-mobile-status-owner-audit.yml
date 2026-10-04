@@ -1,0 +1,48 @@
+name: tmp-mobile-status-owner-audit
+
+on:
+  push:
+    branches: [mobile-migration-v1]
+
+permissions:
+  contents: write
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Locate status labels in bounded windows
+        shell: bash
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+          P=Path("Wayward_MOD_v3.36.html"); C=65536
+          def find(n):
+              nb=n.encode(); carry=b""; base=0
+              with P.open("rb") as f:
+                  while 1:
+                      b=f.read(C)
+                      if not b:return -1
+                      q=carry+b;i=q.find(nb)
+                      if i>=0:return base+i-len(carry)
+                      base+=len(b);carry=q[-(len(nb)-1):] if len(nb)>1 else b""
+          for n in ["주목도","신뢰도","흥분도","현재 위치","준비 중","기력"]:
+              p=find(n); print(f"\n=== {n} {p} ===")
+              if p>=0:
+                  with P.open("rb") as f:
+                      f.seek(max(0,p-5000));print(f.read(11000).decode("utf-8","replace"))
+          for n in ["function LF(","function mDe("]:
+              p=find(n); print(f"\n=== {n} {p} ===")
+              if p>=0:
+                  with P.open("rb") as f:
+                      f.seek(max(0,p-1000));print(f.read(14000).decode("utf-8","replace"))
+          PY
+      - name: Cleanup
+        shell: bash
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git rm .github/workflows/tmp-mobile-status-owner-audit.yml
+          git commit -m "chore: remove temporary status owner audit"
+          git push
