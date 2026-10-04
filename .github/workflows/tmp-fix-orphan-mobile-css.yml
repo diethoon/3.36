@@ -1,0 +1,115 @@
+name: tmp-fix-orphan-mobile-css
+
+on:
+  push:
+    branches: [mobile-migration-v1]
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Remove orphaned v4 mobile CSS tail
+        shell: bash
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+          import subprocess
+
+          SRC=Path("Wayward_MOD_v3.36.html")
+          TMP=SRC.with_suffix(".cssfix.tmp")
+          CHUNK=65536
+
+          orphan=b'''@media(max-width:1023px) and (orientation:portrait){.mobile-layout:has(>.mobile-action-panel:first-child){grid-template-columns:minmax(0,60%) minmax(0,40%) !important}.mobile-layout:has(>.mobile-action-panel:first-child)>.mobile-action-panel{grid-column:1 !important}.mobile-layout:has(>.mobile-action-panel:first-child)>.mobile-main-panel{grid-column:2 !important;border-left:1px solid rgba(120,113,108,.48) !important;border-right:0 !important}}@media(max-width:360px) and (orientation:portrait){.mobile-layout:has(>.mobile-action-panel:first-child){grid-template-columns:minmax(0,56%) minmax(0,44%) !important}}@media(max-width:1023px){.m36-mobile-nav-grid{display:none !important}.m36-mobile-current-activity-meta{display:none !important}.m36-mobile-prep-detail{display:none !important}}</style>'''
+
+          def count_stream(needle):
+              carry=b"";count=0
+              with SRC.open("rb") as f:
+                  while True:
+                      b=f.read(CHUNK)
+                      if not b: break
+                      q=carry+b
+                      count+=q.count(needle)
+                      carry=q[-(len(needle)-1):] if len(needle)>1 else b""
+              return count
+
+          before=count_stream(orphan)
+          v5=count_stream(b'<style id="wayward-mobile-cleanup-v5">')
+          print("ORPHAN_BEFORE=",before,"V5=",v5)
+          if before!=1 or v5!=1:
+              raise SystemExit("TARGET_MISMATCH")
+
+          carry=b""
+          with SRC.open("rb") as s,TMP.open("wb") as d:
+              while True:
+                  b=s.read(CHUNK)
+                  if not b: break
+                  q=carry+b
+                  safe=max(0,len(q)-len(orphan)+1)
+                  out=q[:safe];carry=q[safe:]
+                  out=out.replace(orphan,b"")
+                  d.write(out)
+              d.write(carry.replace(orphan,b""))
+          TMP.replace(SRC)
+
+          after=count_stream(orphan)
+          v5_after=count_stream(b'<style id="wayward-mobile-cleanup-v5">')
+          print("ORPHAN_AFTER=",after,"V5_AFTER=",v5_after)
+          if after!=0 or v5_after!=1:
+              raise SystemExit("PATCH_VERIFY_FAIL")
+
+          subprocess.run(["git","diff","--check"],check=True)
+
+          # Bounded inline-script syntax/EOF validation.
+          out=Path("/tmp/m36js");out.mkdir(exist_ok=True)
+          for f in out.glob("*.js"): f.unlink()
+
+          files=[];buf=b"";inside=False;cur=None;idx=0
+          with SRC.open("rb") as f:
+              while True:
+                  b=f.read(CHUNK);eof=not b;buf+=b
+                  while True:
+                      if not inside:
+                          a=buf.find(b"<script")
+                          if a<0:
+                              if eof: buf=b""
+                              else: buf=buf[-8192:]
+                              break
+                          z=buf.find(b">",a+7)
+                          if z<0: buf=buf[a:];break
+                          idx+=1;cur=out/f"{idx}.js";cur.write_bytes(b"");files.append(cur);buf=buf[z+1:];inside=True
+                      else:
+                          a=buf.find(b"</script>")
+                          if a<0:
+                              if eof:
+                                  cur.open("ab").write(buf);buf=b"";inside=False
+                              else:
+                                  k=len(b"</script>")-1
+                                  if len(buf)>k: cur.open("ab").write(buf[:-k])
+                                  buf=buf[-k:]
+                              break
+                          cur.open("ab").write(buf[:a]);buf=buf[a+9:];cur=None;inside=False
+                  if eof: break
+
+          if inside or buf:
+              raise SystemExit("HTML_TAG_EOF_BOUNDARY_FAIL")
+
+          for f in files:
+              subprocess.run(["node","--check",str(f)],check=True)
+
+          print("NODE_CHECK=PASS",len(files))
+          PY
+
+      - name: Commit and remove temporary workflow
+        shell: bash
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add Wayward_MOD_v3.36.html
+          git commit -m "fix(mobile): remove orphaned cleanup css tail"
+          git rm .github/workflows/tmp-fix-orphan-mobile-css.yml
+          git commit -m "chore: remove temporary orphan css fix tooling"
+          git push
