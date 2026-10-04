@@ -1,0 +1,168 @@
+name: tmp-mobile-ux-context
+on:
+  push:
+    branches: [mobile-migration-v1]
+
+permissions:
+  contents: write
+
+jobs:
+  context:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: mobile-migration-v1
+
+      - name: Extract targeted context
+        shell: bash
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+          import re
+
+          src = Path("Wayward_MOD_v3.36.html")
+          out = Path(".github/tmp-mobile-ux-context.txt")
+          CHUNK = 64 * 1024
+          KEEP = 32768
+
+          terms = [
+              "function M36MobileStockStatus",
+              "function M36MobileStatusPanel",
+              "function M36MobileRoomActivity",
+              "물자 채우기",
+              "오후 영업 준비",
+              "대출금",
+              "대출",
+              "이야기",
+              "가게",
+              "엘레나",
+              "function rI",
+              "function fF",
+              "M36Mobile",
+          ]
+
+          def stream_find_all(path, needles):
+              hits = {n: [] for n in needles}
+              with path.open("rb") as f:
+                  pos = 0
+                  carry = b""
+                  while True:
+                      chunk = f.read(CHUNK)
+                      if not chunk:
+                          break
+                      data = carry + chunk
+                      base = pos - len(carry)
+                      for term in needles:
+                          b = term.encode("utf-8")
+                          start = 0
+                          while True:
+                              i = data.find(b, start)
+                              if i < 0:
+                                  break
+                              abspos = base + i
+                              if abspos not in hits[term]:
+                                  hits[term].append(abspos)
+                              start = i + max(1, len(b))
+                      pos += len(chunk)
+                      carry = data[-KEEP:]
+              return hits
+
+          def read_range(path, start, end):
+              parts = []
+              with path.open("rb") as f:
+                  f.seek(start)
+                  remain = end - start
+                  while remain > 0:
+                      b = f.read(min(CHUNK, remain))
+                      if not b:
+                          break
+                      parts.append(b)
+                      remain -= len(b)
+              return b"".join(parts).decode("utf-8", "replace")
+
+          def extract_balanced(path, start, max_bytes=300000):
+              with path.open("rb") as f:
+                  f.seek(start)
+                  buf = bytearray()
+                  depth = 0
+                  seen_open = False
+                  in_str = None
+                  esc = False
+                  in_line = False
+                  in_block = False
+                  scanned = 0
+                  while scanned < max_bytes:
+                      chunk = f.read(CHUNK)
+                      if not chunk:
+                          break
+                      scanned += len(chunk)
+                      buf.extend(chunk)
+                      i = 0
+                      while i < len(buf):
+                          c = buf[i]
+                          n = buf[i+1] if i + 1 < len(buf) else None
+                          if in_line:
+                              if c == 10: in_line = False
+                              i += 1; continue
+                          if in_block:
+                              if c == 42 and n == 47:
+                                  in_block = False; i += 2; continue
+                              i += 1; continue
+                          if in_str:
+                              if esc:
+                                  esc = False
+                              elif c == 92:
+                                  esc = True
+                              elif c == in_str:
+                                  in_str = None
+                              i += 1; continue
+                          if c in (39, 34, 96):
+                              in_str = c; i += 1; continue
+                          if c == 47 and n == 47:
+                              in_line = True; i += 2; continue
+                          if c == 47 and n == 42:
+                              in_block = True; i += 2; continue
+                          if c == 123:
+                              depth += 1; seen_open = True
+                          elif c == 125 and seen_open:
+                              depth -= 1
+                              if depth == 0:
+                                  return bytes(buf[:i+1]).decode("utf-8", "replace")
+                          i += 1
+                  return bytes(buf).decode("utf-8", "replace")
+
+          hits = stream_find_all(src, terms)
+          lines = [f"FILE_BYTES={src.stat().st_size}", ""]
+          for term, positions in hits.items():
+              lines.append(f"## {term} POSITIONS={positions}")
+              for pos in positions[:5]:
+                  if term.startswith("function "):
+                      s = extract_balanced(src, pos)
+                  else:
+                      lo = max(0, pos - 5000)
+                      hi = pos + 9000
+                      s = read_range(src, lo, hi)
+                  lines.append(f"--- POS {pos} ---")
+                  lines.append(s)
+                  lines.append("--- END ---")
+              lines.append("")
+
+          # Extract supply action functions by their literal declarations when present.
+          for name in ["QM", "Rw", "l5", "x8", "jF"]:
+              needles = [f"function {name}(", f"const {name}=", f"let {name}=", f"var {name}="]
+              local = stream_find_all(src, needles)
+              positions = [p for arr in local.values() for p in arr]
+              lines.append(f"## ACTION {name} POSITIONS={positions}")
+              for pos in positions[:3]:
+                  lines.append(f"--- POS {pos} ---")
+                  lines.append(extract_balanced(src, pos))
+                  lines.append("--- END ---")
+
+          out.write_text("\n".join(lines), encoding="utf-8")
+          print(out, out.stat().st_size)
+          PY
+
+          git add .github/tmp-mobile-ux-context.txt
+          git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" commit -m "chore: add temporary mobile ux context"
+          git push origin mobile-migration-v1
