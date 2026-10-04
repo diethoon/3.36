@@ -24,7 +24,7 @@ jobs:
 
           old_left='r==="story"&&u.jsxs(u.Fragment,{children:[u.jsx(qF,{limit:3}),u.jsx("div",{className:"mb-2 pb-2 border-b border-stone-800",children:u.jsx(GF,{})}),T]})'
           new_left='r==="story"&&u.jsxs(u.Fragment,{children:[u.jsx(qF,{limit:3}),T]})'
-          old_narr='return u.jsx(koStoryRootRenderer30(r.logOrder)("div",{ref:a,className:"text-sm",children:['
+          old_narr='return koStoryRootRenderer30(r.logOrder)("div",{ref:a,className:"text-sm",children:['
           new_narr='return u.jsx(koStoryRootRenderer30(r.logOrder)("div",{ref:a,className:"text-sm mobile-narration",children:['
           old_cleanup='<style id="wayward-mobile-cleanup-v4">'
           new_cleanup='''<style id="wayward-mobile-cleanup-v5">
@@ -95,8 +95,9 @@ jobs:
           TMP.replace(SRC)
 
           print("PATCH_TARGETS",seen)
-          for k in ["label","status","css","status_call","left","narr","cleanup"]:
-              if seen[k]!=1: raise SystemExit("TARGET "+k+"="+str(seen[k]))
+          expected={"label":1,"status":0,"css":1,"status_call":1,"left":1,"narr":1,"cleanup":1}
+          for k,want in expected.items():
+              if seen[k]!=want: raise SystemExit("TARGET "+k+"="+str(seen[k])+" != "+str(want))
 
           def count_stream(needle):
               nb=needle.encode();carry=b"";total=0;k=max(0,len(nb)-1)
