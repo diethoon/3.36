@@ -23,11 +23,11 @@ jobs:
           needles=[
             ("activity_fn",b"function M36MobileCurrentActivity("),
             ("activity_call",b"u.jsx(M36MobileCurrentActivity,{}"),
-            ("tollen",b"톨렌 베이커"),
-            ("arrived",b"방금 도착"),
-            ("activity_label",b"활동"),
-            ("wife_wait",b"엘레나는 대기 중"),
-            ("status_wait",b"대기 중"),
+            ("tollen","톨렌 베이커".encode("utf-8")),
+            ("arrived","방금 도착".encode("utf-8")),
+            ("activity_label","활동".encode("utf-8")),
+            ("wife_wait","엘레나는 대기 중".encode("utf-8")),
+            ("status_wait","대기 중".encode("utf-8")),
           ]
 
           hits={k:[] for k,_ in needles}
