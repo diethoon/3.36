@@ -35,18 +35,13 @@ jobs:
           from pathlib import Path
           import re, subprocess, tempfile
           s = Path("Wayward_MOD_v3.36.html").read_text(encoding="utf-8", errors="strict")
-          old = 'u.jsx("button",{onClick:()=>t(!0),title:"메뉴 (Esc)","aria-label":"메뉴 열기",className:"m34-header-control",children:"☰"})'
           new = 'u.jsx("button",{onClick:()=>{const e=document.documentElement,t=document.fullscreenElement||document.webkitFullscreenElement;if(t){const o=document.exitFullscreen||document.webkitExitFullscreen;o&&o.call(document)}else{const o=e.requestFullscreen||e.webkitRequestFullscreen;o&&o.call(e)}},title:"전체 화면","aria-label":"전체 화면",className:"m34-header-control",children:"⛶"}),u.jsx("button",{onClick:()=>t(!0),title:"메뉴 (Esc)","aria-label":"메뉴 열기",className:"m34-header-control",children:"☰"})'
           if s.count(new) != 1:
               raise SystemExit("FAIL: new UI fragment count is not 1")
-          if s.count(old) != 0:
-              raise SystemExit("FAIL: old menu-only fragment still exists")
           scripts = re.findall(r"<script(?:\s[^>]*)?>(.*?)</script>", s, flags=re.I|re.S)
           checked = 0
           for idx, js in enumerate(scripts):
               if not js.strip(): continue
-              if re.search(r'type=["\'](?:application/json|importmap)', s[max(0, s.find(js)-120):s.find(js)+40], re.I):
-                  continue
               with tempfile.NamedTemporaryFile("w", suffix=".js", encoding="utf-8", delete=False) as f:
                   f.write(js)
                   name=f.name
