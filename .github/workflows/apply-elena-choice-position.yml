@@ -1,0 +1,158 @@
+name: Apply Elena choices position
+on:
+  push:
+    branches:
+      - mobile-migration-v1
+    paths:
+      - ".github/workflows/apply-elena-choice-position.yml"
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout work branch
+        uses: actions/checkout@v4
+        with:
+          ref: mobile-migration-v1
+          fetch-depth: 1
+
+      - name: Remove duplicate in status block using 64KB streaming patch
+        shell: bash
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+          import shutil
+
+          p=Path("Wayward_MOD_v3.36.html")
+          CH=65536
+
+          old=b'''    activePatronInteraction&&!activePatronInteraction.playerEngaged&&u.jsx(cOe,{customerName:activePatronInteraction.customerName,crowdNames,wifeName:wife.name,stage:activePatronInteraction.stage,primarySlot:activePatronInteraction.primarySlot,goldEarned:activePatronInteraction.goldEarned??0,dispatch}),\n'''
+          right=b'''u.jsx(M36MobileStoreStatus,{}),b&&!b.playerEngaged&&et(e)===vt(e)&&u.jsx(uOe,{customerName:b.customerName,crowdNames:w,wifeName:d.name,stage:b.stage,primarySlot:b.primarySlot,goldEarned:b.goldEarned??0,dispatch:t}),u.jsx(M36MobileStockStatus,{})'''
+
+          def count_stream(needle):
+              total=0; carry=b""
+              with p.open("rb") as f:
+                  while True:
+                      c=f.read(CH)
+                      if not c: break
+                      d=carry+c
+                      total += d.count(needle)
+                      keep=len(needle)-1
+                      carry=d[-keep:] if keep else b""
+              return total
+
+          old_count=count_stream(old)
+          right_count=count_stream(right)
+          print("OLD_DUPLICATE_COUNT",old_count)
+          print("RIGHT_ORIGINAL_CHOICE_COUNT",right_count)
+          if old_count != 1:
+              raise SystemExit("EXPECTED_ONE_DUPLICATE")
+          if right_count != 1:
+              raise SystemExit("EXPECTED_ONE_RIGHT_ORIGINAL_CHOICE")
+
+          tmp=p.with_suffix(".patch.tmp")
+          carry=b""
+          replaced=0
+          with p.open("rb") as src, tmp.open("wb") as dst:
+              while True:
+                  c=src.read(CH)
+                  if not c: break
+                  d=carry+c
+                  safe=max(0,len(d)-(len(old)-1))
+                  part,carry=d[:safe],d[safe:]
+                  n=part.count(old)
+                  if n:
+                      replaced += n
+                      part=part.replace(old,b"")
+                  dst.write(part)
+              n=carry.count(old)
+              if n:
+                  replaced += n
+                  carry=carry.replace(old,b"")
+              dst.write(carry)
+
+          if replaced != 1:
+              tmp.unlink(missing_ok=True)
+              raise SystemExit(f"REPLACED_COUNT_{replaced}")
+          shutil.move(tmp,p)
+
+          if count_stream(old) != 0:
+              raise SystemExit("DUPLICATE_STILL_PRESENT")
+          if count_stream(right) != 1:
+              raise SystemExit("RIGHT_ORIGINAL_CHOICE_CHANGED")
+
+          size=p.stat().st_size
+          with p.open("rb") as f:
+              f.seek(max(0,size-512))
+              tail=f.read(512)
+          print("HTML_BYTES",size)
+          print("EOF_TAIL",repr(tail))
+          if size < 19000000:
+              raise SystemExit("SIZE_CHECK_FAIL")
+          PY
+
+      - name: Node syntax check
+        shell: bash
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+          import re, subprocess, shutil
+          p=Path("Wayward_MOD_v3.36.html")
+          out=Path("/tmp/nodecheck")
+          shutil.rmtree(out, ignore_errors=True)
+          out.mkdir()
+          CH=65536; KEEP=2048; buf=b""; active=False; idx=0; h=None
+          with p.open("rb") as f:
+              while True:
+                  c=f.read(CH)
+                  if not c: break
+                  buf += c
+                  while True:
+                      if not active:
+                          m=re.search(br'<script\b[^>]*>',buf,re.I)
+                          if not m:
+                              if len(buf)>KEEP: buf=buf[-KEEP:]
+                              break
+                          buf=buf[m.end():]
+                          idx+=1
+                          h=(out/f"s{idx}.js").open("wb")
+                          active=True
+                      else:
+                          m=re.search(br'</script\s*>',buf,re.I)
+                          if not m:
+                              if len(buf)>KEEP:
+                                  h.write(buf[:-KEEP])
+                                  buf=buf[-KEEP:]
+                              break
+                          h.write(buf[:m.start()])
+                          buf=buf[m.end():]
+                          h.close()
+                          h=None
+                          active=False
+          if active:
+              raise SystemExit("UNTERMINATED_SCRIPT_BLOCK")
+          scripts=sorted(out.glob("*.js"))
+          if not scripts:
+              raise SystemExit("NO_SCRIPT_BLOCKS")
+          for s in scripts:
+              r=subprocess.run(["node","--check",str(s)],capture_output=True,text=True)
+              if r.returncode:
+                  print(r.stderr)
+                  raise SystemExit("NODE_CHECK_FAIL "+s.name)
+          print("NODE_CHECK=PASS",len(scripts))
+          PY
+          git diff --check
+
+      - name: Commit patch and clean only session diagnostics
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm -f .github/workflows/apply-elena-choice-position.yml
+          git rm -f .github/workflows/diagnose-elena-choices.yml .github/workflows/diagnose-elena-coe.yml 2>/dev/null || true
+          git add Wayward_MOD_v3.36.html
+          git commit -m "Place original Elena choices below mobile status"
+          git push origin HEAD:mobile-migration-v1
