@@ -1,0 +1,52 @@
+name: tmp-mobile-layout2-snips
+on:
+  push:
+    branches: [mobile-migration-v1]
+  pull_request:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  extract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: mobile-migration-v1
+      - name: Extract exact functions
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+          p=Path("Wayward_MOD_v3.36.html")
+          terms=["function BD(","function e3(","function bOe(","function LF(",'m36-mobile-tabs']
+          CH=65536; KEEP=131072
+          hits={x:[] for x in terms}
+          with p.open("rb") as f:
+            pos=0; carry=b""
+            while True:
+              c=f.read(CH)
+              if not c: break
+              d=carry+c; base=pos-len(carry)
+              for t in terms:
+                b=t.encode(); s=0
+                while 1:
+                  i=d.find(b,s)
+                  if i<0: break
+                  q=base+i
+                  if q not in hits[t]: hits[t].append(q)
+                  s=i+len(b)
+              pos+=len(c); carry=d[-KEEP:]
+          out=Path(".github/tmp-mobile-layout2-snips.txt")
+          with out.open("w",encoding="utf-8") as w:
+            w.write("SIZE="+str(p.stat().st_size)+"\n")
+            for t,ps in hits.items():
+              w.write("\n## "+t+" "+str(ps)+"\n")
+              for q in ps[:2]:
+                with p.open("rb") as f:
+                  f.seek(q); data=f.read(180000)
+                w.write(data.decode("utf-8","replace"))
+                w.write("\n---END---\n")
+          PY
+          git add .github/tmp-mobile-layout2-snips.txt
+          git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" commit -m "chore: add exact mobile layout snippets"
+          git push origin mobile-migration-v1
