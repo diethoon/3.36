@@ -1,0 +1,263 @@
+name: tmp-mobile-ux-patch
+on:
+  push:
+    branches: [mobile-migration-v1]
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: mobile-migration-v1
+
+      - name: Patch and validate
+        shell: bash
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+
+          path = Path("Wayward_MOD_v3.36.html")
+          CHUNK = 64 * 1024
+
+          def replace_stream_exact(path, old: bytes, new: bytes, expected=1):
+              tmp = path.with_suffix(path.suffix + ".tmp")
+              count = 0
+              carry = b""
+              with path.open("rb") as src, tmp.open("wb") as dst:
+                  while True:
+                      chunk = src.read(CHUNK)
+                      if not chunk:
+                          break
+                      data = carry + chunk
+                      if old in data:
+                          # Keep the tail large enough to cover boundary-spanning markers.
+                          parts = data.split(old)
+                          if len(parts) > 1:
+                              count += len(parts) - 1
+                              dst.write(new.join(parts[:-1]))
+                              carry = parts[-1]
+                              continue
+                      # No replacement in this combined block; emit all but a safe tail.
+                      keep = max(0, len(old) - 1)
+                      if len(data) > keep:
+                          dst.write(data[:-keep] if keep else data)
+                          carry = data[-keep:] if keep else b""
+                      else:
+                          carry = data
+                  if carry:
+                      dst.write(carry)
+              if count != expected:
+                  tmp.unlink(missing_ok=True)
+                  raise SystemExit(f"EXPECTED {expected} REPLACEMENTS, GOT {count}: {old[:120]!r}")
+              tmp.replace(path)
+
+          # 1) Keep the existing supply target controls and debt repayment logic,
+          # but make them compact/scrollable on the narrow mobile action panel.
+          old = b'return u.jsx("div",{className:"min-w-0",children:order.map(room=>{'
+          new = b'return u.jsx("div",{className:"m36-mobile-status-panel min-w-0",children:order.map(room=>{'
+          replace_stream_exact(path, old, new, 1)
+
+          # 2) Third mobile tab: reuse the existing portrait-detail component with
+          # its complete stats/details visible.
+          old = b'u.jsx(LF,{inline:!0,hideStats:!0,forceVisibility:!0})'
+          new = b'u.jsx(LF,{inline:!0,hideStats:!1,forceVisibility:!0})'
+          replace_stream_exact(path, old, new, 1)
+
+          # 3) Give the bottom mobile tabs a dedicated compact hook.
+          old = b'u.jsx("div",{className:"flex shrink-0 border-t border-stone-700 bg-stone-800/80",children:i.map'
+          new = b'u.jsx("div",{className:"m36-mobile-tabs flex shrink-0 border-t border-stone-700 bg-stone-800/80",children:i.map'
+          replace_stream_exact(path, old, new, 1)
+
+          # 4) Append mobile-only compact layout rules before </head>.
+          css = b'''<style id="wayward-mobile-cleanup-v6">
+          @media(max-width:1023px){
+            .m36-mobile-status-panel{
+              flex:0 1 auto !important;
+              max-height:34vh !important;
+              overflow-y:auto !important;
+              scrollbar-width:thin;
+              overscroll-behavior:contain;
+            }
+            .m36-mobile-prep-compact{
+              flex:0 1 auto !important;
+              max-height:30vh !important;
+              overflow-y:auto !important;
+              scrollbar-width:thin;
+              overscroll-behavior:contain;
+              padding-left:.15rem !important;
+              padding-right:.15rem !important;
+            }
+            .m36-mobile-prep-compact > div:first-child{
+              padding-top:.25rem !important;
+              padding-bottom:.25rem !important;
+            }
+            .m36-mobile-prep-compact .grid{
+              grid-template-columns:minmax(0,1fr) auto !important;
+              gap:.2rem !important;
+              padding:.18rem .35rem !important;
+            }
+            .m36-mobile-prep-compact .grid > div:first-child{
+              min-width:0 !important;
+              gap:.3rem !important;
+            }
+            .m36-mobile-prep-compact .grid > div:first-child > span:first-child{
+              max-width:4.2rem !important;
+            }
+            .m36-mobile-prep-compact .grid > div:last-child{
+              flex-shrink:0 !important;
+            }
+            .m36-mobile-prep-compact .grid button{
+              width:1.35rem !important;
+              height:1.35rem !important;
+              min-width:1.35rem !important;
+            }
+            .m36-mobile-prep-compact .grid > div:last-child > span{
+              width:1.6rem !important;
+            }
+            .m36-mobile-prep-compact > div:nth-child(2) > button{
+              min-height:1.9rem !important;
+              padding:.25rem .45rem !important;
+            }
+            .m36-mobile-prep-compact > div:last-child{
+              padding:.35rem .4rem !important;
+              margin-top:.2rem !important;
+            }
+            .m36-mobile-prep-compact input{
+              width:2.7rem !important;
+              min-height:1.5rem !important;
+              padding:.15rem .2rem !important;
+            }
+            .m36-mobile-prep-compact > div:last-child button{
+              min-height:1.5rem !important;
+              padding:.15rem .35rem !important;
+            }
+            .m36-mobile-tabs{
+              flex:0 0 26px !important;
+              height:26px !important;
+              min-height:26px !important;
+              max-height:26px !important;
+            }
+            .m36-mobile-tabs > button{
+              flex:1 1 0 !important;
+              height:26px !important;
+              min-height:0 !important;
+              padding:.05rem .2rem !important;
+              font-size:.56rem !important;
+              line-height:1 !important;
+              white-space:nowrap !important;
+              overflow:hidden !important;
+              text-overflow:ellipsis !important;
+            }
+          }
+          </style>
+          '''
+          replace_stream_exact(path, b"</head>", css + b"</head>", 1)
+          print("PATCH_STREAM=PASS")
+          PY
+
+          git diff --check
+
+          python3 <<'PY'
+          from pathlib import Path
+          import re, subprocess, sys
+
+          src=Path("Wayward_MOD_v3.36.html")
+          CHUNK=64*1024
+          # Stream-extract script blocks without materializing the whole HTML.
+          outdir=Path("/tmp/wayward-node-check")
+          outdir.mkdir(parents=True,exist_ok=True)
+          for old in outdir.glob("script-*.js"):
+              old.unlink()
+
+          lower_carry=b""
+          in_script=False
+          script_index=0
+          handle=None
+          with src.open("rb") as f:
+              while True:
+                  chunk=f.read(CHUNK)
+                  if not chunk: break
+                  data=lower_carry+chunk
+                  cursor=0
+                  lower = data.lower()
+                  while True:
+                      if not in_script:
+                          m=re.search(br"<script(?:\s[^>]*)?>", lower[cursor:])
+                          if not m: break
+                          a=cursor+m.start(); b=cursor+m.end()
+                          script_index+=1
+                          handle=(outdir/f"script-{script_index}.js").open("wb")
+                          in_script=True
+                          cursor=b
+                      else:
+                          m=re.search(br"</script\s*>", lower[cursor:])
+                          if not m:
+                              handle.write(data[cursor:])
+                              break
+                          a=cursor+m.start()
+                          handle.write(data[cursor:a])
+                          handle.close()
+                          handle=None
+                          in_script=False
+                          cursor=cursor+m.end()
+                  lower_carry=data[-64:] if len(data)>=64 else data
+
+          if in_script and handle:
+              handle.close()
+
+          scripts=sorted(outdir.glob("script-*.js"))
+          if not scripts:
+              raise SystemExit("NO_SCRIPT_BLOCKS_EXTRACTED")
+          for s in scripts:
+              r=subprocess.run(["node","--check",str(s)],capture_output=True,text=True)
+              if r.returncode:
+                  print(r.stdout)
+                  print(r.stderr)
+                  raise SystemExit(f"NODE_CHECK_FAIL {s.name}")
+          print("NODE_CHECK=PASS",len(scripts))
+
+          with src.open("rb") as f:
+              tail=b""
+              total=0
+              while True:
+                  b=f.read(CHUNK)
+                  if not b: break
+                  total+=len(b)
+                  tail=(tail+b)[-512:]
+          if b"</html>" not in tail.lower():
+              raise SystemExit("EOF_HTML_CLOSE_MISSING")
+          print("EOF_STREAM=PASS",total)
+
+          data_checks=[
+              (b"m36-mobile-status-panel",1),
+              (b'hideStats:!1,forceVisibility:!0',1),
+              (b'className:"m36-mobile-tabs',1),
+              (b'wayward-mobile-cleanup-v6',1),
+              (b'children:"물자 채우기"',1),
+              (b'children:"상환"',1),
+              (b'children:"전액"',1)
+          ]
+          # Targeted count checks through streaming chunks with overlap.
+          blob=bytearray()
+          # These are tiny source markers, so checking via git grep avoids reading
+          # the HTML into Python memory.
+          for needle,expected in data_checks:
+              p=subprocess.run(["grep","-ao",needle.decode("utf-8"),"Wayward_MOD_v3.36.html"],capture_output=True,text=True)
+              got=len(p.stdout.splitlines()) if p.stdout else 0
+              if got<expected:
+                  raise SystemExit(f"MARKER_MISSING {needle!r} got={got}")
+          print("TARGETED_MARKERS=PASS")
+
+          PY
+
+          git status --short
+
+          # Commit the HTML change and remove this one-shot workflow in the same commit.
+          git add Wayward_MOD_v3.36.html
+          git rm .github/workflows/tmp-mobile-ux-patch.yml
+          git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" commit -m "fix(mobile): compact prep and expand wife detail tab"
+          git push origin mobile-migration-v1
