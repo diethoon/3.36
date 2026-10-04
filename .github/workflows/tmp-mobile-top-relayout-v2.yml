@@ -116,15 +116,22 @@ jobs:
           if mode_label or mode_status or mode_css: raise SystemExit(f"UNTERMINATED_REMOVE={counts}")
 
           # Bounded verification pass.
-          text=SRC.read_text(encoding="utf-8")
+          def count_stream(needle):
+              nb=needle.encode(); carry=b""; total=0; k=max(0,len(nb)-1)
+              with SRC.open("rb") as f:
+                  while True:
+                      b=f.read(65536)
+                      if not b: break
+                      q=carry+b; total+=q.count(nb); carry=q[-k:] if k else b""
+              return total
           checks={
-              "status_fn":text.count("function M36MobilePersistentStatus("),
-              "label_fn":text.count("function M36MobileStatusLabel("),
-              "status_call":text.count("u.jsx(M36MobilePersistentStatus,{})"),
-              "gf":text.count("u.jsx(GF,{})"),
-              "cleanup_v5":text.count("wayward-mobile-cleanup-v5"),
-              "nav_dup_css":text.count(".m36-mobile-nav-grid"),
-              "status_css":text.count(".m36-mobile-status")
+              "status_fn":count_stream("function M36MobilePersistentStatus("),
+              "label_fn":count_stream("function M36MobileStatusLabel("),
+              "status_call":count_stream("u.jsx(M36MobilePersistentStatus,{})"),
+              "gf":count_stream("u.jsx(GF,{})"),
+              "cleanup_v5":count_stream("wayward-mobile-cleanup-v5"),
+              "nav_dup_css":count_stream(".m36-mobile-nav-grid"),
+              "status_css":count_stream(".m36-mobile-status")
           }
           print(checks)
           if checks["status_fn"]!=0 or checks["label_fn"]!=0 or checks["status_call"]!=0: raise SystemExit("OLD_STATUS_REMAINS")
