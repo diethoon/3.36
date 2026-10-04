@@ -1,0 +1,164 @@
+name: One-off move Elena choices under mobile status
+on:
+  push:
+    branches: [main]
+    paths: [.github/workflows/one-off-move-elena-choice.yml]
+permissions:
+  contents: write
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout main for cleanup
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          path: mainrepo
+          fetch-depth: 1
+      - name: Checkout mobile work branch
+        uses: actions/checkout@v4
+        with:
+          ref: mobile-migration-v1
+          path: work
+          fetch-depth: 1
+      - name: Patch bounded 64KB and validate
+        shell: bash
+        working-directory: work
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+          import shutil
+
+          p=Path("Wayward_MOD_v3.36.html"); CH=65536
+
+          def count_stream(needle: bytes) -> int:
+              total=0; carry=b""
+              with p.open("rb") as f:
+                  while True:
+                      c=f.read(CH)
+                      if not c: break
+                      d=carry+c
+                      total += d.count(needle)
+                      carry=d[-(len(needle)-1):] if len(needle)>1 else b""
+              return total
+
+          def replace_once(old: bytes, new: bytes, label: str):
+              before=count_stream(old)
+              print(label, "BEFORE", before)
+              if before != 1: raise SystemExit(f"{label}_COUNT_{before}")
+              tmp=p.with_suffix(".patch.tmp"); carry=b""; replaced=0
+              with p.open("rb") as src, tmp.open("wb") as dst:
+                  while True:
+                      c=src.read(CH)
+                      if not c: break
+                      d=carry+c
+                      safe=max(0,len(d)-(len(old)-1))
+                      part,carry=d[:safe],d[safe:]
+                      n=part.count(old)
+                      if n:
+                          replaced+=n
+                          part=part.replace(old,new)
+                      dst.write(part)
+                  n=carry.count(old)
+                  if n:
+                      replaced+=n
+                      carry=carry.replace(old,new)
+                  dst.write(carry)
+              if replaced != 1:
+                  tmp.unlink(missing_ok=True)
+                  raise SystemExit(f"{label}_REPLACED_{replaced}")
+              shutil.move(tmp,p)
+              print(label,"REPLACED",replaced)
+
+          old_render=b's&&!s.playerEngaged&&u.jsx(cOe,{customerName:s.customerName,crowdNames:r,wifeName:y,stage:s.stage,primarySlot:s.primarySlot,goldEarned:s.goldEarned??0,dispatch:a}),'
+          new_render=b's&&!s.playerEngaged&&u.jsx("div",{className:"hidden lg:block",children:u.jsx(cOe,{customerName:s.customerName,crowdNames:r,wifeName:y,stage:s.stage,primarySlot:s.primarySlot,goldEarned:s.goldEarned??0,dispatch:a})}),'
+          replace_once(old_render,new_render,"HIDE_MOBILE_ORIGINAL_ELENA_CHOICES")
+
+          old_decl=b'const state=re(d=>d.state),wife=g(state),playerLoc=be(state);'
+          new_decl=b'const state=re(d=>d.state),dispatch=re(d=>d.dispatch),wife=g(state),playerLoc=be(state),activePatronInteraction=G9(state),crowdNames=((activePatronInteraction?.crowdPatronIds??[]).map(id=>state.customers.find(customer=>customer.id===id)?.name).filter(Boolean));'
+          replace_once(old_decl,new_decl,"ADD_MOBILE_CHOICE_STATE")
+
+          old_room=b'u.jsx(M36MobileRoomActivity,{room:playerLoc,canSee:!0})'
+          new_room=b'activePatronInteraction&&!activePatronInteraction.playerEngaged&&u.jsx(cOe,{customerName:activePatronInteraction.customerName,crowdNames,wifeName:wife.name,stage:activePatronInteraction.stage,primarySlot:activePatronInteraction.primarySlot,goldEarned:activePatronInteraction.goldEarned??0,dispatch}),\n    '+old_room
+          replace_once(old_room,new_room,"INSERT_CHOICES_UNDER_STATUS")
+
+          checks=[
+              (old_render,0),
+              (new_render,1),
+              (old_decl,0),
+              (new_decl,1),
+              (new_room,1),
+              (b'function M36MobileStoreStatus(){',1),
+              (b'function xOe(){',1),
+              (b'u.jsx(M36MobileStoreStatus,{})',1),
+          ]
+          for n,e in checks:
+              got=count_stream(n)
+              print("CHECK",n,"GOT",got,"EXPECTED",e)
+              if got!=e: raise SystemExit("MARKER_CHECK_FAIL")
+
+          size=0; tail=b""
+          with p.open("rb") as f:
+              while True:
+                  c=f.read(CH)
+                  if not c: break
+                  size += len(c)
+                  tail=(tail+c)[-256:]
+          print("HTML_BYTES",size)
+          print("EOF_TAIL",repr(tail))
+          if size < 19000000: raise SystemExit("SIZE_CHECK_FAIL")
+          PY
+
+          python3 <<'PY'
+          from pathlib import Path
+          import re, subprocess, shutil
+          p=Path("Wayward_MOD_v3.36.html"); out=Path("/tmp/nodecheck"); shutil.rmtree(out,ignore_errors=True); out.mkdir()
+          CH=65536; KEEP=2048; buf=b""; active=False; idx=0; h=None
+          with p.open("rb") as f:
+              while True:
+                  c=f.read(CH)
+                  if not c: break
+                  buf+=c
+                  while True:
+                      if not active:
+                          m=re.search(br'<script\b[^>]*>',buf,re.I)
+                          if not m:
+                              if len(buf)>KEEP: buf=buf[-KEEP:]
+                              break
+                          buf=buf[m.end():]; idx+=1; h=(out/f"s{idx}.js").open("wb"); active=True
+                      else:
+                          m=re.search(br'</script\s*>',buf,re.I)
+                          if not m:
+                              if len(buf)>KEEP:
+                                  h.write(buf[:-KEEP]); buf=buf[-KEEP:]
+                              break
+                          h.write(buf[:m.start()]); buf=buf[m.end():]; h.close(); h=None; active=False
+          if active: raise SystemExit("UNTERMINATED_SCRIPT")
+          scripts=sorted(out.glob("*.js"))
+          if not scripts: raise SystemExit("NO_SCRIPTS")
+          for s in scripts:
+              r=subprocess.run(["node","--check",str(s)],capture_output=True,text=True)
+              if r.returncode:
+                  print(r.stderr); raise SystemExit("NODE_CHECK_FAIL "+s.name)
+          print("NODE_CHECK=PASS",len(scripts))
+          PY
+          git diff --check
+      - name: Commit mobile patch
+        working-directory: work
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add Wayward_MOD_v3.36.html
+          git commit -m "Move Elena interaction choices under mobile status"
+          git push origin HEAD:mobile-migration-v1
+      - name: Remove temporary workflow from main
+        working-directory: mainrepo
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm .github/workflows/one-off-move-elena-choice.yml
+          git commit -m "Remove temporary Elena choice workflow"
+          git push origin HEAD:main
