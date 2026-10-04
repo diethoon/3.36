@@ -44,3 +44,4 @@ jobs:
               carry=data[-2048:]
               offset += len(chunk)
           print("MATCHES",len(found))
+          print("SCAN_COMPLETE")
