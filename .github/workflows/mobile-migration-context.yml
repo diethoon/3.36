@@ -13,40 +13,34 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Stream targeted mobile context
+      - name: Stream targeted UI owners
         shell: python
         run: |
           from pathlib import Path
-          import re
 
           path = Path("Wayward_MOD_v3.36.html")
           needles = [
-              "function vle",
-              "function Pie",
-              "WaywardPersistentStatus",
-              "WaywardCurrentActivity",
+              "function RPe(){",
+              "function AOe(){",
+              "function eOe(",
+              "function HD(",
+              "function rI(",
+              "function ple(",
+              "mobile-status",
+              "mobile-current-activity",
               "mobile-layout",
               "mobile-main-panel",
               "mobile-action-panel",
-              "mobile-status",
-              "mobile-current-activity",
               "map-pinned",
+              "100dvh",
+              "@media(max-width:1023px)",
+              "@media(max-width:560px)",
               "initial-scale",
-              "safe-area",
-              "orientation:portrait",
-              "orientation:landscape",
-              "1023px",
-              "m34-header-control",
-              "requestFullscreen",
           ]
-
-          out = Path("migration_context")
-          out.mkdir(exist_ok=True)
-          report = out / "TARGET_CONTEXTS.txt"
           chunk_size = 64 * 1024
-          context_chars = 1200
+          context_bytes = 7000
           carry = b""
-          hits = []
+          found = {}
 
           with path.open("rb") as f:
               offset = 0
@@ -56,42 +50,36 @@ jobs:
                       break
                   data = carry + chunk
                   base = offset - len(carry)
-                  text = data.decode("utf-8", errors="replace")
                   for needle in needles:
-                      start = 0
+                      nb = needle.encode("utf-8")
+                      pos = 0
                       while True:
-                          i = text.find(needle, start)
+                          i = data.find(nb, pos)
                           if i < 0:
                               break
-                          abs_pos = base + len(text[:i].encode("utf-8"))
-                          left = max(0, i - context_chars)
-                          right = min(len(text), i + len(needle) + context_chars)
-                          snippet = text[left:right]
-                          hits.append((abs_pos, needle, snippet))
-                          start = i + len(needle)
-                  carry = data[-max(context_chars * 4, 16000):]
+                          absolute = base + i
+                          if needle not in found:
+                              left = max(0, i - context_bytes)
+                              right = min(len(data), i + len(nb) + context_bytes)
+                              found[needle] = (absolute, data[left:right].decode("utf-8", errors="replace"))
+                          pos = i + len(nb)
+                  keep = max(context_bytes, 12000)
+                  carry = data[-keep:]
                   offset += len(chunk)
 
-          dedup = {}
-          for pos, needle, snippet in hits:
-              dedup[(pos, needle)] = snippet
+          out = Path("migration_context")
+          out.mkdir(exist_ok=True)
+          lines = [f"FILE_BYTES={path.stat().st_size}", f"UNIQUE_TARGETS={len(found)}", ""]
+          for needle, (pos, snippet) in found.items():
+              lines += [f"===== {needle} @ byte {pos} =====", snippet, ""]
+          (out / "UI_OWNER_TARGETS.txt").write_text("\n".join(lines), encoding="utf-8")
+          print(f"WROTE {out / 'UI_OWNER_TARGETS.txt'}")
 
-          lines = [
-              f"FILE_BYTES={path.stat().st_size}",
-              f"HITS={len(dedup)}",
-              ""
-          ]
-          for (pos, needle), snippet in sorted(dedup.items()):
-              lines.append(f"===== {needle} @ byte {pos} =====")
-              lines.append(snippet)
-              lines.append("")
-          report.write_text("\n".join(lines), encoding="utf-8")
-          print(f"WROTE {report} ({report.stat().st_size} bytes)")
-      - name: Commit compact context
+      - name: Commit compact targets
         shell: bash
         run: |
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
-          git add migration_context/TARGET_CONTEXTS.txt
-          git commit -m "chore: extract mobile migration context" || exit 0
+          git add migration_context/UI_OWNER_TARGETS.txt
+          git commit -m "chore: extract mobile ui owner targets" || exit 0
           git push
