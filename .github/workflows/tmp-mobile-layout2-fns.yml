@@ -1,0 +1,83 @@
+name: tmp-mobile-layout2-fns
+on:
+  push:
+    branches: [mobile-migration-v1]
+  pull_request:
+    branches: [main]
+permissions:
+  contents: write
+jobs:
+  extract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: mobile-migration-v1
+      - name: Extract functions
+        shell: bash
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+          src=Path("Wayward_MOD_v3.36.html")
+          out=Path(".github/tmp-mobile-layout2-fns.txt")
+          CHUNK=64*1024
+          terms=["function BD(","function e3(","function HD(","function bOe(","function M315StaffCard(","function rI(","function AOe("]
+          hits={t:[] for t in terms}
+          with src.open("rb") as f:
+              pos=0;carry=b""
+              while True:
+                  c=f.read(CHUNK)
+                  if not c: break
+                  data=carry+c;base=pos-len(carry)
+                  for t in terms:
+                      n=t.encode();s=0
+                      while True:
+                          i=data.find(n,s)
+                          if i<0:break
+                          p=base+i
+                          if p not in hits[t]:hits[t].append(p)
+                          s=i+len(n)
+                  pos+=len(c);carry=data[-32768:]
+          def extract(start,max_bytes=400000):
+              with src.open("rb") as f:
+                  f.seek(start)
+                  buf=bytearray();depth=0;opened=False;q=None;esc=False;line=False;block=False;scanned=0
+                  while scanned<max_bytes:
+                      c=f.read(CHUNK)
+                      if not c:break
+                      scanned+=len(c);buf.extend(c)
+                      i=0
+                      while i<len(buf):
+                          x=buf[i];y=buf[i+1] if i+1<len(buf) else None
+                          if line:
+                              if x==10:line=False
+                              i+=1;continue
+                          if block:
+                              if x==42 and y==47:block=False;i+=2;continue
+                              i+=1;continue
+                          if q:
+                              if esc:esc=False
+                              elif x==92:esc=True
+                              elif x==q:q=None
+                              i+=1;continue
+                          if x in (39,34,96):q=x;i+=1;continue
+                          if x==47 and y==47:line=True;i+=2;continue
+                          if x==47 and y==42:block=True;i+=2;continue
+                          if x==123:depth+=1;opened=True
+                          elif x==125 and opened:
+                              depth-=1
+                              if depth==0:return bytes(buf[:i+1]).decode("utf-8","replace")
+                          i+=1
+              return bytes(buf).decode("utf-8","replace")
+          parts=[f"FILE_BYTES={src.stat().st_size}"]
+          for t,ps in hits.items():
+              parts.append(f"\n## {t} POSITIONS={ps[:3]}")
+              for p in ps[:2]:
+                  parts.append(extract(p))
+                  parts.append("---END---")
+          out.write_text("\n".join(parts),encoding="utf-8")
+          print(out.stat().st_size)
+          PY
+          git add .github/tmp-mobile-layout2-fns.txt
+          git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" commit -m "chore: add temporary mobile layout function context"
+          git push origin mobile-migration-v1
