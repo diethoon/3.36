@@ -24,8 +24,8 @@ jobs:
           TMP2=SRC.with_suffix(".activityrelayout2.tmp")
           CHUNK=65536
 
-          old_right=b'children:[u.jsx(GF,{}),u.jsx(M36MobileStockStatus,{})]'
-          new_right=b'children:[u.jsx(M36MobileStatusPanel,{}),u.jsx(M36MobileStockStatus,{})]'
+          old_right=b'u.jsx(GF,{}),u.jsx(M36MobileStockStatus,{})'
+          new_right=b'u.jsx(M36MobileStatusPanel,{}),u.jsx(M36MobileStockStatus,{})'
           old_activity_call=b'u.jsx(M36MobileCurrentActivity,{})'
           new_activity_call=b'u.jsx(M36MobileRoomActivity,{})'
           insert_before=b'function M36MobileCurrentActivity(){'
