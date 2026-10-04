@@ -1,0 +1,101 @@
+name: Finalize original shop overview move
+on:
+  push:
+    branches: [mobile-migration-v1]
+    paths: [.github/workflows/finalize-shop-overview-v3.yml]
+permissions:
+  contents: write
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: {ref: mobile-migration-v1, fetch-depth: 1}
+      - name: Patch and validate
+        shell: bash
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+          import shutil,re,subprocess
+          p=Path("Wayward_MOD_v3.36.html"); CH=65536
+          def count(n):
+            z=0;c=b""
+            with p.open("rb") as f:
+              while 1:
+                x=f.read(CH)
+                if not x: break
+                d=c+x; z+=d.count(n); c=d[-(len(n)-1):] if len(n)>1 else b""
+            return z
+          def rep(a,b):
+            if count(a)!=1: raise SystemExit("rep")
+            t=p.with_suffix(".tmp"); c=b""
+            with p.open("rb") as s,t.open("wb") as o:
+              while 1:
+                x=s.read(CH)
+                if not x: break
+                d=c+x; k=max(0,len(d)-len(a)+1); q,c=d[:k],d[k:]; o.write(q.replace(a,b))
+              o.write(c.replace(a,b))
+            shutil.move(t,p)
+          def span(a,b,keep_end):
+            if count(a)!=1: raise SystemExit("span-start")
+            t=p.with_suffix(".tmp"); c=b""; skipping=False; done=False
+            with p.open("rb") as s,t.open("wb") as o:
+              while 1:
+                x=s.read(CH)
+                if not x: break
+                d=c+x
+                if not skipping:
+                  i=d.find(a)
+                  if i<0:
+                    k=len(a)-1; o.write(d[:-k]); c=d[-k:] if k else b""; continue
+                  o.write(d[:i]); d=d[i+len(a):]; skipping=True
+                j=d.find(b)
+                if j<0:
+                  k=len(b)-1; c=d[-k:] if k else b""; continue
+                if keep_end: o.write(b)
+                o.write(d[j+len(b):]); c=b""; done=True; skipping=False; break
+              if not done: raise SystemExit("span-end")
+              while 1:
+                x=s.read(CH)
+                if not x: break
+                o.write(x)
+            shutil.move(t,p)
+          rep(b'u.jsx("div",{className:"shrink-0",children:u.jsx(xOe,{})}),',b"")
+          rep(b'children:[u.jsx(M36MobileStoreStatus,{}),u.jsx(M36MobileStockStatus,{})',b'children:[u.jsx(xOe,{}),u.jsx(M36MobileStockStatus,{})')
+          span(b"function M36MobileStoreStatus(){",b"function M36MobileRoomActivity(",True)
+          span(b'<style id="wayward-mobile-store-status-v1">',b"</style>",False)
+          for n,e in [
+            (b'children:[u.jsx(xOe,{}),u.jsx(M36MobileStockStatus,{})',1),
+            (b'u.jsx("div",{className:"shrink-0",children:u.jsx(xOe,{})}),',0),
+            (b"M36MobileStoreStatus",0),
+            (b"wayward-mobile-store-status-v1",0),
+            (b"function M36MobileRoomActivity(",1)]:
+            if count(n)!=e: raise SystemExit("check")
+          out=Path("/tmp/n");out.mkdir(exist_ok=True);buf=b"";active=False;idx=0;h=None
+          with p.open("rb") as f:
+            while 1:
+              x=f.read(CH)
+              if not x: break
+              buf+=x
+              while 1:
+                if not active:
+                  m=re.search(br"<script\\b[^>]*>",buf,re.I)
+                  if not m: buf=buf[-2048:]; break
+                  buf=buf[m.end():];idx+=1;h=(out/f"s{idx}.js").open("wb");active=True
+                else:
+                  m=re.search(br"</script\\s*>",buf,re.I)
+                  if not m:
+                    h.write(buf[:-2048]);buf=buf[-2048:];break
+                  h.write(buf[:m.start()]);buf=buf[m.end():];h.close();h=None;active=False
+          for s in sorted(out.glob("*.js")):
+            r=subprocess.run(["node","--check",str(s)],capture_output=True,text=True)
+            if r.returncode: print(r.stderr);raise SystemExit("node")
+          print("NODE_CHECK=PASS")
+          PY
+          git diff --check
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add Wayward_MOD_v3.36.html
+          git commit -m "Move original shop overview to right panel top"
+          git push origin HEAD:mobile-migration-v1
