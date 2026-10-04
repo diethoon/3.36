@@ -25,11 +25,11 @@ jobs:
                   a=max(0,i-1800); b=min(len(s),i+2200)
                   c=s[a:b]
                   if any(x in c for x in ["<button","<div","onclick","addEventListener","aria-label","class=","id="]):
-                      key=i
-                      if key not in seen:
-                          seen.add(key)
+                      if i not in seen:
+                          seen.add(i)
                           print(f"=== MATCH {n!r} OFFSET {i} ===")
                           print(c)
                   if len(seen)>=20: break
               if len(seen)>=20: break
           print("TOTAL_MATCHES_SHOWN",len(seen))
+          print("RETRY_MARKER", "menu-ui")
