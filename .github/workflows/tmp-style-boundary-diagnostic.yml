@@ -1,0 +1,82 @@
+name: tmp-style-boundary-diagnostic
+
+on:
+  push:
+    branches: [mobile-migration-v1]
+
+permissions:
+  contents: write
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Diagnose CSS style boundary
+        shell: bash
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+
+          SRC = Path("Wayward_MOD_v3.36.html")
+          old = b'<style id="wayward-mobile-cleanup-v4">'
+          new = b'<style id="wayward-mobile-cleanup-v5">'
+          css = b'@media(max-width:1023px) and (orientation:portrait)'
+          CHUNK = 65536
+
+          data_parts=[]
+          total=0
+          hits=[]
+
+          with SRC.open("rb") as f:
+              carry=b""
+              while True:
+                  b=f.read(CHUNK)
+                  if not b:
+                      break
+                  q=carry+b
+                  for needle,name in [(old,"v4"),(new,"v5"),(css,"media")]:
+                      p=0
+                      while True:
+                          i=q.find(needle,p)
+                          if i<0: break
+                          hits.append((name,total-len(carry)+i,len(needle)))
+                          p=i+1
+                  carry=q[-max(len(old),len(new),len(css))+1:]
+                  total += len(b)
+
+          def context(pos, radius=900):
+              with SRC.open("rb") as f:
+                  f.seek(max(0,pos-radius))
+                  return f.read(radius*2).decode("utf-8","replace")
+
+          print("FILE_BYTES=",SRC.stat().st_size)
+          for name,needle in [("v4",old),("v5",new),("media",css)]:
+              loc=[p for n,p,_ in hits if n==name]
+              print(name,"COUNT",len(loc),"LOCATIONS",loc[:10])
+
+          media=[p for n,p,_ in hits if n=="media"]
+          for i,pos in enumerate(media[:5]):
+              print(f"--- MEDIA_CONTEXT_{i} POS={pos} ---")
+              print(context(pos,1200))
+              print(f"--- END_MEDIA_CONTEXT_{i} ---")
+
+          # Count HTML tag openings/closings in a bounded local window around each media hit.
+          for pos in media[:5]:
+              c=context(pos,2500)
+              print("LOCAL_STYLE_OPEN_COUNT",c.count("<style"))
+              print("LOCAL_STYLE_CLOSE_COUNT",c.count("</style"))
+              print("LOCAL_SCRIPT_OPEN_COUNT",c.count("<script"))
+              print("LOCAL_SCRIPT_CLOSE_COUNT",c.count("</script"))
+
+          print("DIAG_COMPLETE")
+          PY
+
+      - name: Remove temporary diagnostic workflow
+        shell: bash
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git rm .github/workflows/tmp-style-boundary-diagnostic.yml
+          git commit -m "chore: remove temporary style boundary diagnostic"
+          git push
