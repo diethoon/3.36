@@ -1,0 +1,75 @@
+name: Diagnose mobile status render paths
+on:
+  push:
+    branches:
+      - mobile-migration-v1
+    paths:
+      - ".github/workflows/diagnose-status-render.yml"
+permissions:
+  contents: read
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: mobile-migration-v1
+          fetch-depth: 1
+
+      - name: Stream-search status markers with bounded context
+        shell: bash
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+          import re
+
+          p = Path("Wayward_MOD_v3.36.html")
+          CH = 65536
+          needles = [
+              b"function M36MobileStoreStatus(){",
+              b"function M36MobileRoomActivity",
+              b"function M36MobileStatusPanel",
+              b"M36MobileStoreStatus,{}",
+              b"M36MobileStatusPanel,{}",
+              b"M36MobileRoomActivity,{room,canSee}",
+              b"M36MobileRoomActivity,{room:playerLoc,canSee:!0}",
+              "현재 위치".encode(),
+          ]
+
+          hits = {n: [] for n in needles}
+          carry = b""
+          base = 0
+
+          with p.open("rb") as f:
+              while True:
+                  chunk = f.read(CH)
+                  if not chunk:
+                      break
+                  data = carry + chunk
+                  data_base = base - len(carry)
+                  for n in needles:
+                      start = 0
+                      while True:
+                          i = data.find(n, start)
+                          if i < 0:
+                              break
+                          pos = data_base + i
+                          hits[n].append(pos)
+                          start = i + 1
+                  carry = data[-max(len(n) for n in needles)+1:]
+                  base += len(chunk)
+
+          for n, poss in hits.items():
+              print("\n=== NEEDLE", n.decode("utf-8", "replace"), "COUNT", len(poss), "===")
+              for pos in poss[:20]:
+                  print("OFFSET", pos)
+                  with p.open("rb") as f:
+                      f.seek(max(0, pos - 900))
+                      ctx = f.read(len(n) + 1800)
+                  print(ctx.decode("utf-8", "replace"))
+
+          print("\n=== FILE EOF TAIL ===")
+          with p.open("rb") as f:
+              f.seek(max(0, p.stat().st_size - 2048))
+              print(f.read(2048).decode("utf-8", "replace"))
+          PY
