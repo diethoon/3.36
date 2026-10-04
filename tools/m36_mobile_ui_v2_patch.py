@@ -8,7 +8,7 @@ SRC = Path("Wayward_MOD_v3.36.html")
 TMP = SRC.with_suffix(".mobileui.tmp")
 CHUNK = 64 * 1024
 
-components = b"""function M36MobileStatusLabel(location){
+components = """function M36MobileStatusLabel(location){
   return ({
     taproom:"홀",
     back_room:"뒷방",
