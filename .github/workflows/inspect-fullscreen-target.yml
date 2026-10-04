@@ -15,6 +15,7 @@ jobs:
           from pathlib import Path
           p = Path("Wayward_MOD_v3.36.html")
           s = p.read_text(encoding="utf-8", errors="replace")
+          print("INSPECTION_RETRY")
           print("BYTES", p.stat().st_size)
           print("LINES", s.count("\n") + 1)
           needles = ["☰", "hamburger", "menu", "Menu", "메뉴", "three-dots", "ellipsis", "more_vert", "⋮", "⋯"]
