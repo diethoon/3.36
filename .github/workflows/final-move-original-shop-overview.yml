@@ -77,7 +77,7 @@ jobs:
               shutil.move(tmp, p)
               print(label, "REPLACED", replaced)
 
-          def remove_span(start_marker: bytes, end_marker: bytes, label: str):
+          def remove_span(start_marker: bytes, end_marker: bytes, label: str, preserve_end: bool = False):
               before = count_stream(start_marker)
               print(label, "START_MATCHES_BEFORE", before)
               if before != 1:
@@ -116,18 +116,16 @@ jobs:
                           prefix = buf[-keep:] if len(buf) > keep else buf
                           continue
 
-                      # Discard through the end marker, but preserve everything after it.
+                      if preserve_end:
+                          dst.write(end_marker)
                       buf = buf[j + len(end_marker):]
                       dst.write(buf)
                       prefix = b""
                       found_end += 1
                       skipping = False
-
-                      # There is only one targeted span; remaining chunks pass through normally.
                       if found_end == 1:
                           break
 
-                  # If the end marker was found, write the untouched remainder of the file.
                   if found_end == 1:
                       while True:
                           c = src.read(CH)
@@ -141,40 +139,43 @@ jobs:
               shutil.move(tmp, p)
               print(label, "REMOVED", found_end)
 
-          # 1) Remove original xOe from the left-side '가게 안' panel.
+          # Remove original xOe from the left-side '가게 안' panel.
           replace_once(
               b'u.jsx("div",{className:"shrink-0",children:u.jsx(xOe,{})}),',
               b"",
               "REMOVE_LEFT_SHOP_OVERVIEW",
           )
 
-          # 2) Replace the newly added duplicate status block in the right panel with xOe.
+          # Put the original xOe panel at the top of the right action panel.
           replace_once(
               b'children:[u.jsx(M36MobileStoreStatus,{}),u.jsx(M36MobileStockStatus,{})',
               b'children:[u.jsx(xOe,{}),u.jsx(M36MobileStockStatus,{})',
               "RIGHT_TOP_USE_ORIGINAL_SHOP_OVERVIEW",
           )
 
-          # 3) Remove the temporary replacement component and its CSS so it cannot render elsewhere.
+          # Remove the temporary replacement component and its CSS.
           remove_span(
               b"function M36MobileStoreStatus(){",
               b"function M36MobileRoomActivity(",
               "REMOVE_TEMP_STORE_STATUS_FUNCTION",
+              preserve_end=True,
           )
 
           remove_span(
               b'<style id="wayward-mobile-store-status-v1">',
               b"</style>",
               "REMOVE_TEMP_STORE_STATUS_CSS",
+              preserve_end=False,
           )
 
-          # 4) Final bounded assertions.
           checks = {
               b'u.jsx(xOe,{})': 1,
               b'children:[u.jsx(xOe,{}),u.jsx(M36MobileStockStatus,{})': 1,
               b'M36MobileStoreStatus': 0,
               b'wayward-mobile-store-status-v1': 0,
               b'u.jsx("div",{className:"shrink-0",children:u.jsx(xOe,{})}),': 0,
+              b'function M36MobileRoomActivity({room:targetRoom,canSee:targetCanSee}={}){
+': 1,
           }
           for needle, expected in checks.items():
               got = count_stream(needle)
