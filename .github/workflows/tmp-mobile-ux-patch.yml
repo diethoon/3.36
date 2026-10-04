@@ -167,50 +167,52 @@ jobs:
 
           python3 <<'PY'
           from pathlib import Path
-          import re, subprocess, sys
+          import re, subprocess
 
           src=Path("Wayward_MOD_v3.36.html")
           CHUNK=64*1024
-          # Stream-extract script blocks without materializing the whole HTML.
           outdir=Path("/tmp/wayward-node-check")
           outdir.mkdir(parents=True,exist_ok=True)
           for old in outdir.glob("script-*.js"):
               old.unlink()
 
-          lower_carry=b""
+          buf=b""
           in_script=False
           script_index=0
           handle=None
+          keep=2048
           with src.open("rb") as f:
               while True:
                   chunk=f.read(CHUNK)
-                  if not chunk: break
-                  data=lower_carry+chunk
-                  cursor=0
-                  lower = data.lower()
+                  if not chunk:
+                      break
+                  buf += chunk
                   while True:
                       if not in_script:
-                          m=re.search(br"<script(?:\s[^>]*)?>", lower[cursor:])
-                          if not m: break
-                          a=cursor+m.start(); b=cursor+m.end()
+                          m=re.search(br"<script\\b[^>]*>",buf,re.I)
+                          if not m:
+                              if len(buf)>keep:
+                                  buf=buf[-keep:]
+                              break
+                          buf=buf[m.end():]
                           script_index+=1
                           handle=(outdir/f"script-{script_index}.js").open("wb")
                           in_script=True
-                          cursor=b
                       else:
-                          m=re.search(br"</script\s*>", lower[cursor:])
+                          m=re.search(br"</script\\s*>",buf,re.I)
                           if not m:
-                              handle.write(data[cursor:])
+                              if len(buf)>keep:
+                                  handle.write(buf[:-keep])
+                                  buf=buf[-keep:]
                               break
-                          a=cursor+m.start()
-                          handle.write(data[cursor:a])
+                          handle.write(buf[:m.start()])
+                          buf=buf[m.end():]
                           handle.close()
                           handle=None
                           in_script=False
-                          cursor=cursor+m.end()
-                  lower_carry=data[-64:] if len(data)>=64 else data
 
           if in_script and handle:
+              handle.write(buf)
               handle.close()
 
           scripts=sorted(outdir.glob("script-*.js"))
@@ -236,26 +238,21 @@ jobs:
               raise SystemExit("EOF_HTML_CLOSE_MISSING")
           print("EOF_STREAM=PASS",total)
 
-          data_checks=[
-              (b"m36-mobile-status-panel",1),
-              (b'hideStats:!1,forceVisibility:!0',1),
-              (b'className:"m36-mobile-tabs',1),
-              (b'wayward-mobile-cleanup-v6',1),
-              (b'children:"물자 채우기"',1),
-              (b'children:"상환"',1),
-              (b'children:"전액"',1)
+          checks=[
+              ("m36-mobile-status-panel",1),
+              ('hideStats:!1,forceVisibility:!0',1),
+              ('className:"m36-mobile-tabs',1),
+              ('wayward-mobile-cleanup-v6',1),
+              ('children:"물자 채우기"',1),
+              ('children:"상환"',1),
+              ('children:"전액"',1)
           ]
-          # Targeted count checks through streaming chunks with overlap.
-          blob=bytearray()
-          # These are tiny source markers, so checking via git grep avoids reading
-          # the HTML into Python memory.
-          for needle,expected in data_checks:
-              p=subprocess.run(["grep","-ao",needle.decode("utf-8"),"Wayward_MOD_v3.36.html"],capture_output=True,text=True)
+          for needle,expected in checks:
+              p=subprocess.run(["grep","-ao",needle,"Wayward_MOD_v3.36.html"],capture_output=True,text=True)
               got=len(p.stdout.splitlines()) if p.stdout else 0
               if got<expected:
                   raise SystemExit(f"MARKER_MISSING {needle!r} got={got}")
           print("TARGETED_MARKERS=PASS")
-
           PY
 
           git status --short
