@@ -1,0 +1,41 @@
+name: tmp-stock-owner-scan
+
+on:
+  push:
+    branches: [mobile-migration-v1]
+
+permissions:
+  contents: read
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Stream stock owners
+        shell: python
+        run: |
+          from pathlib import Path
+          p=Path("Wayward_MOD_v3.36.html")
+          needles=["stock_up","supplyTargets","function x8(","function l5(","function Rw(","function Ki(","function HD()","물자 채우기"]
+          chunk=64*1024
+          for n in needles:
+            nb=n.encode()
+            carry=b""; offset=0; hits=0; shown=0
+            with p.open("rb") as f:
+              while True:
+                c=f.read(chunk)
+                if not c: break
+                d=carry+c; base=offset-len(carry); start=0
+                while True:
+                  i=d.find(nb,start)
+                  if i<0: break
+                  hits+=1
+                  if shown<3:
+                    s=d[max(0,i-700):min(len(d),i+1800)].decode("utf-8",errors="replace").replace("\n"," ")
+                    print(f"NEEDLE={n!r} BYTE={base+i} CONTEXT={s}")
+                    shown+=1
+                  start=i+len(nb)
+                carry=d[-(len(nb)-1):] if len(nb)>1 else b""
+                offset+=len(c)
+            print(f"SUMMARY {n} HITS={hits}")
