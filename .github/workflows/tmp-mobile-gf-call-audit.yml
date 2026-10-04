@@ -1,0 +1,36 @@
+name: tmp-mobile-gf-call-audit
+
+on:
+  push:
+    branches: [mobile-migration-v1]
+
+permissions:
+  contents: write
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Locate GF calls
+        shell: bash
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+          p=Path("Wayward_MOD_v3.36.html"); needle='u.jsx(GF,{})'
+          hits=[]; carry=""; base=0
+          with p.open("r",encoding="utf-8") as f:
+              for line_no,line in enumerate(f,1):
+                  if needle in line:
+                      hits.append((line_no,line[:5000]))
+          print("GF_COUNT",len(hits))
+          for item in hits: print("HIT",item)
+          PY
+      - name: Cleanup
+        shell: bash
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git rm .github/workflows/tmp-mobile-gf-call-audit.yml
+          git commit -m "chore: remove temporary GF call audit"
+          git push
