@@ -17,6 +17,7 @@ jobs:
           ref: mobile-migration-v1
 
       - name: Patch and validate
+        # validation regex corrected
         shell: bash
         run: |
           python3 <<'PY'
