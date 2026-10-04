@@ -103,9 +103,9 @@ jobs:
               "narration":count_stream("mobile-narration")
           }
           print("VERIFY",checks)
-          if checks["status_call"] or checks["gf_calls"]!=1 or checks["cleanup_v5"]!=1: raise SystemExit("LAYOUT_MOVE_FAIL")
+          if checks["status_call"] or checks["gf_calls"]!=2 or checks["cleanup_v5"]!=1: raise SystemExit("LAYOUT_MOVE_FAIL")
           if checks["status_css"] or checks["nav_css"]: raise SystemExit("DEAD_STATUS_CSS_REMAINS")
-          if checks["gf_calls"]!=1 or checks["cleanup_v5"]!=1: raise SystemExit("GF_OR_LAYOUT_FAIL")
+          if checks["gf_calls"]!=2 or checks["cleanup_v5"]!=1: raise SystemExit("GF_OR_LAYOUT_FAIL")
           if checks["status_css"] or checks["nav_css"]: raise SystemExit("DEAD_STATUS_CSS_REMAINS")
 
           # Bounded inline script EOF/syntax validation.
