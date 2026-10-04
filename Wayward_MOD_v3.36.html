@@ -2483,7 +2483,6 @@ function M36MobileStoreStatus(){
       u.jsx("span",{className:"m36-mobile-store-gauge-label",children:bar.label}),
       u.jsx("span",{className:"m36-mobile-store-gauge-track",children:u.jsx("span",{className:"m36-mobile-store-gauge-fill "+bar.tone,style:{width:Math.max(0,Math.min(100,bar.value))+"%"}})})
     ]},bar.key))}),
-    activePatronInteraction&&!activePatronInteraction.playerEngaged&&u.jsx(cOe,{customerName:activePatronInteraction.customerName,crowdNames,wifeName:wife.name,stage:activePatronInteraction.stage,primarySlot:activePatronInteraction.primarySlot,goldEarned:activePatronInteraction.goldEarned??0,dispatch}),
     u.jsx(M36MobileRoomActivity,{room:playerLoc,canSee:!0})
   ]});
 }
