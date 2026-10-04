@@ -1,0 +1,32 @@
+name: tmp-portrait-status-bounded-read
+
+on:
+  push:
+    branches: [mobile-migration-v1]
+
+permissions:
+  contents: write
+
+jobs:
+  read:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Read portrait owner
+        shell: bash
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+          SRC=Path("Wayward_MOD_v3.36.html")
+          with SRC.open("rb") as f:
+              f.seek(18798163-5000)
+              print(f.read(12000).decode("utf-8","replace"))
+          PY
+      - name: Remove temporary read workflow
+        shell: bash
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git rm .github/workflows/tmp-portrait-status-bounded-read.yml
+          git commit -m "chore: remove temporary portrait status bounded read"
+          git push
