@@ -42,10 +42,11 @@ jobs:
                 d=carry+c; z+=d.count(n)
                 carry=d[-(len(n)-1):] if len(n)>1 else b""
             return z
-          for n in needles:
+          expected=[1,1,1,1,2]
+          for n,e in zip(needles,expected):
             c=count(n)
-            print(n,c)
-            if c != 1: raise SystemExit("PLACEMENT_CHECK_FAIL")
+            print(n,c,"expected",e)
+            if c != e: raise SystemExit("PLACEMENT_CHECK_FAIL")
           size=0; tail=b""
           with p.open("rb") as f:
             while True:
