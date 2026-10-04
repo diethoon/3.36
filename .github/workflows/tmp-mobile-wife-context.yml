@@ -1,0 +1,117 @@
+name: tmp-mobile-wife-context
+on:
+  push:
+    branches: [mobile-migration-v1]
+
+permissions:
+  contents: write
+
+jobs:
+  extract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: mobile-migration-v1
+
+      - name: Extract wife detail owners
+        shell: bash
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+
+          src=Path("Wayward_MOD_v3.36.html")
+          out=Path(".github/tmp-mobile-wife-context.txt")
+          CHUNK=64*1024
+          KEEP=32768
+
+          def find_positions(needles):
+              hits={n:[] for n in needles}
+              with src.open("rb") as f:
+                  pos=0; carry=b""
+                  while True:
+                      chunk=f.read(CHUNK)
+                      if not chunk: break
+                      data=carry+chunk; base=pos-len(carry)
+                      for term in needles:
+                          b=term.encode()
+                          start=0
+                          while True:
+                              i=data.find(b,start)
+                              if i<0: break
+                              ap=base+i
+                              if ap not in hits[term]: hits[term].append(ap)
+                              start=i+max(1,len(b))
+                      pos+=len(chunk); carry=data[-KEEP:]
+              return hits
+
+          def extract(path,start,max_bytes=600000):
+              with path.open("rb") as f:
+                  f.seek(start)
+                  buf=bytearray()
+                  depth=0; opened=False; quote=None; esc=False; line=False; block=False
+                  scanned=0
+                  while scanned<max_bytes:
+                      c=f.read(CHUNK)
+                      if not c: break
+                      scanned+=len(c); buf.extend(c)
+                      i=0
+                      while i<len(buf):
+                          x=buf[i]; y=buf[i+1] if i+1<len(buf) else None
+                          if line:
+                              if x==10: line=False
+                              i+=1; continue
+                          if block:
+                              if x==42 and y==47: block=False; i+=2; continue
+                              i+=1; continue
+                          if quote:
+                              if esc: esc=False
+                              elif x==92: esc=True
+                              elif x==quote: quote=None
+                              i+=1; continue
+                          if x in (39,34,96): quote=x; i+=1; continue
+                          if x==47 and y==47: line=True; i+=2; continue
+                          if x==47 and y==42: block=True; i+=2; continue
+                          if x==123: depth+=1; opened=True
+                          elif x==125 and opened:
+                              depth-=1
+                              if depth==0: return bytes(buf[:i+1]).decode("utf-8","replace")
+                          i+=1
+                  return bytes(buf).decode("utf-8","replace")
+
+          needles=[
+            "function rI(",
+            "function fF(",
+            "function eOe(",
+            "function LF(",
+            "function AOe(",
+            "const jOe=",
+            "function s3(",
+            "function M331ActionStatus("
+          ]
+          hits=find_positions(needles)
+          lines=[f"FILE_BYTES={src.stat().st_size}"]
+          for term,poss in hits.items():
+              lines.append(f"\n## {term} POSITIONS={poss}")
+              for p in poss[:3]:
+                  lines.append(f"--- POS {p} ---")
+                  if term.startswith("function "): lines.append(extract(src,p))
+                  else:
+                      with src.open("rb") as f:
+                          f.seek(max(0,p-2000))
+                          lines.append(f.read(12000).decode("utf-8","replace"))
+                  lines.append("--- END ---")
+
+          # Target the specific prose labels so we can reuse existing detail sections rather than inventing data.
+          for term in ["상태","성격","능력치","평판","당신의 뜻에 대한 인식","만남 기록","성향","인식","기록"]:
+              hits2=find_positions([term])[term]
+              lines.append(f"\n## LABEL {term} POSITIONS={hits2[:12]}")
+              for p in hits2[:2]:
+                  with src.open("rb") as f:
+                      f.seek(max(0,p-2500)); lines.append(f.read(9000).decode("utf-8","replace"))
+          out.write_text("\n".join(lines),encoding="utf-8")
+          print(out.stat().st_size)
+          PY
+          git add .github/tmp-mobile-wife-context.txt
+          git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" commit -m "chore: add temporary wife detail context"
+          git push origin mobile-migration-v1
