@@ -1,4 +1,4 @@
-name: Diagnose Elena uOe callsite
+name: Diagnose Elena cOe callsite
 on:
   push:
     branches: [mobile-migration-v1]
@@ -15,13 +15,19 @@ jobs:
         with:
           ref: mobile-migration-v1
           fetch-depth: 1
-      - name: Locate uOe definition and callsites
+      - name: Locate cOe callsites and mobile status render
         shell: bash
         run: |
           python3 <<'PY'
           from pathlib import Path
           p=Path("Wayward_MOD_v3.36.html"); CH=65536
-          needles=[b"function uOe(",b"u.jsx(uOe,",b"u.jsx(uOe,{"] 
+          needles=[
+            b"function cOe(",
+            b"u.jsx(cOe,",
+            b"u.jsx(cOe,{",
+            b"u.jsx(M36MobileStoreStatus,{})",
+            b"function M36MobileRoomActivity("
+          ]
           hits={n:[] for n in needles}; carry=b""; base=0
           with p.open("rb") as f:
             while True:
@@ -38,9 +44,9 @@ jobs:
               carry=d[-keep:] if keep else b""; base+=len(c)
           for n,poses in hits.items():
             print("NEEDLE",n.decode(),"COUNT",len(poses))
-            for off in poses[:30]:
+            for off in poses[:20]:
               with p.open("rb") as f:
-                f.seek(max(0,off-500)); ctx=f.read(len(n)+1200)
+                f.seek(max(0,off-1000)); ctx=f.read(len(n)+2600)
               print("OFFSET",off)
               print(ctx.decode("utf-8","replace"))
           print("HTML_BYTES",p.stat().st_size)
