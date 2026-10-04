@@ -2,6 +2,8 @@ name: tmp-mobile-ux-patch
 on:
   push:
     branches: [mobile-migration-v1]
+  pull_request:
+    branches: [main]
 
 permissions:
   contents: write
@@ -27,22 +29,24 @@ jobs:
               tmp = path.with_suffix(path.suffix + ".tmp")
               count = 0
               carry = b""
+              keep = max(0, len(old) - 1)
               with path.open("rb") as src, tmp.open("wb") as dst:
                   while True:
                       chunk = src.read(CHUNK)
                       if not chunk:
                           break
                       data = carry + chunk
-                      if old in data:
-                          # Keep the tail large enough to cover boundary-spanning markers.
-                          parts = data.split(old)
-                          if len(parts) > 1:
-                              count += len(parts) - 1
-                              dst.write(new.join(parts[:-1]))
-                              carry = parts[-1]
-                              continue
-                      # No replacement in this combined block; emit all but a safe tail.
-                      keep = max(0, len(old) - 1)
+                      cursor = 0
+                      while True:
+                          idx = data.find(old, cursor)
+                          if idx < 0:
+                              break
+                          dst.write(data[cursor:idx])
+                          dst.write(new)
+                          count += 1
+                          cursor = idx + len(old)
+                      if cursor:
+                          data = data[cursor:]
                       if len(data) > keep:
                           dst.write(data[:-keep] if keep else data)
                           carry = data[-keep:] if keep else b""
