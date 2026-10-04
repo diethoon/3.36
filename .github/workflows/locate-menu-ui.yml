@@ -1,0 +1,35 @@
+name: locate-menu-ui
+on:
+  push:
+    branches: [fullscreen-button]
+permissions:
+  contents: read
+jobs:
+  locate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Locate actual menu UI
+        shell: python
+        run: |
+          from pathlib import Path
+          s = Path("Wayward_MOD_v3.36.html").read_text(encoding="utf-8", errors="replace")
+          needles = ["☰", "&#9776;", "menu-button", "menuButton", "toggleMenu", "openMenu"]
+          seen=set()
+          for n in needles:
+              pos=0
+              while True:
+                  i=s.find(n,pos)
+                  if i<0: break
+                  pos=i+len(n)
+                  a=max(0,i-1800); b=min(len(s),i+2200)
+                  c=s[a:b]
+                  if any(x in c for x in ["<button","<div","onclick","addEventListener","aria-label","class=","id="]):
+                      key=i
+                      if key not in seen:
+                          seen.add(key)
+                          print(f"=== MATCH {n!r} OFFSET {i} ===")
+                          print(c)
+                  if len(seen)>=20: break
+              if len(seen)>=20: break
+          print("TOTAL_MATCHES_SHOWN",len(seen))
