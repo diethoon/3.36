@@ -1,0 +1,47 @@
+name: Diagnose Elena cOe exact callsite
+on:
+  push:
+    branches: [mobile-migration-v1]
+    paths:
+      - ".github/workflows/diagnose-elena-coe.yml"
+permissions:
+  contents: read
+jobs:
+  inspect:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: mobile-migration-v1
+          fetch-depth: 1
+      - name: Locate cOe exact callsite
+        shell: bash
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+          p=Path("Wayward_MOD_v3.36.html"); CH=65536
+          needles=[b"function cOe(",b"u.jsx(cOe,",b"u.jsxs(cOe,",b"u.jsx(M36MobileStoreStatus,{})",b"function M36MobileRoomActivity("]
+          hits={n:[] for n in needles}; carry=b""; base=0
+          with p.open("rb") as f:
+            while True:
+              c=f.read(CH)
+              if not c: break
+              d=carry+c; db=base-len(carry)
+              for n in needles:
+                s=0
+                while True:
+                  i=d.find(n,s)
+                  if i<0: break
+                  hits[n].append(db+i); s=i+1
+              keep=max(len(n) for n in needles)-1
+              carry=d[-keep:] if keep else b""; base+=len(c)
+          for n,poses in hits.items():
+            print("NEEDLE",n.decode(),"COUNT",len(poses))
+            for off in poses[:20]:
+              with p.open("rb") as f:
+                f.seek(max(0,off-900)); ctx=f.read(len(n)+3200)
+              print("OFFSET",off)
+              print(ctx.decode("utf-8","replace"))
+          print("HTML_BYTES",p.stat().st_size)
+          PY
