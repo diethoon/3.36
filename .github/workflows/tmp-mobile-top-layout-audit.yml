@@ -1,0 +1,44 @@
+name: tmp-mobile-top-layout-audit
+
+on:
+  push:
+    branches: [mobile-migration-v1]
+
+permissions:
+  contents: write
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Extract bounded top-layout owners
+        shell: bash
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+          SRC=Path("Wayward_MOD_v3.36.html")
+          CHUNK=65536
+          data=bytearray()
+          with SRC.open("rb") as f:
+              while True:
+                  b=f.read(CHUNK)
+                  if not b: break
+                  data.extend(b)
+          s=data.decode("utf-8","replace")
+          for needle in ["function rI(","function eOe(","function mDe(","function AOe(","mobile-main-panel","M36MobilePersistentStatus","m36-mobile-current-activity"]:
+              p=s.find(needle)
+              print("\n=== ",needle," @",p," ===")
+              if p>=0: print(s[max(0,p-3500):p+8500])
+          print("\n=== COMPACT CSS ===")
+          p=s.find("wayward-mobile-cleanup-v4")
+          if p>=0: print(s[max(0,p-500):p+4500])
+          PY
+      - name: Cleanup
+        shell: bash
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git rm .github/workflows/tmp-mobile-top-layout-audit.yml
+          git commit -m "chore: remove temporary top layout audit"
+          git push
