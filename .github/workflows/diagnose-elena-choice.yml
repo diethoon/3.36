@@ -2,7 +2,7 @@ name: Diagnose Elena choice placement
 on:
   push:
     branches: [mobile-migration-v1]
-    paths: [.github/workflows/diagnose-elena-choice.yml]
+    paths:\n      - .github/workflows/diagnose-elena-choice.yml\n      - Wayward_MOD_v3.36.html
 permissions:
   contents: read
 jobs:
