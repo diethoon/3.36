@@ -63,8 +63,8 @@ jobs:
               d.write(carry.replace(needle,replb))
           TMP.replace(SRC)
 
-          for n in ["mobile-action-left","m36-mobile-prep-detail","wayward-mobile-cleanup-v4"]:
-              if count(n)!=1: raise SystemExit("POST "+n)
+          for n,want in [("mobile-action-left",2),("m36-mobile-prep-detail",2),("wayward-mobile-cleanup-v4",1)]:
+              if count(n)!=want: raise SystemExit("POST "+n+" "+str(count(n)))
           if count("m36-mobile-nav-grid")!=1: raise SystemExit("NAV_HIDDEN_ONLY")
           print("BOUNDED_PATCH=PASS")
           PY
