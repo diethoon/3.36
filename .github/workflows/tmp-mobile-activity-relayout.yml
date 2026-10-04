@@ -34,7 +34,7 @@ jobs:
           end_footer=b'})(),W&&y&&u.jsx(fF,{'
           keep_footer=b'W&&y&&u.jsx(fF,{'
 
-          new_functions=b'''function M36MobileStatusPanel(){
+          new_functions='''function M36MobileStatusPanel(){
             const state=re(d=>d.state),proximity=Rt(d=>d.proximityMode),current=vt(state),ids=Object.keys(state.characters);
             const rooms=Yie(state,wx,{proximity}),extra=new Set;
             if(!wx.includes(current))extra.add(current);
@@ -84,7 +84,7 @@ jobs:
               visitors.map(({of,person})=>u.jsx(wOe,{of,person},person.id))
             ]},room))});
           }
-          '''
+          '''.encode("utf-8")
 
           def count_stream(path,needle):
               total=0;carry=b"";k=max(0,len(needle)-1)
