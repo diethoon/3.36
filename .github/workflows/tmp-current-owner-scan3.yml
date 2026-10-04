@@ -1,0 +1,42 @@
+name: tmp-current-owner-scan3
+
+on:
+  push:
+    branches: [mobile-migration-v1]
+
+permissions:
+  contents: read
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Stream owner definitions
+        shell: python
+        run: |
+          from pathlib import Path
+          p=Path("Wayward_MOD_v3.36.html")
+          needles=["function be(","function St(","function rr(","function jF(","function g(","function Oe(","function Y(","function Ye(","function Hn(","function Gn("]
+          chunk=64*1024
+          for n in needles:
+            nb=n.encode()
+            carry=b""
+            offset=0
+            found=0
+            first=None
+            with p.open("rb") as f:
+              while True:
+                c=f.read(chunk)
+                if not c: break
+                d=carry+c
+                base=offset-len(carry)
+                i=d.find(nb)
+                if i>=0:
+                  found+=1
+                  if first is None:
+                    pos=base+i
+                    first=d[max(0,i-350):min(len(d),i+len(nb)+650)].decode("utf-8",errors="replace").replace("\n"," ")
+                carry=d[-(len(nb)-1):] if len(nb)>1 else b""
+                offset+=len(c)
+            print(f"{n} HITS={found} CONTEXT={first or 'NOT_FOUND'}")
