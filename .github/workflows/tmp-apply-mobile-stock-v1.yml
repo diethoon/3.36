@@ -1,0 +1,29 @@
+name: tmp-apply-mobile-stock-v1
+
+on:
+  push:
+    branches: [mobile-migration-v1]
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Apply mobile stock patch
+        run: python tools/m36_mobile_stock_patch.py
+      - name: Validate
+        run: |
+          git diff --check
+          git diff --numstat
+      - name: Commit and cleanup
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add Wayward_MOD_v3.36.html
+          git commit -m "feat(mobile): add compact supply status"
+          git rm tools/m36_mobile_stock_patch.py .github/workflows/tmp-apply-mobile-stock-v1.yml
+          git commit -m "chore: remove temporary stock patch tooling" || true
+          git push
