@@ -1,7 +1,7 @@
 name: tmp-mobile-layout2-main-run2
 on:
   push:
-    branches: [mobile-migration-v1]
+    branches: [main, mobile-migration-v1]
 
 permissions:
   contents: write
