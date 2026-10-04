@@ -93,7 +93,7 @@ jobs:
           if (!s.includes(oldHouse)) throw new Error('House-tab render not found');
           s = s.replace(oldHouse, newHouse);
 
-          const cssAnchor = '</style>\\n<style id="wayward-mobile-stock-v1">';
+          const cssAnchor = '<style id="wayward-mobile-stock-v1">';
           if (!s.includes(cssAnchor)) throw new Error('CSS anchor not found');
           const css = `<style id="wayward-mobile-store-status-v1">
           @media(max-width:1023px){
