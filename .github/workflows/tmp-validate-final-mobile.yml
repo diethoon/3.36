@@ -1,0 +1,151 @@
+name: tmp-validate-final-mobile
+
+on:
+  push:
+    branches: [mobile-migration-v1]
+
+permissions:
+  contents: write
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Stream marker validation
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path=Path("Wayward_MOD_v3.36.html")
+          chunk=65536
+          markers=[
+            "function M36MobileStockStatus(){",
+            "set_supply_target",
+            'type:"pay_debt"',
+            'r==="focus"&&u.jsx(LF,{inline:!0,hideStats:!0,forceVisibility:!0})',
+            "function LF({inline:e=!1,hideStats:U=!1,forceVisibility:Q=!1}={}){",
+            "if(p&&!y&&!Q)return null;",
+            "flex-1 py-1 min-h-[32px]",
+            "mobile-action-panel w-full max-w-[13rem]",
+            '"당신의 뜻에 대한 인식"',
+            '"만남 기록"',
+          ]
+
+          def count(marker):
+              b=marker.encode("utf-8")
+              tail=b""
+              n=0
+              with path.open("rb") as f:
+                  while True:
+                      c=f.read(chunk)
+                      if not c: break
+                      buf=tail+c
+                      i=0
+                      while True:
+                          j=buf.find(b,i)
+                          if j<0: break
+                          n+=1
+                          i=j+1
+                      tail=buf[-max(8192,len(b)+16):]
+              return n
+
+          for m in markers:
+              n=count(m)
+              print("MARKER",m,"COUNT",n)
+              if n<1: raise SystemExit("missing marker: "+m)
+
+          if count("flex-1 py-3 min-h-[44px]"):
+              raise SystemExit("old tall tab remains")
+          if count("mobile-action-panel w-[37%] max-w-[13rem]"):
+              raise SystemExit("old narrow child width remains")
+
+          print("MARKERS=PASS")
+          print("FILE_BYTES",path.stat().st_size)
+          PY
+
+      - name: Diff check
+        run: git diff --check
+
+      - name: Correct streaming inline-script extraction and node check
+        run: |
+          rm -f /tmp/inline_*.js
+          python3 - <<'PY'
+          from pathlib import Path
+
+          src=Path("Wayward_MOD_v3.36.html")
+          CHUNK=65536
+          CLOSE=b"</script>"
+          OPEN=b"<script"
+          carry=b""
+          inside=False
+          current=None
+          idx=0
+          count=0
+
+          with src.open("rb") as f:
+              while True:
+                  c=f.read(CHUNK)
+                  if not c:
+                      break
+                  buf=carry+c
+                  pos=0
+                  while True:
+                      if not inside:
+                          i=buf.find(OPEN,pos)
+                          if i<0:
+                              carry=buf[-7:]
+                              break
+                          gt=buf.find(b">",i+len(OPEN))
+                          if gt<0:
+                              carry=buf[i:]
+                              break
+                          tag=buf[i:gt+1].lower()
+                          pos=gt+1
+                          if b"src=" in tag or b"src =" in tag:
+                              continue
+                          current=Path("/tmp/inline_%03d.js"%idx)
+                          current.touch()
+                          idx+=1
+                          count+=1
+                          inside=True
+                      else:
+                          i=buf.find(CLOSE,pos)
+                          if i<0:
+                              safe_end=max(pos,len(buf)-(len(CLOSE)-1))
+                              if safe_end>pos:
+                                  with current.open("ab") as out:
+                                      out.write(buf[pos:safe_end])
+                              carry=buf[safe_end:]
+                              break
+                          if i>pos:
+                              with current.open("ab") as out:
+                                  out.write(buf[pos:i])
+                          pos=i+len(CLOSE)
+                          current=None
+                          inside=False
+
+          if inside:
+              raise SystemExit("inline script did not reach EOF closing tag")
+          print("INLINE_SCRIPT_COUNT",count)
+          if count<1:
+              raise SystemExit("no inline script extracted")
+          PY
+
+          set -e
+          for f in /tmp/inline_*.js; do
+            node --check "$f" >/tmp/nodecheck.log 2>&1 || { echo "NODE_CHECK_FAIL=$f"; cat /tmp/nodecheck.log; exit 1; }
+          done
+          echo "NODE_CHECK=PASS"
+
+      - name: Finalize clean branch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git reset --soft e00f38d17383d09ae404040b9577dd0732861a3a
+          find .github/workflows -maxdepth 1 -type f -name 'tmp-*' -delete
+          git add -A
+          git diff --cached --quiet && { echo "NO_CHANGES"; exit 0; }
+          git commit -m "fix(mobile): compact prep controls and wife detail tabs"
+          git push origin HEAD:mobile-migration-v1
