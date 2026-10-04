@@ -143,7 +143,7 @@ CSS=r'''<style id="wayward-mobile-cleanup-v7">
 replace_once(OLD_STATUS,NEW_STATUS)
 replace_once(OLD_ROOM,NEW_ROOM)
 replace_once('u.jsx(M36MobileRoomActivity,{})','')
-replace_once('</head>',CSS+'</head>')
+replace_once('</head>',CSS+'\n</head>')
 subprocess.run(["git","diff","--check"],check=True)
 
 out=Path("/tmp/wayward-node-check");out.mkdir(exist_ok=True)
