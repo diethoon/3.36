@@ -1,0 +1,34 @@
+name: tmp-mobile-aoe-line-audit
+
+on:
+  push:
+    branches: [mobile-migration-v1]
+
+permissions:
+  contents: write
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Print bounded AOe lines
+        shell: bash
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+          p=Path("Wayward_MOD_v3.36.html")
+          lines=[]
+          with p.open("r",encoding="utf-8") as f:
+              for i,line in enumerate(f,1):
+                  if 2475<=i<=2495:
+                      print("LINE",i,repr(line[:7000]))
+          PY
+      - name: Cleanup
+        shell: bash
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git rm .github/workflows/tmp-mobile-aoe-line-audit.yml
+          git commit -m "chore: remove temporary AOe line audit"
+          git push
