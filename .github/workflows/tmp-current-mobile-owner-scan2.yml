@@ -1,0 +1,55 @@
+name: tmp-current-mobile-owner-scan2
+
+on:
+  push:
+    branches: [mobile-migration-v1]
+
+permissions:
+  contents: read
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Stream targeted owners without output file
+        shell: python
+        run: |
+          from pathlib import Path
+          p=Path("Wayward_MOD_v3.36.html")
+          needles=[
+            "WaywardMobileStockButton","MobileBar","MobileIie","MobileStatus","MobileLayout",
+            "function ple(","function AOe(){","function HD(){","function rI(","function eOe(",
+            "물자 채우기","영업 준비","현재 위치","오늘 밤","가게 안","진행일",
+            "actionPanelSide","prepStockUpDone","supplyTargets","locations"
+          ]
+          chunk=64*1024
+          context=450
+          for n in needles:
+            first=None
+            hits=0
+            carry=b""
+            offset=0
+            nb=n.encode("utf-8")
+            with p.open("rb") as f:
+              while True:
+                c=f.read(chunk)
+                if not c: break
+                d=carry+c
+                base=offset-len(carry)
+                start=0
+                while True:
+                  i=d.find(nb,start)
+                  if i<0: break
+                  pos=base+i
+                  hits+=1
+                  if first is None:
+                    text=d[max(0,i-context):min(len(d),i+len(nb)+context)].decode("utf-8",errors="replace").replace("\n"," ")
+                    first=(pos,text)
+                  start=i+len(nb)
+                carry=d[-(len(nb)-1):] if len(nb)>1 else b""
+                offset+=len(c)
+            print(f"NEEDLE={n!r} HITS={hits}")
+            if first:
+              print(f"FIRST_BYTE={first[0]}")
+              print(f"CONTEXT={first[1][:900]}")
