@@ -24,7 +24,6 @@ jobs:
           needles=[
             b'function M36MobileRoomActivity(',
             b'm36-mobile-room',
-            b'엘레나가',
             b'goldEarned',
             b'crowdPatronIds',
             b'm36-mobile-store-status'
@@ -44,9 +43,9 @@ jobs:
               keep=max(map(len,needles))-1; carry=d[-keep:]; base+=len(c)
           for n,poses in hits.items():
             print("\n###",n.decode("utf-8","replace"),"COUNT",len(poses))
-            for off in poses[:8]:
+            for off in poses[:6]:
               with p.open('rb') as f:
-                f.seek(max(0,off-4000)); ctx=f.read(len(n)+9000)
+                f.seek(max(0,off-5000)); ctx=f.read(22000)
               print("OFFSET",off)
               print(ctx.decode("utf-8","replace"))
           size=p.stat().st_size
