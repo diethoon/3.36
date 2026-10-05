@@ -17,7 +17,7 @@ jobs:
           python3 - <<'PY'
           from pathlib import Path
           p=Path("Wayward_MOD_v3.36.html")
-          n=b"M33Launchers"; CH=4096; hits=[]; carry=b""; base=0
+          n=b"NPe"; CH=4096; hits=[]; carry=b""; base=0
           with p.open("rb") as f:
               while True:
                   c=f.read(CH)
