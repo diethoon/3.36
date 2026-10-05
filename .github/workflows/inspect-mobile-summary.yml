@@ -1,0 +1,57 @@
+name: Inspect mobile status and room summary
+on:
+  push:
+    branches: [mobile-migration-v1]
+    paths:
+      - ".github/workflows/inspect-mobile-summary.yml"
+permissions:
+  contents: read
+jobs:
+  inspect:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: mobile-migration-v1
+          fetch-depth: 1
+      - name: Stream 64KB bounded inspection
+        shell: bash
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+          p=Path("Wayward_MOD_v3.36.html"); CH=65536
+          needles=[
+            b'function M36MobileStoreStatus(){',
+            b'm36-mobile-store-status-line',
+            b'm36-mobile-store-gauges',
+            b'M36MobileRoomActivity',
+            b'금',
+            b'골드'
+          ]
+          hits={n:[] for n in needles}; carry=b''; base=0
+          with p.open('rb') as f:
+            while True:
+              c=f.read(CH)
+              if not c: break
+              d=carry+c; db=base-len(carry)
+              for n in needles:
+                pos=0
+                while True:
+                  i=d.find(n,pos)
+                  if i<0: break
+                  hits[n].append(db+i); pos=i+1
+              keep=max(map(len,needles))-1
+              carry=d[-keep:]; base+=len(c)
+          for n,poses in hits.items():
+            print("\n###",n.decode("utf-8","replace"),"COUNT",len(poses))
+            for off in poses[:10]:
+              with p.open('rb') as f:
+                f.seek(max(0,off-3500)); ctx=f.read(len(n)+7000)
+              print("OFFSET",off)
+              print(ctx.decode("utf-8","replace"))
+          size=p.stat().st_size
+          with p.open('rb') as f:
+            f.seek(max(0,size-512)); tail=f.read(512)
+          print("\n### EOF",size); print(tail.decode("utf-8","replace"))
+          PY
