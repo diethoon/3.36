@@ -25,14 +25,7 @@ jobs:
           python3 - <<'PY'
           from pathlib import Path
           p=Path("Wayward_MOD_v3.36.html")
-          needles=[
-            b"m34-header .m33-theme-button,.m34-header-control",
-            b"m34-header-control",
-            b"m33-theme-button",
-            b"M36FullscreenButton",
-            b"font-size",
-            b"fontSize",
-          ]
+          needles=[b"M33Theme"]
           CH=4096
           def find_hits(n):
               hits=[]; carry=b""; base=0
