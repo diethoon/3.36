@@ -1,0 +1,15 @@
+name: Bounded room inspect
+on:
+  push:
+    branches:
+      - mobile-migration-v1
+    paths:
+      - ".github/workflows/bounded-room-inspect.yml"
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 -c "from pathlib import Path; p=Path('Wayward_MOD_v3.36.html'); print(p.stat().st_size)"
