@@ -1,34 +1,34 @@
 name: tmp-responsive-icon-size
 on:
-  push:
-    branches: [tmp-responsive-icon-size]
+  pull_request_target:
+    types: [opened, synchronize, reopened]
+    branches: [mobile-migration-v1]
 permissions:
   contents: write
 jobs:
   patch:
-    if: ${{ github.event.head_commit.message == 'temp: trigger responsive icon patch' }}
+    if: github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.head.ref == 'tmp-responsive-icon-size'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           ref: tmp-responsive-icon-size
-          fetch-depth: 2
+          fetch-depth: 1
       - name: Patch from clean base
         shell: bash
         run: |
           set -e
-          git checkout 3530e98e16dd7d3c9095aabf9f645921f118c484 -- Wayward_MOD_v3.36.html
           python3 - <<'PY'
           from pathlib import Path
           path=Path("Wayward_MOD_v3.36.html")
           old=b'.m34-header .m33-theme-button,.m34-header-control{width:36px;height:36px;flex:none;'
           new=b'.m34-header .m33-theme-button,.m34-header-control{width:clamp(28px,8vw,36px);height:clamp(28px,8vw,36px);flex:0 0 clamp(28px,8vw,36px);'
-          chunk=64*1024
+          CH=64*1024
           tmp=path.with_suffix(".html.tmp")
           carry=b""; count=0; keep=len(old)-1
           with path.open("rb") as src, tmp.open("wb") as dst:
               while True:
-                  c=src.read(chunk)
+                  c=src.read(CH)
                   if not c: break
                   data=carry+c; pos=0
                   while True:
@@ -53,4 +53,4 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add Wayward_MOD_v3.36.html
           git commit -m "fix(mobile): make header icons responsive to available width"
-          git push --force origin HEAD:tmp-responsive-icon-size
+          git push origin HEAD:tmp-responsive-icon-size
