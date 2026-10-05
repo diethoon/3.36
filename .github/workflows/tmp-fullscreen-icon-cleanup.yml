@@ -1,0 +1,80 @@
+name: tmp-fullscreen-icon-cleanup
+on:
+  push:
+    branches: [tmp-fullscreen-icon-cleanup]
+permissions:
+  contents: write
+jobs:
+  patch:
+    if: ${{ !startsWith(github.event.head_commit.message, 'fix(mobile): remove fullscreen icon size override') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: tmp-fullscreen-icon-cleanup
+          fetch-depth: 1
+      - name: Remove only fullscreen icon-size override
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          path=Path("Wayward_MOD_v3.36.html")
+          old=b''':fullscreen .m34-header-tools{flex-wrap:nowrap !important;max-width:none !important}
+:fullscreen .m33-launchers{flex-wrap:nowrap !important}
+:fullscreen .m34-system-tools{flex-wrap:nowrap !important}
+:fullscreen .m34-system-tools .m34-header-control{flex:0 0 32px !important;width:32px !important;min-width:32px !important;max-width:32px !important;height:32px !important;min-height:32px !important;max-height:32px !important;padding:0 !important;font-size:20px !important;line-height:1 !important;display:inline-flex !important;align-items:center !important;justify-content:center !important;white-space:nowrap !important}
+
+'''
+          new=b''':fullscreen .m34-header-tools{flex-wrap:nowrap !important;max-width:none !important}
+:fullscreen .m33-launchers{flex-wrap:nowrap !important}
+:fullscreen .m34-system-tools{flex-wrap:nowrap !important}
+
+'''
+          tmp=path.with_suffix(".html.tmp")
+          carry=b""; count=0; keep=len(old)-1; chunk=64*1024
+          with path.open("rb") as src, tmp.open("wb") as dst:
+              while True:
+                  c=src.read(chunk)
+                  if not c: break
+                  data=carry+c
+                  pos=0
+                  while True:
+                      i=data.find(old,pos)
+                      if i<0: break
+                      dst.write(data[pos:i]); dst.write(new)
+                      count+=1; pos=i+len(old)
+                  data=data[pos:]
+                  if len(data)>keep:
+                      dst.write(data[:-keep]); carry=data[-keep:]
+                  else:
+                      carry=data
+              dst.write(carry)
+          if count != 1:
+              tmp.unlink(missing_ok=True)
+              raise SystemExit(f"EXPECTED_EXACTLY_ONE_MATCH got={count}")
+          tmp.replace(path)
+
+          # Verify the exact override is gone; stream the file, never load it whole.
+          remaining=0; total=0; tail=b""
+          with path.open("rb") as f:
+              buf=b""
+              while True:
+                  c=f.read(chunk)
+                  if not c: break
+                  total += len(c)
+                  data=buf+c
+                  remaining += data.count(old)
+                  buf=data[-(len(old)-1):]
+                  tail=(tail+c)[-512:]
+          if remaining != 0:
+              raise SystemExit(f"OVERRIDE_STILL_PRESENT count={remaining}")
+          print(f"VERIFY=PASS bytes={total}")
+          print("EOF_TAIL="+tail.decode("utf-8","replace"))
+          PY
+          git diff --check
+          rm -f .github/workflows/tmp-fullscreen-icon-cleanup.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add Wayward_MOD_v3.36.html .github/workflows/tmp-fullscreen-icon-cleanup.yml
+          git commit -m "fix(mobile): remove fullscreen icon size override"
+          git push origin tmp-fullscreen-icon-cleanup
