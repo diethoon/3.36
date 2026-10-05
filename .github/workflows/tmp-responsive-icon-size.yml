@@ -1,20 +1,19 @@
 name: tmp-responsive-icon-size
 on:
-  pull_request_target:
-    types: [opened, synchronize, reopened]
-    branches: [mobile-migration-v1]
+  push:
+    branches: [tmp-responsive-icon-size]
 permissions:
   contents: write
 jobs:
   patch:
-    if: github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.head.ref == 'tmp-responsive-icon-size'
+    if: github.event.head_commit.message == 'temp: run responsive icon patch'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           ref: tmp-responsive-icon-size
           fetch-depth: 1
-      - name: Patch from clean base
+      - name: Patch
         shell: bash
         run: |
           set -e
@@ -34,8 +33,7 @@ jobs:
                   while True:
                       i=data.find(old,pos)
                       if i<0: break
-                      dst.write(data[pos:i]); dst.write(new)
-                      count+=1; pos=i+len(old)
+                      dst.write(data[pos:i]); dst.write(new); count+=1; pos=i+len(old)
                   data=data[pos:]
                   if len(data)>keep:
                       dst.write(data[:-keep]); carry=data[-keep:]
@@ -46,11 +44,10 @@ jobs:
               tmp.unlink(missing_ok=True)
               raise SystemExit(f"EXPECTED_ONE_MATCH got={count}")
           tmp.replace(path)
-          print("PATCH=PASS")
           PY
           git diff --check
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add Wayward_MOD_v3.36.html
           git commit -m "fix(mobile): make header icons responsive to available width"
-          git push origin HEAD:tmp-responsive-icon-size
+          git push origin tmp-responsive-icon-size
