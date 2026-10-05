@@ -1,0 +1,128 @@
+name: Apply mobile summary patch
+on:
+  push:
+    branches: [mobile-migration-v1]
+    paths: [".github/workflows/apply-mobile-summary.yml"]
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: {ref: mobile-migration-v1, fetch-depth: 1}
+      - name: Patch HTML in 64KB chunks
+        shell: bash
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+          import shutil
+          p=Path("Wayward_MOD_v3.36.html")
+          CH=65536
+          def U(s): return s.encode("utf-8")
+          def R(label,old,new):
+              tmp=p.with_suffix(".tmp"); carry=b""; n=0
+              with p.open("rb") as src,tmp.open("wb") as dst:
+                  while True:
+                      c=src.read(CH)
+                      if not c: break
+                      d=carry+c
+                      safe=max(0,len(d)-(len(old)-1))
+                      part,carry=d[:safe],d[safe:]
+                      n+=part.count(old); part=part.replace(old,new)
+                      dst.write(part)
+                  n+=carry.count(old); carry=carry.replace(old,new); dst.write(carry)
+              if n!=1: tmp.unlink(missing_ok=True); raise SystemExit(f"{label}:{n}")
+              shutil.move(tmp,p); print(label,"=1")
+          R("gauges",
+            U('''  const gauges=[
+    {key:"energy",label:"\uAE30\uB825",value:wifeEnergy,tone:Xl(wifeEnergy)},
+    {key:"mood",label:"\uAE30\uBD84",value:wifeMood,tone:Xl(wifeMood)},
+    {key:"trust",label:"\uC2E0\uB8B0\uB3C4",value:wifeTrust,tone:"bg-blue-400"},
+    {key:"allure",label:"\uC8FC\uBAA9\uB3C4",value:wifeAllure,tone:"bg-purple-400"},
+    {key:"arousal",label:"\uD765\uBD84\uB3C4",value:wifeArousal,tone:"bg-pink-400"}
+  ];'''),
+            U('''  const playerGauges=[
+    {key:"player-energy",label:"\uAE30\uB825",value:playerEnergy,tone:Xl(playerEnergy)},
+    ...(playerMana!==null?[{key:"player-mana",label:"\uB9C8\uB098",value:playerMana,tone:"bg-blue-400"}]:[])
+  ];
+  const gauges=[
+    {key:"energy",label:"\uAE30\uB825",value:wifeEnergy,tone:Xl(wifeEnergy)},
+    {key:"mood",label:"\uAE30\uBD84",value:wifeMood,tone:Xl(wifeMood)},
+    {key:"trust",label:"\uC2E0\uB8B0\uB3C4",value:wifeTrust,tone:"bg-blue-400"},
+    {key:"allure",label:"\uC8FC\uBAA9\uB3C4",value:wifeAllure,tone:"bg-purple-400"},
+    {key:"arousal",label:"\uD765\uBD84\uB3C4",value:wifeArousal,tone:"bg-pink-400"}
+  ];'''))
+          R("player",
+            U('''    u.jsxs("div",{className:"m36-mobile-store-status-line",children:[
+      u.jsx("span",{className:"m36-mobile-store-label",children:"\uB2F9\uC2E0"}),
+      u.jsx("span",{className:"m36-mobile-store-value",children:yOe(state)}),
+      u.jsxs("span",{className:"m36-mobile-store-meta",children:[
+        "\uAE30\uB825 ",playerEnergy,
+        playerMana!==null?u.jsxs(u.Fragment,{children:[" \u00B7 \uB9C8\uB098 ",playerMana]}):null
+      ]})
+    ]}),'''),
+            U('''    u.jsxs("div",{className:"m36-mobile-store-status-line",children:[
+      u.jsx("span",{className:"m36-mobile-store-label",children:"\uB2F9\uC2E0"}),
+      u.jsx("span",{className:"m36-mobile-store-value",children:yOe(state)})
+    ]}),
+    u.jsx("div",{className:"m36-mobile-store-gauges",children:playerGauges.map(bar=>u.jsxs("span",{className:"m36-mobile-store-gauge",children:[
+      u.jsx("span",{className:"m36-mobile-store-gauge-label",children:bar.label}),
+      u.jsx("span",{className:"m36-mobile-store-gauge-track",children:u.jsx("span",{className:"m36-mobile-store-gauge-fill "+bar.tone,style:{width:Math.max(0,Math.min(100,bar.value))+"%"}})})
+    ]},bar.key))}),'''))
+          R("room-count",
+            U('''    u.jsxs("span",{className:"m36-mobile-room-label",children:[gs(room).replace(/^the /," "),u.jsx("span",{className:"text-stone-600",children:String(patrons.length+visitors.length)})]}),'''),
+            U('''    u.jsx("span",{className:"m36-mobile-room-label",children:gs(room).replace(/^the /," ")}),'''))
+          R("room-customer",
+            U('''    patrons.map(customer=>canSee?u.jsx(e3,{customer},customer.id):u.jsxs("span",{className:"text-[0.58rem] text-stone-500 truncate",children:[customer.name]},customer.id)),'''),
+            U('''    patrons.map(customer=>canSee?u.jsx(M36MobileRoomCustomer,{customer},customer.id):u.jsxs("span",{className:"text-[0.58rem] text-stone-500 truncate",children:[customer.name]},customer.id)),'''))
+          R("compact-component",
+            b'function M36MobileRoomActivity({room:targetRoom,canSee:targetCanSee}={}){',
+            U(r'''function M36MobileRoomCustomer({customer:e}){
+  const state=re(x=>x.state),ui=nI(),wife=g(state),active=Y(state),attending=(active?.customerId)===e.id;
+  return u.jsx(Hc,{bare:!0,placement:"side",interactive:!1,width:400,className:"block",content:u.jsx(_Oe,{customer:e}),children:u.jsxs("div",{onMouseEnter:()=>ui.hover({kind:"customer",id:e.id}),onMouseLeave:()=>ui.hover(null),onClick:()=>ui.toggle({kind:"customer",id:e.id}),className:["group flex flex-col items-start gap-0 px-1.5 py-0.5 rounded border cursor-default",ui.isActive("customer",e.id)?"border-stone-600 bg-stone-800/60":"border-transparent hover:border-stone-700 hover:bg-stone-800/60"].join(" "),children:[
+    u.jsxs("div",{className:"flex items-center gap-1.5 min-w-0 w-full",children:[
+      u.jsx("span",{className:"font-medium truncate",children:e.name}),
+      e.tab>0&&u.jsx("span",{className:"text-[0.7rem] text-yellow-600 flex-shrink-0",children:[e.tab,"\uACE8\uB4DC"]})
+    ]}),
+    attending&&u.jsx("span",{className:"text-[0.7rem] text-pink-400 leading-tight",children:(wife.name||"\uC5D8\uB808\uB098")+"\uAC00 \uC751\uB300 \uC911"})
+  ]})})
+}
+''')+b'function M36MobileRoomActivity({room:targetRoom,canSee:targetCanSee}={}){')
+          print("SIZE",p.stat().st_size)
+          with p.open("rb") as f:
+              f.seek(max(0,p.stat().st_size-512)); print(f.read(512).decode("utf-8","replace"))
+          PY
+      - name: Validate syntax
+        shell: bash
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+          import re,subprocess,shutil
+          p=Path("Wayward_MOD_v3.36.html"); out=Path("/tmp/n"); shutil.rmtree(out,ignore_errors=True); out.mkdir()
+          CH=65536; KEEP=2048; buf=b""; active=False; idx=0; h=None
+          with p.open("rb") as f:
+            while True:
+              c=f.read(CH)
+              if not c: break
+              buf+=c
+              while True:
+                if not active:
+                  m=re.search(br"<script\\b[^>]*>",buf,re.I)
+                  if not m:
+                    if len(buf)>KEEP: buf=buf[-KEEP:]
+                    break
+                  buf=buf[m.end():]; idx+=1; h=(out/f"s{idx}.js").open("wb"); active=True
+                else:
+                  m=re.search(br"</script\\s*>",buf,re.I)
+                  if not m:
+                    if len(buf)>KEEP: h.write(buf[:-KEEP]); buf=buf[-KEEP:]
+                    break
+                  h.write(buf[:m.start()]); buf=buf[m.end():]; h.close(); h=None; active=False
+          if active: raise SystemExit("UNTERMINATED")
+          for s in sorted(out.glob("*.js")):
+            r=subprocess.run(["node","--check",str(s)],capture_output=True,text=True)
+            if r.returncode: print(r.stderr); raise SystemExit(1)
+          print("NODE_CHECK=PASS")
+          PY
+          git diff --check
