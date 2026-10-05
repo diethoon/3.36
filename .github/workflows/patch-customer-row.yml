@@ -30,13 +30,13 @@ jobs:
               buf += c
               while True:
                 if not active:
-                  m=re.search(br"<script\\b[^>]*>",buf,re.I)
+                  m=re.search(br"<script\b[^>]*>",buf,re.I)
                   if not m:
                     if len(buf)>KEEP: buf=buf[-KEEP:]
                     break
                   buf=buf[m.end():]; idx += 1; h=(out/f"s{idx}.js").open("wb"); active=True
                 else:
-                  m=re.search(br"</script\\s*>",buf,re.I)
+                  m=re.search(br"</script\s*>",buf,re.I)
                   if not m:
                     if len(buf)>KEEP: h.write(buf[:-KEEP]); buf=buf[-KEEP:]
                     break
