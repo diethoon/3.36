@@ -6,7 +6,6 @@ permissions:
   contents: write
 jobs:
   patch:
-    if: github.event.head_commit.message == 'temp: run responsive icon patch'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -23,6 +22,24 @@ jobs:
           old=b'.m34-header .m33-theme-button,.m34-header-control{width:36px;height:36px;flex:none;'
           new=b'.m34-header .m33-theme-button,.m34-header-control{width:clamp(28px,8vw,36px);height:clamp(28px,8vw,36px);flex:0 0 clamp(28px,8vw,36px);'
           CH=64*1024
+          # Streaming count checks first.
+          def count_pat(pat):
+              count=0; carry=b""; keep=len(pat)-1
+              with path.open("rb") as f:
+                  while True:
+                      c=f.read(CH)
+                      if not c: break
+                      data=carry+c
+                      count += data.count(pat)
+                      carry=data[-keep:] if keep else b""
+              return count
+          old_count=count_pat(old)
+          new_count=count_pat(new)
+          if old_count==0 and new_count==1:
+              print("ALREADY_PATCHED=PASS")
+              raise SystemExit(0)
+          if old_count!=1:
+              raise SystemExit(f"EXPECTED_ONE_OLD got={old_count}")
           tmp=path.with_suffix(".html.tmp")
           carry=b""; count=0; keep=len(old)-1
           with path.open("rb") as src, tmp.open("wb") as dst:
@@ -33,23 +50,27 @@ jobs:
                   while True:
                       i=data.find(old,pos)
                       if i<0: break
-                      dst.write(data[pos:i]); dst.write(new); count+=1; pos=i+len(old)
+                      dst.write(data[pos:i]); dst.write(new)
+                      count+=1; pos=i+len(old)
                   data=data[pos:]
                   if len(data)>keep:
                       dst.write(data[:-keep]); carry=data[-keep:]
                   else:
                       carry=data
               dst.write(carry)
-          if count != 1:
+          if count!=1:
               tmp.unlink(missing_ok=True)
-              raise SystemExit(f"EXPECTED_ONE_MATCH got={count}")
+              raise SystemExit(f"REPLACEMENT_COUNT={count}")
           tmp.replace(path)
+          print("PATCH=PASS")
           PY
           git diff --check
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if git diff --quiet -- Wayward_MOD_v3.36.html; then
+            echo "NO_CHANGE"
+            exit 0
+          fi
           git add Wayward_MOD_v3.36.html
           git commit -m "fix(mobile): make header icons responsive to available width"
           git push origin tmp-responsive-icon-size
-
-# trigger
