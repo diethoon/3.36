@@ -2,8 +2,7 @@ name: tmp-header-forensic-now
 on:
   push:
     branches: [main]
-permissions:
-  contents: write
+permissions: {}
 jobs:
   inspect:
     runs-on: ubuntu-latest
@@ -11,57 +10,30 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: mobile-migration-v1
-          path: mobile
           fetch-depth: 1
-      - uses: actions/checkout@v4
-        with:
-          ref: main
-          path: mainrepo
-          fetch-depth: 1
-      - name: Tiny chunk forensic
+      - name: Tiny fontScale forensic
         shell: bash
-        working-directory: mobile
         run: |
           python3 - <<'PY'
           from pathlib import Path
           p=Path("Wayward_MOD_v3.36.html")
-          needles=[b"M33Theme"]
-          CH=4096
-          def find_hits(n):
-              hits=[]; carry=b""; base=0
-              with p.open("rb") as f:
+          n=b"fontScale"; CH=4096; hits=[]; carry=b""; base=0
+          with p.open("rb") as f:
+              while True:
+                  c=f.read(CH)
+                  if not c: break
+                  d=carry+c; start=base-len(carry); at=0
                   while True:
-                      c=f.read(CH)
-                      if not c: break
-                      d=carry+c
-                      start=base-len(carry)
-                      at=0
-                      while True:
-                          i=d.find(n,at)
-                          if i<0: break
-                          hits.append(start+i); at=i+1
-                      keep=max(0,len(n)-1); carry=d[-keep:] if keep else b""
-                      base += len(c)
-              return hits
-          out=Path("../mainrepo/icon_forensic_tiny.txt")
-          with out.open("w",encoding="utf-8") as w:
-              w.write(f"BYTES={p.stat().st_size}\n")
-              for n in needles:
-                  hits=find_hits(n)
-                  w.write(f"\nNEEDLE={n.decode('utf-8','replace')} HITS={len(hits)}\n")
-                  for pos in hits[:12]:
-                      lo=max(0,pos-600); hi=min(p.stat().st_size,pos+1400)
-                      with p.open("rb") as f:
-                          f.seek(lo); chunk=f.read(hi-lo)
-                      w.write(f"--- {pos} ---\n{chunk.decode('utf-8','replace')}\n")
-          print("TINY_FORENSIC_DONE")
+                      i=d.find(n,at)
+                      if i<0: break
+                      hits.append(start+i); at=i+1
+                  keep=len(n)-1; carry=d[-keep:]
+                  base += len(c)
+          print("BYTES=",p.stat().st_size,"HITS=",len(hits))
+          for pos in hits[:4]:
+              lo=max(0,pos-700); hi=min(p.stat().st_size,pos+1800)
+              with p.open("rb") as f:
+                  f.seek(lo); chunk=f.read(hi-lo)
+              print(f"---OFFSET {pos}---")
+              print(chunk.decode("utf-8","replace"))
           PY
-      - name: Save report
-        working-directory: mainrepo
-        shell: bash
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add icon_forensic_tiny.txt
-          git commit -m "temp: save tiny icon forensic"
-          git push origin HEAD:main
