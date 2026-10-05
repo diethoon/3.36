@@ -69,3 +69,4 @@ jobs:
           git add Wayward_MOD_v3.36.html
           git commit -m "fix(mobile): make header icons responsive to available width"
           git push origin mobile-migration-v1
+# trigger
