@@ -2454,6 +2454,10 @@ function M36MobileStoreStatus(){
   const wifeArousal=Math.round(wife.stats?.arousal??0);
   const wifeTask=jF(wife,state),topFeeling=mf(wife,1).filter(x=>x.intensity>15)[0];
   const feeling=topFeeling?u.koLabel("emotion",topFeeling.emotion):"평온";
+  const playerGauges=[
+    {key:"player-energy",label:"기력",value:playerEnergy,tone:Xl(playerEnergy)},
+    ...(playerMana!==null?[{key:"player-mana",label:"마나",value:playerMana,tone:"bg-blue-400"}]:[])
+  ];
   const gauges=[
     {key:"energy",label:"기력",value:wifeEnergy,tone:Xl(wifeEnergy)},
     {key:"mood",label:"기분",value:wifeMood,tone:Xl(wifeMood)},
@@ -2468,12 +2472,12 @@ function M36MobileStoreStatus(){
     ]}),
     u.jsxs("div",{className:"m36-mobile-store-status-line",children:[
       u.jsx("span",{className:"m36-mobile-store-label",children:"당신"}),
-      u.jsx("span",{className:"m36-mobile-store-value",children:yOe(state)}),
-      u.jsxs("span",{className:"m36-mobile-store-meta",children:[
-        "기력 ",playerEnergy,
-        playerMana!==null?u.jsxs(u.Fragment,{children:[" · 마나 ",playerMana]}):null
-      ]})
+      u.jsx("span",{className:"m36-mobile-store-value",children:yOe(state)})
     ]}),
+    u.jsx("div",{className:"m36-mobile-store-gauges",children:playerGauges.map(bar=>u.jsxs("span",{className:"m36-mobile-store-gauge",children:[
+      u.jsx("span",{className:"m36-mobile-store-gauge-label",children:bar.label}),
+      u.jsx("span",{className:"m36-mobile-store-gauge-track",children:u.jsx("span",{className:"m36-mobile-store-gauge-fill "+bar.tone,style:{width:Math.max(0,Math.min(100,bar.value))+"%"}})})
+    ]},bar.key))}),
     u.jsxs("div",{className:"m36-mobile-store-status-line",children:[
       u.jsx("span",{className:"m36-mobile-store-label",children:wife.name||"엘레나"}),
       u.jsx("span",{className:"m36-mobile-store-value",children:wifeTask}),
@@ -2486,6 +2490,16 @@ function M36MobileStoreStatus(){
     u.jsx(M36MobileRoomActivity,{room:playerLoc,canSee:!0})
   ]});
 }
+function M36MobileRoomCustomer({customer:e}){
+  const state=re(x=>x.state),ui=nI(),wife=g(state),active=Y(state),attending=(active?.customerId)===e.id;
+  return u.jsx(Hc,{bare:!0,placement:"side",interactive:!1,width:400,className:"block",content:u.jsx(_Oe,{customer:e}),children:u.jsxs("div",{onMouseEnter:()=>ui.hover({kind:"customer",id:e.id}),onMouseLeave:()=>ui.hover(null),onClick:()=>ui.toggle({kind:"customer",id:e.id}),className:["group flex flex-col items-start gap-0 px-1.5 py-0.5 rounded border cursor-default",ui.isActive("customer",e.id)?"border-stone-600 bg-stone-800/60":"border-transparent hover:border-stone-700 hover:bg-stone-800/60"].join(" "),children:[
+    u.jsxs("div",{className:"flex items-center gap-1.5 min-w-0 w-full",children:[
+      u.jsx("span",{className:"font-medium truncate",children:e.name}),
+      e.tab>0&&u.jsx("span",{className:"text-[0.7rem] text-yellow-600 flex-shrink-0",children:[e.tab,"\uACE8\uB4DC"]})
+    ]}),
+    attending&&u.jsx("span",{className:"text-[0.7rem] text-pink-400 leading-tight",children:(wife.name||"\uC5D8\uB808\uB098")+"\uAC00 \uC751\uB300 \uC911"})
+  ]})})
+}
 function M36MobileRoomActivity({room:targetRoom,canSee:targetCanSee}={}){
   const state=re(d=>d.state),proximity=Rt(d=>d.proximityMode),current=vt(state),rooms=targetRoom?[targetRoom]:Yie(state,wx,{proximity});
   const sections=rooms.map(room=>{
@@ -2496,8 +2510,8 @@ function M36MobileRoomActivity({room:targetRoom,canSee:targetCanSee}={}){
   }).filter(section=>section.patrons.length>0||section.visitors.length>0);
   if(sections.length===0)return null;
   return u.jsxs("section",{className:"m36-mobile-room-activity shrink-0 min-w-0 px-0 pb-0",children:sections.map(({room,canSee,patrons,visitors})=>u.jsxs("div",{className:"m36-mobile-room-line",children:[
-    u.jsxs("span",{className:"m36-mobile-room-label",children:[gs(room).replace(/^the /," "),u.jsx("span",{className:"text-stone-600",children:String(patrons.length+visitors.length)})]}),
-    patrons.map(customer=>canSee?u.jsx(e3,{customer},customer.id):u.jsxs("span",{className:"text-[0.58rem] text-stone-500 truncate",children:[customer.name]},customer.id)),
+    u.jsx("span",{className:"m36-mobile-room-label",children:gs(room).replace(/^the /," ")}),
+    patrons.map(customer=>canSee?u.jsx(M36MobileRoomCustomer,{customer},customer.id):u.jsxs("span",{className:"text-[0.58rem] text-stone-500 truncate",children:[customer.name]},customer.id)),
     visitors.map(({of,person})=>u.jsx(wOe,{of,person},person.id))
   ]},room))});
 }
