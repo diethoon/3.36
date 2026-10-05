@@ -1,0 +1,69 @@
+name: tmp-responsive-icon-main-runner
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened]
+    branches: [main]
+permissions:
+  contents: write
+jobs:
+  patch:
+    if: github.event.pull_request.head.repo.full_name == github.repository && startsWith(github.event.pull_request.head.ref, 'tmp-responsive-icon-main-runner-')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: mobile-migration-v1
+          fetch-depth: 1
+      - name: Patch responsive header icon sizing
+        shell: bash
+        run: |
+          set -e
+          python3 - <<'PY'
+          from pathlib import Path
+          path=Path("Wayward_MOD_v3.36.html")
+          old=b'.m34-header .m33-theme-button,.m34-header-control{width:36px;height:36px;flex:none;'
+          new=b'.m34-header .m33-theme-button,.m34-header-control{width:clamp(28px,8vw,36px);height:clamp(28px,8vw,36px);flex:0 0 clamp(28px,8vw,36px);'
+          CH=64*1024
+          def count_pat(pat):
+              n=0; carry=b""; keep=len(pat)-1
+              with path.open("rb") as f:
+                  while True:
+                      c=f.read(CH)
+                      if not c: break
+                      d=carry+c; n += d.count(pat)
+                      carry=d[-keep:] if keep else b""
+              return n
+          old_n=count_pat(old); new_n=count_pat(new)
+          if old_n==0 and new_n==1:
+              raise SystemExit("ALREADY_PATCHED")
+          if old_n!=1:
+              raise SystemExit(f"EXPECTED_ONE_OLD got={old_n}, new={new_n}")
+          tmp=path.with_suffix(".html.tmp")
+          carry=b""; hits=0; keep=len(old)-1
+          with path.open("rb") as src, tmp.open("wb") as dst:
+              while True:
+                  c=src.read(CH)
+                  if not c: break
+                  d=carry+c; pos=0
+                  while True:
+                      i=d.find(old,pos)
+                      if i<0: break
+                      dst.write(d[pos:i]); dst.write(new); hits+=1; pos=i+len(old)
+                  d=d[pos:]
+                  if len(d)>keep:
+                      dst.write(d[:-keep]); carry=d[-keep:]
+                  else:
+                      carry=d
+              dst.write(carry)
+          if hits!=1:
+              tmp.unlink(missing_ok=True)
+              raise SystemExit(f"REPLACEMENT_COUNT={hits}")
+          tmp.replace(path)
+          print("PATCH=PASS")
+          PY
+          git diff --check
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add Wayward_MOD_v3.36.html
+          git commit -m "fix(mobile): make header icons responsive to available width"
+          git push origin mobile-migration-v1
