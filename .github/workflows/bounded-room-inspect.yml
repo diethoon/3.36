@@ -1,15 +1,70 @@
-name: Bounded room inspect
+name: Apply mobile room summary
 on:
   push:
-    branches:
-      - mobile-migration-v1
+    branches: [mobile-migration-v1]
     paths:
       - ".github/workflows/bounded-room-inspect.yml"
 permissions:
-  contents: read
+  contents: write
 jobs:
-  inspect:
+  patch:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - run: python3 -c "from pathlib import Path; p=Path('Wayward_MOD_v3.36.html'); print(p.stat().st_size)"
+        with:
+          ref: mobile-migration-v1
+          fetch-depth: 1
+      - run: |
+          python3 scripts/patch_mobile_status.py
+          python3 scripts/patch_mobile_room.py
+      - name: Node syntax check
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+          import re, subprocess
+          p=Path("Wayward_MOD_v3.36.html")
+          CH=65536; KEEP=2048; buf=b""; active=False; idx=0; h=None
+          out=Path("/tmp/node"); out.mkdir(exist_ok=True)
+          with p.open("rb") as f:
+            while True:
+              c=f.read(CH)
+              if not c: break
+              buf+=c
+              while True:
+                if not active:
+                  m=re.search(br'<script\b[^>]*>',buf,re.I)
+                  if not m:
+                    if len(buf)>KEEP: buf=buf[-KEEP:]
+                    break
+                  buf=buf[m.end():]; idx+=1; h=(out/f"s{idx}.js").open("wb"); active=True
+                else:
+                  m=re.search(br'</script\s*>',buf,re.I)
+                  if not m:
+                    if len(buf)>KEEP: h.write(buf[:-KEEP]); buf=buf[-KEEP:]
+                    break
+                  h.write(buf[:m.start()]); buf=buf[m.end():]; h.close(); h=None; active=False
+          if active: raise SystemExit("UNTERMINATED")
+          for s in sorted(out.glob("*.js")):
+            r=subprocess.run(["node","--check",str(s)],capture_output=True,text=True)
+            if r.returncode: print(r.stderr); raise SystemExit(1)
+          print("NODE_CHECK=PASS")
+          PY
+          git diff --check
+      - name: EOF check
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path("Wayward_MOD_v3.36.html")
+          with p.open("rb") as f:
+            f.seek(max(0,p.stat().st_size-512))
+            tail=f.read(512)
+          print("EOF",tail.decode("utf-8","replace"))
+          assert tail.endswith(b"END_WAYWARD_MOD_EXTENSION_GUIDE -->\n")
+          PY
+      - name: Commit HTML
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add Wayward_MOD_v3.36.html
+          git commit -m "Refine mobile status and room summaries"
+          git push origin HEAD:mobile-migration-v1
