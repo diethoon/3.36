@@ -12,9 +12,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          ref: mobile-migration-v1
-          fetch-depth: 1
+        with: {ref: mobile-migration-v1, fetch-depth: 1}
       - name: Stream bounded inspection
         shell: bash
         run: |
@@ -23,10 +21,11 @@ jobs:
           p=Path("Wayward_MOD_v3.36.html"); CH=65536
           needles=[
             b'function M36MobileRoomActivity(',
-            b'm36-mobile-room',
-            b'goldEarned',
-            b'crowdPatronIds',
-            b'm36-mobile-store-status'
+            b'function e3(',
+            b'function wOe(',
+            b'm36-mobile-room-line',
+            b'm36-mobile-room-label',
+            b'm36-mobile-store-gauges'
           ]
           hits={n:[] for n in needles}; carry=b''; base=0
           with p.open('rb') as f:
@@ -43,9 +42,9 @@ jobs:
               keep=max(map(len,needles))-1; carry=d[-keep:]; base+=len(c)
           for n,poses in hits.items():
             print("\n###",n.decode("utf-8","replace"),"COUNT",len(poses))
-            for off in poses[:6]:
+            for off in poses[:4]:
               with p.open('rb') as f:
-                f.seek(max(0,off-5000)); ctx=f.read(22000)
+                f.seek(max(0,off-2500)); ctx=f.read(11000)
               print("OFFSET",off)
               print(ctx.decode("utf-8","replace"))
           size=p.stat().st_size
