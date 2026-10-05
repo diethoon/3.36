@@ -2,8 +2,6 @@ name: Patch customer row
 on:
   push:
     branches: [mobile-migration-v1]
-    paths:
-      - ".patch-customer-row-trigger"
 permissions:
   contents: write
 jobs:
