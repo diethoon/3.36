@@ -1,0 +1,39 @@
+name: inspect-right-status
+on:
+  pull_request:
+    branches:
+      - mobile-migration-v1
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: extract
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          s=Path("Wayward_MOD_v3.36.html").read_text(encoding="utf-8")
+          scripts=re.findall(r"<script(?:[^>]*)>(.*?)</script>",s,re.S)
+          script=next((x for x in scripts if "M36MobileStoreStatus" in x),None)
+          if script is None: raise SystemExit("target script not found")
+          def fn(name):
+              i=script.find("function "+name+"(")
+              if i<0:return "NOT FOUND "+name
+              b=script.find("{",i); d=0
+              for j in range(b,len(script)):
+                  if script[j]=="{": d+=1
+                  elif script[j]=="}":
+                      d-=1
+                      if d==0:return script[i:j+1]
+              return "UNTERMINATED "+name
+          for name in ["M36MobileStoreStatus","M36MobileRoomActivity","AOe"]:
+              print("\n=== FUNCTION "+name+" ===\n"+fn(name))
+          for needle in ["M36MobileStoreStatus","M36MobileRoomActivity"]:
+              print("\n=== OCCURRENCES "+needle+" ===")
+              for k,m in enumerate(re.finditer(re.escape(needle),script)):
+                  i=m.start()
+                  print("\n-- %d @ %d --\n%s"%(k,i,script[max(0,i-1200):i+2400]))
+          PY
