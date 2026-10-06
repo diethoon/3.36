@@ -1,7 +1,7 @@
 name: temporary mobile header size patch via PR
 on:
   pull_request_target:
-    types: [opened]
+    types: [opened, edited]
     branches: [main]
 permissions:
   contents: write
