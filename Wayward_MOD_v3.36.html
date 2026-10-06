@@ -2445,7 +2445,7 @@ function M36MobilePersistentStatus(){
   ]});
 }
 function M36MobileStoreStatus({showAllRooms=false}={}){
-  const state=re(d=>d.state),dispatch=re(d=>d.dispatch),wife=g(state),playerLoc=re(d=>be(d.state)),activePatronInteraction=G9(state),crowdNames=((activePatronInteraction?.crowdPatronIds??[]).map(id=>state.customers.find(customer=>customer.id===id)?.name).filter(Boolean));
+  const state=re(d=>d.state),dispatch=re(d=>d.dispatch),wife=g(state),playerLoc=re(d=>vt(d.state)),activePatronInteraction=G9(state),crowdNames=((activePatronInteraction?.crowdPatronIds??[]).map(id=>state.customers.find(customer=>customer.id===id)?.name).filter(Boolean));
   const playerEnergy=Math.round(state.player?.stats?.energy??0);
   const playerMagic=state.player?.magic;
   const playerMana=playerMagic?.grimoireFound?Math.round(po(playerMagic)):null;
