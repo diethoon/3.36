@@ -1,0 +1,24 @@
+name: right-store-customer-patch
+on:
+  push:
+    branches: [tmp-right-ui-patch]
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: apply patch
+        run: python3 .github/right_store_customer_patch.py
+      - name: verify and commit
+        run: |
+          git config user.name "diethoon"
+          git config user.email "jhy67439787@gmail.com"
+          git diff --numstat
+          git diff -- Wayward_MOD_v3.36.html | head -n 120
+          git add Wayward_MOD_v3.36.html
+          git commit -m "fix(mobile): mirror store status and customer actions on right"
+          git push origin HEAD:tmp-right-ui-patch
