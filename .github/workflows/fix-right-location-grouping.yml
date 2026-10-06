@@ -1,0 +1,137 @@
+name: fix-right-location-grouping
+on:
+  pull_request:
+    branches:
+      - mobile-migration-v1
+permissions:
+  contents: write
+jobs:
+  patch:
+    if: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+          fetch-depth: 0
+          persist-credentials: true
+      - name: patch validate and clean
+        env:
+          HEAD_BRANCH: ${{ github.event.pull_request.head.ref }}
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          p=Path("Wayward_MOD_v3.36.html")
+          data=p.read_text(encoding="utf-8")
+
+          def replace_between(text,start_marker,end_marker,replacement,label):
+              i=text.find(start_marker)
+              if i<0: raise SystemExit(f"{label}: start not found")
+              j=text.find(end_marker,i)
+              if j<0: raise SystemExit(f"{label}: end not found")
+              return text[:i]+replacement+text[j:]
+
+          new_status='''function M36MobileStoreStatus({showAllRooms=false}={}){
+            const state=re(d=>d.state),dispatch=re(d=>d.dispatch),wife=g(state),playerLoc=re(d=>vt(d.state)),wifeLoc=re(d=>be(d.state)),activePatronInteraction=G9(state),crowdNames=((activePatronInteraction?.crowdPatronIds??[]).map(id=>state.customers.find(customer=>customer.id===id)?.name).filter(Boolean));
+            const playerEnergy=Math.round(state.player?.stats?.energy??0);
+            const playerMagic=state.player?.magic;
+            const playerMana=playerMagic?.grimoireFound?Math.round(po(playerMagic)):null;
+            const wifeEnergy=Math.round(wife.stats?.energy??0),wifeMood=Math.round(wife.stats?.mood??0);
+            const wifeTrust=Math.round(wife.relationship?.trust??0),wifeAllure=Math.round(vr(wife));
+            const wifeArousal=Math.round(wife.stats?.arousal??0);
+            const wifeTask=jF(wife,state),topFeeling=mf(wife,1).filter(x=>x.intensity>15)[0];
+            const feeling=topFeeling?u.koLabel("emotion",topFeeling.emotion):"평온";
+            const wifeRoomCount=1+state.customers.filter(customer=>Zi(customer)&&ht(state,customer.id)===wifeLoc).length+b7(state,wifeLoc).length+m315StaffAt(state,wifeLoc).length;
+            const playerGauges=[
+              {key:"player-energy",label:"기력",value:playerEnergy,tone:Xl(playerEnergy)},
+              ...(playerMana!==null?[{key:"player-mana",label:"마나",value:playerMana,tone:"bg-blue-400"}]:[])
+            ];
+            const gauges=[
+              {key:"energy",label:"기력",value:wifeEnergy,tone:Xl(wifeEnergy)},
+              {key:"mood",label:"기분",value:wifeMood,tone:Xl(wifeMood)},
+              {key:"trust",label:"신뢰도",value:wifeTrust,tone:"bg-blue-400"},
+              {key:"allure",label:"주목도",value:wifeAllure,tone:"bg-purple-400"},
+              {key:"arousal",label:"흥분도",value:wifeArousal,tone:"bg-pink-400"}
+            ];
+            return u.jsxs("section",{className:"m36-mobile-store-status",children:[
+              u.jsxs("div",{className:"m36-mobile-store-status-line",children:[
+                u.jsx("span",{className:"m36-mobile-store-label",children:gs(playerLoc).replace(/^the /,"")}),
+                u.jsx("span",{className:"m36-mobile-store-value",children:"현재 위치"})
+              ]}),
+              u.jsxs("div",{className:"m36-mobile-store-status-line",children:[
+                u.jsx("span",{className:"m36-mobile-store-label",children:"당신"}),
+                u.jsx("span",{className:"m36-mobile-store-value",children:yOe(state)})
+              ]}),
+              u.jsx("div",{className:"m36-mobile-store-gauges",children:playerGauges.map(bar=>u.jsxs("span",{className:"m36-mobile-store-gauge",children:[
+                u.jsx("span",{className:"m36-mobile-store-gauge-label",children:bar.label}),
+                u.jsx("span",{className:"m36-mobile-store-gauge-track",children:u.jsx("span",{className:"m36-mobile-store-gauge-fill "+bar.tone,style:{width:Math.max(0,Math.min(100,bar.value))+"%"}})})
+              ]},bar.key))}),
+              wifeLoc!==playerLoc&&u.jsxs("div",{className:"m36-mobile-store-status-line",children:[
+                u.jsx("span",{className:"m36-mobile-store-label",children:gs(wifeLoc).replace(/^the /,"")}),
+                u.jsx("span",{className:"m36-mobile-store-value",children:wifeRoomCount})
+              ]}),
+              u.jsxs("div",{className:"m36-mobile-store-status-line",children:[
+                u.jsx("span",{className:"m36-mobile-store-label",children:wife.name||"엘레나"}),
+                u.jsx("span",{className:"m36-mobile-store-value",children:wifeTask}),
+                u.jsx("span",{className:"m36-mobile-store-meta",children:feeling})
+              ]}),
+              u.jsx("div",{className:"m36-mobile-store-gauges",children:gauges.map(bar=>u.jsxs("span",{className:"m36-mobile-store-gauge",children:[
+                u.jsx("span",{className:"m36-mobile-store-gauge-label",children:bar.label}),
+                u.jsx("span",{className:"m36-mobile-store-gauge-track",children:u.jsx("span",{className:"m36-mobile-store-gauge-fill "+bar.tone,style:{width:Math.max(0,Math.min(100,bar.value))+"%"}})})
+              ]},bar.key))}),
+              u.jsx(M36MobileRoomActivity,{room:playerLoc,canSee:!0,showAllRooms,mergePeopleRooms:showAllRooms})
+            ]});
+          }
+          '''
+
+          new_activity='''function M36MobileRoomActivity({room:targetRoom,canSee:targetCanSee,showAllRooms=false,mergePeopleRooms=false}={}){
+            const state=re(d=>d.state),proximity=Rt(d=>d.proximityMode),current=vt(state),playerLoc=mergePeopleRooms?vt(state):null,wifeLoc=mergePeopleRooms?be(state):null;
+            const baseRooms=showAllRooms?[...Xi]:(targetRoom?[targetRoom]:Yie(state,wx,{proximity}));
+            const rooms=mergePeopleRooms?[...new Set([playerLoc,wifeLoc,...baseRooms])].filter(Boolean):baseRooms;
+            const activePatronInteraction=Y(state),wife=g(state);
+            const sections=rooms.map(room=>{
+              const canSee=targetCanSee??(room===current||!proximity);
+              const patrons=state.customers.filter(customer=>Zi(customer)&&ht(state,customer.id)===room);
+              const visitors=b7(state,room);
+              return {room,canSee,patrons,visitors};
+            }).filter(section=>section.patrons.length>0||section.visitors.length>0);
+            if(sections.length===0)return null;
+            return u.jsxs("section",{className:"m36-mobile-room-activity shrink-0 min-w-0 px-0 pb-0",children:sections.map(({room,canSee,patrons,visitors})=>{
+              const mergedWithPeople=mergePeopleRooms&&(room===playerLoc||room===wifeLoc);
+              return u.jsxs("div",{className:"m36-mobile-room-line",children:[
+                !mergedWithPeople&&u.jsx("span",{className:"m36-mobile-room-label",children:gs(room).replace(/^the /," ")}),
+                patrons.map(customer=>canSee?u.jsx(M36MobileRoomCustomer,{customer,interaction:activePatronInteraction,wife},customer.id):u.jsxs("span",{className:"text-[0.58rem] text-stone-500 truncate",children:[customer.name]},customer.id)),
+                visitors.map(({of,person})=>u.jsx(wOe,{of,person},person.id))
+              ]},room);
+            })});
+          }
+          '''
+
+          data=replace_between(data,"function M36MobileStoreStatus(","function M36MobileRoomCustomer",new_status,"store status")
+          data=replace_between(data,"function M36MobileRoomActivity(","function M36MobileCurrentActivity",new_activity,"room activity")
+          p.write_text(data,encoding="utf-8")
+
+          s=data
+          scripts=re.findall(r"<script(?:[^>]*)>(.*?)</script>",s,re.S)
+          target=next((x for x in scripts if "function AOe(" in x and "function M36MobileStoreStatus(" in x),None)
+          if target is None: raise SystemExit("main JS block not found")
+          Path("/tmp/wayward-main.js").write_text(target,encoding="utf-8")
+          for required in [
+              'wifeLoc=re(d=>be(d.state))',
+              'wifeLoc!==playerLoc',
+              'mergePeopleRooms:showAllRooms',
+              'const rooms=mergePeopleRooms?'
+          ]:
+              if required not in target: raise SystemExit("missing patch marker: "+required)
+          PY
+          node --check /tmp/wayward-main.js
+          git diff --check -- Wayward_MOD_v3.36.html
+          git diff --stat fff23e1d8a4bb8460ac59497721418196a389179 -- Wayward_MOD_v3.36.html
+          git diff -- Wayward_MOD_v3.36.html
+          git config user.name "diethoon"
+          git config user.email "jhy67439787@gmail.com"
+          git add Wayward_MOD_v3.36.html
+          git rm -f .github/workflows/fix-right-location-grouping.yml
+          git commit -m "fix(mobile): group right status by player and wife location"
+          git push origin "HEAD:$HEAD_BRANCH"
