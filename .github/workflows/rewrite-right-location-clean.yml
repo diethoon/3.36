@@ -1,0 +1,46 @@
+name: rewrite-right-location-clean
+on:
+  pull_request:
+    branches:
+      - mobile-migration-v1
+permissions:
+  contents: write
+jobs:
+  rewrite:
+    if: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+      - name: rewrite clean history
+        run: |
+          git fetch origin fff23e1d8a4bb8460ac59497721418196a389179 bbbaa61
+          git diff fff23e1d8a4bb8460ac59497721418196a389179 bbbaa61 -- Wayward_MOD_v3.36.html > /tmp/fix.patch
+          git checkout -B clean-work fff23e1d8a4bb8460ac59497721418196a389179
+          git apply /tmp/fix.patch
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          s=Path("Wayward_MOD_v3.36.html").read_text(encoding="utf-8")
+          script=next((x for x in re.findall(r"<script(?:[^>]*)>(.*?)</script>",s,re.S) if "function AOe(" in x and "function M36MobileStoreStatus(" in x),None)
+          if script is None: raise SystemExit("main JS block not found")
+          Path("/tmp/wayward-main.js").write_text(script,encoding="utf-8")
+          required=[
+            'wifeLoc=re(d=>be(d.state))',
+            'wifeLoc!==playerLoc',
+            'mergePeopleRooms:showAllRooms',
+            'const rooms=mergePeopleRooms?[...new Set([playerLoc,wifeLoc,...baseRooms])]'
+          ]
+          for marker in required:
+              if marker not in script: raise SystemExit("missing marker: "+marker)
+          PY
+          node --check /tmp/wayward-main.js
+          git diff --check -- Wayward_MOD_v3.36.html
+          git diff --stat fff23e1d8a4bb8460ac59497721418196a389179 -- Wayward_MOD_v3.36.html
+          git config user.name "diethoon"
+          git config user.email "jhy67439787@gmail.com"
+          git add Wayward_MOD_v3.36.html
+          git commit -m "fix(mobile): group right status by player and wife location"
+          git push origin HEAD:mobile-migration-v1 --force
