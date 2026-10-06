@@ -19,24 +19,10 @@ jobs:
           scripts=re.findall(r"<script(?:[^>]*)>(.*?)</script>",s,re.S)
           script=next((x for x in scripts if "function AOe(" in x and "function M36MobileStoreStatus(" in x),None)
           if script is None: raise SystemExit("main JS not found")
-          def fn(name):
-              marker=f"function {name}("
-              i=script.find(marker)
-              if i<0:return "NOT FOUND "+name
-              close=script.find("){",i)
-              if close<0:return script[i:i+500]
-              b=close+1; d=0
-              for j in range(b,len(script)):
-                  if script[j]=="{": d+=1
-                  elif script[j]=="}":
-                      d-=1
-                      if d==0:return script[i:j+1]
-              return "UNTERMINATED "+name
-          for name in ["M36MobileStoreStatus","M36MobileRoomActivity","AOe","M36MobilePersistentStatus","eOe","be","Hn","Ce","ht"]:
-              print("\n=== "+name+" ===\n"+fn(name))
-          for needle in ["M36MobileStoreStatus","M36MobilePersistentStatus","M36MobileStatusLabel","m36-mobile-store-status","u.jsx(M36MobileStoreStatus","u.jsx(M36MobilePersistentStatus","playerLoc=be(state)","playerLoc=re(d=>be(d.state))"]:
-              print("\n=== SEARCH "+needle+" ===")
-              for k,m in enumerate(re.finditer(re.escape(needle),script)):
-                  i=m.start()
-                  print(f"\n-- {k} @ {i} --\n"+script[max(0,i-1300):i+2600])
+          for needle in ["M36MobilePersistentStatus","M36MobileStoreStatus","function re(","const re=","let re=","var re=","const Me=","let Me=","var Me=","Me=","playerLoc=be(state)","playerLoc=re(d=>be(d.state))","return Hn(e,Me)","function Bt("]:
+              print("\n=== "+needle+" ===")
+              hits=[m.start() for m in re.finditer(re.escape(needle),script)]
+              print("COUNT",len(hits))
+              for k,i in enumerate(hits[:20]):
+                  print(f"\n-- {k} @ {i} --\n"+script[max(0,i-1800):i+3200])
           PY
