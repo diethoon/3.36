@@ -1,18 +1,16 @@
 name: finalize-wife-location
 on:
-  pull_request:
+  push:
     branches:
-      - mobile-migration-v1
+      - fix-player-location-right-status
 permissions:
   contents: write
 jobs:
   patch:
-    if: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.pull_request.head.ref }}
           fetch-depth: 0
           persist-credentials: true
       - name: patch from clean base
