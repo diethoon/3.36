@@ -1,0 +1,27 @@
+name: inspect-store-tab-locations
+on:
+  pull_request:
+    branches:
+      - mobile-migration-v1
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: extract
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          s=Path("Wayward_MOD_v3.36.html").read_text(encoding="utf-8")
+          scripts=re.findall(r"<script(?:[^>]*)>(.*?)</script>",s,re.S)
+          script=next((x for x in scripts if "function AOe(" in x and "function M36MobileStoreStatus(" in x),None)
+          if script is None: raise SystemExit("main JS not found")
+          for needle in ["function M36MobileStoreStatus(","function M36MobilePersistentStatus(","function eOe(","M36MobileStatusLabel(","className:"+"m36-mobile-store-status-line","wifeLoc","vt(state)","be(state)","gs(wifeLoc)","gs(playerLoc)"]:
+              print("\n=== SEARCH "+needle+" ===")
+              for k,m in enumerate(re.finditer(re.escape(needle),script)):
+                  i=m.start()
+                  print(f"\n-- {k} @ {i} --\n"+script[max(0,i-1600):i+5000])
+          PY
