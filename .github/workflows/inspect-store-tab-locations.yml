@@ -19,9 +19,10 @@ jobs:
           scripts=re.findall(r"<script(?:[^>]*)>(.*?)</script>",s,re.S)
           script=next((x for x in scripts if "function AOe(" in x and "function M36MobileStoreStatus(" in x),None)
           if script is None: raise SystemExit("main JS not found")
-          for needle in ["function M36MobileStoreStatus(","function M36MobilePersistentStatus(","function eOe(","M36MobileStatusLabel(","className:"+"m36-mobile-store-status-line","wifeLoc","vt(state)","be(state)","gs(wifeLoc)","gs(playerLoc)"]:
-              print("\n=== SEARCH "+needle+" ===")
-              for k,m in enumerate(re.finditer(re.escape(needle),script)):
-                  i=m.start()
-                  print(f"\n-- {k} @ {i} --\n"+script[max(0,i-1600):i+5000])
+          for needle in ["가게 안","현재 위치","홀1","엘레나대기","욕실1","시구르드","M36MobileStore","m36-mobile-store-status","function s3(","function wOe("]:
+              print("\n=== "+needle+" ===")
+              hits=[m.start() for m in re.finditer(re.escape(needle),script)]
+              print("COUNT",len(hits))
+              for k,i in enumerate(hits[:12]):
+                  print(f"\n-- {k} @ {i} --\n"+script[max(0,i-2400):i+5000])
           PY
