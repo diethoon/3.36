@@ -21,4 +21,4 @@ jobs:
           git diff -- Wayward_MOD_v3.36.html | head -n 120
           git add Wayward_MOD_v3.36.html
           git commit -m "fix(mobile): mirror store status and customer actions on right"
-          git push origin HEAD:tmp-right-ui-patch
+          git push origin HEAD:tmp-right-ui-patch --force
