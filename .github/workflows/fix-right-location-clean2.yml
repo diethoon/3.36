@@ -24,39 +24,19 @@ jobs:
           import re
           p=Path("Wayward_MOD_v3.36.html")
           data=p.read_bytes()
-
           def replace_once(data, old, new, label):
               n=data.count(old)
               print(label, n)
-              if n != 1:
-                  raise SystemExit(f"{label}: expected 1, got {n}")
+              if n != 1: raise SystemExit(f"{label}: expected 1, got {n}")
               return data.replace(old,new,1)
-
-          data=replace_once(
-              data,
-              b'const state=re(d=>d.state),dispatch=re(d=>d.dispatch),wife=g(state),playerLoc=re(d=>vt(d.state)),activePatronInteraction=G9(state),',
-              b'const state=re(d=>d.state),dispatch=re(d=>d.dispatch),wife=g(state),playerLoc=re(d=>vt(d.state)),wifeLoc=re(d=>be(d.state)),activePatronInteraction=G9(state),',
-              'wife live location'
-          )
-          data=replace_once(
-              data,
-              b'  const feeling=topFeeling?u.koLabel("emotion",topFeeling.emotion):"평온";\n',
-              b'  const feeling=topFeeling?u.koLabel("emotion",topFeeling.emotion):"평온";\n  const wifeRoomCount=1+state.customers.filter(customer=>Zi(customer)&&ht(state,customer.id)===wifeLoc).length+b7(state,wifeLoc).length+m315StaffAt(state,wifeLoc).length;\n',
-              'wife room count'
-          )
-          data=replace_once(
-              data,
-              b'    u.jsx(M36MobileRoomActivity,{room:playerLoc,canSee:!0,showAllRooms})',
-              b'    u.jsx(M36MobileRoomActivity,{room:playerLoc,canSee:!0,showAllRooms,mergePeopleRooms:showAllRooms})',
-              'room activity props'
-          )
-
-          start=b'function M36MobileRoomActivity('
-          end=b'function M36MobileCurrentActivity('
-          i=data.find(start)
-          j=data.find(end,i)
+          data=replace_once(data,b'const state=re(d=>d.state),dispatch=re(d=>d.dispatch),wife=g(state),playerLoc=re(d=>vt(d.state)),activePatronInteraction=G9(state),',b'const state=re(d=>d.state),dispatch=re(d=>d.dispatch),wife=g(state),playerLoc=re(d=>vt(d.state)),wifeLoc=re(d=>be(d.state)),activePatronInteraction=G9(state),','wife live location')
+          data=replace_once(data,b'  const feeling=topFeeling?u.koLabel("emotion",topFeeling.emotion):"평온";
+',b'  const feeling=topFeeling?u.koLabel("emotion",topFeeling.emotion):"평온";
+  const wifeRoomCount=1+state.customers.filter(customer=>Zi(customer)&&ht(state,customer.id)===wifeLoc).length+b7(state,wifeLoc).length+m315StaffAt(state,wifeLoc).length;
+','wife room count')
+          data=replace_once(data,b'    u.jsx(M36MobileRoomActivity,{room:playerLoc,canSee:!0,showAllRooms})',b'    u.jsx(M36MobileRoomActivity,{room:playerLoc,canSee:!0,showAllRooms,mergePeopleRooms:showAllRooms})','room activity props')
+          start=b'function M36MobileRoomActivity('; end=b'function M36MobileCurrentActivity('; i=data.find(start); j=data.find(end,i)
           if i<0 or j<0: raise SystemExit('room activity markers missing')
-          old=data[i:j]
           new=b'''function M36MobileRoomActivity({room:targetRoom,canSee:targetCanSee,showAllRooms=false,mergePeopleRooms=false}={}){
             const state=re(d=>d.state),proximity=Rt(d=>d.proximityMode),current=vt(state),playerLoc=mergePeopleRooms?vt(state):null,wifeLoc=mergePeopleRooms?be(state):null;
             const baseRooms=showAllRooms?[...Xi]:(targetRoom?[targetRoom]:Yie(state,wx,{proximity}));
@@ -78,11 +58,8 @@ jobs:
               ]},room);
             })});
           }
-          '''
-          print('room activity bytes',len(old),len(new))
+'''
           data=data[:i]+new+data[j:]
-
-          # Insert the wife-room header immediately before the wife row.
           marker=b'''    u.jsxs("div",{className:"m36-mobile-store-status-line",children:[
       u.jsx("span",{className:"m36-mobile-store-label",children:wife.name||"엘레나"}),'''
           replacement=b'''    wifeLoc!==playerLoc&&u.jsxs("div",{className:"m36-mobile-store-status-line",children:[
@@ -92,9 +69,7 @@ jobs:
     u.jsxs("div",{className:"m36-mobile-store-status-line",children:[
       u.jsx("span",{className:"m36-mobile-store-label",children:wife.name||"엘레나"}),'''
           data=replace_once(data,marker,replacement,'wife room header')
-
           p.write_bytes(data)
-
           s=data.decode("utf-8")
           script=next((x for x in re.findall(r"<script(?:[^>]*)>(.*?)</script>",s,re.S) if "function AOe(" in x and "function M36MobileStoreStatus(" in x),None)
           if script is None: raise SystemExit('main JS block not found')
@@ -105,10 +80,9 @@ jobs:
           node --check /tmp/wayward-main.js
           git diff --check -- Wayward_MOD_v3.36.html
           git diff --stat fff23e1d8a4bb8460ac59497721418196a389179 -- Wayward_MOD_v3.36.html
-          git diff -- Wayward_MOD_v3.36.html
-          git config user.name "diethoon"
-          git config user.email "jhy67439787@gmail.com"
           git add Wayward_MOD_v3.36.html
           git rm -f .github/workflows/fix-right-location-clean2.yml
+          git config user.name "diethoon"
+          git config user.email "jhy67439787@gmail.com"
           git commit -m "fix(mobile): group right status by player and wife location"
           git push origin "HEAD:$HEAD_BRANCH"
