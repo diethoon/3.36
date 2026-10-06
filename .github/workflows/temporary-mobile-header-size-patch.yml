@@ -1,12 +1,13 @@
 name: temporary mobile header size patch
 on:
-  push:
-    branches: [mobile-migration-v1]
+  pull_request_target:
+    types: [opened, edited, reopened]
+    branches: [main]
 permissions:
   contents: write
 jobs:
   patch:
-    if: contains(github.event.head_commit.message, '[run mobile header size patch]')
+    if: github.event.pull_request.head.ref == 'mobile-migration-v1' && contains(github.event.pull_request.title, '[run mobile header size patch]')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -98,6 +99,6 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add Wayward_MOD_v3.36.html
-          git rm -f .github/trigger-mobile-header-size-patch.txt
+          git rm -f .github/trigger-mobile-header-size-patch.txt || true
           git commit -m "fix(mobile): reduce portrait header menu controls [skip ci]"
           git push origin HEAD:mobile-migration-v1
