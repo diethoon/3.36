@@ -1,9 +1,0 @@
-name: tmp-action-test
-on:
-  push:
-    branches: [mobile-migration-v1]
-jobs:
-  test:
-    runs-on: ubuntu-latest
-    steps:
-      - run: echo ACTION_TEST_OK
