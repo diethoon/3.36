@@ -1,0 +1,45 @@
+name: inspect-location-issue
+on:
+  pull_request:
+    branches:
+      - mobile-migration-v1
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: extract
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          s=Path("Wayward_MOD_v3.36.html").read_text(encoding="utf-8")
+          scripts=re.findall(r"<script(?:[^>]*)>(.*?)</script>",s,re.S)
+          script=next((x for x in scripts if "function AOe(" in x and "function M36MobileStoreStatus(" in x),None)
+          if script is None: raise SystemExit("main JS not found")
+          def fn(name):
+              patterns=[f"function {name}(", f"const {name}=", f"let {name}=", f"var {name}="]
+              i=-1
+              for p in patterns:
+                  i=script.find(p)
+                  if i>=0: break
+              if i<0:return "NOT FOUND "+name
+              b=script.find("{",i)
+              if b<0:return script[i:i+500]
+              d=0
+              for j in range(b,len(script)):
+                  if script[j]=="{": d+=1
+                  elif script[j]=="}":
+                      d-=1
+                      if d==0:return script[i:j+1]
+              return "UNTERMINATED "+name
+          for name in ["M36MobileStoreStatus","M36MobileRoomActivity","AOe","M36MobilePersistentStatus","eOe","be","Hn","Ce","ht"]:
+              print("\n=== "+name+" ===\n"+fn(name))
+          for needle in ["현재 위치","가게 안","m36-mobile-store-status","M36MobilePersistentStatus","be(state)","be(e)","function be("]:
+              print("\n=== SEARCH "+needle+" ===")
+              for k,m in enumerate(re.finditer(re.escape(needle),script)):
+                  i=m.start()
+                  print(f"\n-- {k} @ {i} --\n"+script[max(0,i-1200):i+2200])
+          PY
