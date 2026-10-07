@@ -55,6 +55,8 @@ jobs:
           node --check /tmp/main.js
           git diff --check
           git add Wayward_MOD_v3.36.html
+          git config user.name "diethoon"
+          git config user.email "jhy67439787@gmail.com"
           TREE=$(git write-tree)
           COMMIT=$(printf '%s\n\n%s\n' 'fix(mobile): show player and wife locations in right status' 'Right status now follows the same player/wife location grouping as the store tab.' | git commit-tree "$TREE" -p "$BASE")
           git push origin "$COMMIT:refs/heads/$TARGET" --force
