@@ -2445,7 +2445,7 @@ function M36MobilePersistentStatus(){
   ]});
 }
 function M36MobileStoreStatus({showAllRooms=false}={}){
-  const state=re(d=>d.state),dispatch=re(d=>d.dispatch),wife=g(state),playerLoc=re(d=>vt(d.state)),activePatronInteraction=G9(state),crowdNames=((activePatronInteraction?.crowdPatronIds??[]).map(id=>state.customers.find(customer=>customer.id===id)?.name).filter(Boolean));
+  const state=re(d=>d.state),dispatch=re(d=>d.dispatch),wife=g(state),playerLoc=re(d=>vt(d.state)),wifeLoc=re(d=>be(d.state)),activePatronInteraction=G9(state),crowdNames=((activePatronInteraction?.crowdPatronIds??[]).map(id=>state.customers.find(customer=>customer.id===id)?.name).filter(Boolean));
   const playerEnergy=Math.round(state.player?.stats?.energy??0);
   const playerMagic=state.player?.magic;
   const playerMana=playerMagic?.grimoireFound?Math.round(po(playerMagic)):null;
@@ -2454,6 +2454,7 @@ function M36MobileStoreStatus({showAllRooms=false}={}){
   const wifeArousal=Math.round(wife.stats?.arousal??0);
   const wifeTask=jF(wife,state),topFeeling=mf(wife,1).filter(x=>x.intensity>15)[0];
   const feeling=topFeeling?u.koLabel("emotion",topFeeling.emotion):"평온";
+  const wifeRoomCount=1+state.customers.filter(customer=>Zi(customer)&&ht(state,customer.id)===wifeLoc).length+b7(state,wifeLoc).length+m315StaffAt(state,wifeLoc).length;
   const playerGauges=[
     {key:"player-energy",label:"기력",value:playerEnergy,tone:Xl(playerEnergy)},
     ...(playerMana!==null?[{key:"player-mana",label:"마나",value:playerMana,tone:"bg-blue-400"}]:[])
@@ -2478,6 +2479,10 @@ function M36MobileStoreStatus({showAllRooms=false}={}){
       u.jsx("span",{className:"m36-mobile-store-gauge-label",children:bar.label}),
       u.jsx("span",{className:"m36-mobile-store-gauge-track",children:u.jsx("span",{className:"m36-mobile-store-gauge-fill "+bar.tone,style:{width:Math.max(0,Math.min(100,bar.value))+"%"}})})
     ]},bar.key))}),
+    wifeLoc!==playerLoc&&u.jsxs("div",{className:"m36-mobile-store-status-line",children:[
+      u.jsx("span",{className:"m36-mobile-store-label",children:gs(wifeLoc).replace(/^the /,"")}),
+      u.jsx("span",{className:"m36-mobile-store-value",children:wifeRoomCount})
+    ]}),
     u.jsxs("div",{className:"m36-mobile-store-status-line",children:[
       u.jsx("span",{className:"m36-mobile-store-label",children:wife.name||"엘레나"}),
       u.jsx("span",{className:"m36-mobile-store-value",children:wifeTask}),
@@ -2487,7 +2492,7 @@ function M36MobileStoreStatus({showAllRooms=false}={}){
       u.jsx("span",{className:"m36-mobile-store-gauge-label",children:bar.label}),
       u.jsx("span",{className:"m36-mobile-store-gauge-track",children:u.jsx("span",{className:"m36-mobile-store-gauge-fill "+bar.tone,style:{width:Math.max(0,Math.min(100,bar.value))+"%"}})})
     ]},bar.key))}),
-    u.jsx(M36MobileRoomActivity,{room:playerLoc,canSee:!0,showAllRooms})
+    u.jsx(M36MobileRoomActivity,{room:playerLoc,canSee:!0,showAllRooms,mergePeopleRooms:showAllRooms})
   ]});
 }
 function M36MobileRoomCustomer({customer:e,interaction:t,wife:o}){
@@ -2501,20 +2506,26 @@ function M36MobileRoomCustomer({customer:e,interaction:t,wife:o}){
     (active||joined||crowd)&&u.jsx("span",{className:"m36-mobile-room-response text-[0.7rem] text-pink-400 leading-tight whitespace-nowrap",children:(o.name||"엘레나")+"가 응대 중"})
   ]})})
 }
-function M36MobileRoomActivity({room:targetRoom,canSee:targetCanSee,showAllRooms=false}={}){
-  const state=re(d=>d.state),proximity=Rt(d=>d.proximityMode),current=vt(state),rooms=showAllRooms?[...Xi]:(targetRoom?[targetRoom]:Yie(state,wx,{proximity})),activePatronInteraction=Y(state),wife=g(state);
+function M36MobileRoomActivity({room:targetRoom,canSee:targetCanSee,showAllRooms=false,mergePeopleRooms=false}={}){
+  const state=re(d=>d.state),proximity=Rt(d=>d.proximityMode),current=vt(state),playerLoc=mergePeopleRooms?vt(state):null,wifeLoc=mergePeopleRooms?be(state):null;
+  const baseRooms=showAllRooms?[...Xi]:(targetRoom?[targetRoom]:Yie(state,wx,{proximity}));
+  const rooms=mergePeopleRooms?[...new Set([playerLoc,wifeLoc,...baseRooms])].filter(Boolean):baseRooms;
+  const activePatronInteraction=Y(state),wife=g(state);
   const sections=rooms.map(room=>{
-    const canSee=targetCanSee??(showAllRooms||room===current||!proximity);
+    const canSee=targetCanSee??(room===current||!proximity);
     const patrons=state.customers.filter(customer=>Zi(customer)&&ht(state,customer.id)===room);
     const visitors=b7(state,room);
     return {room,canSee,patrons,visitors};
   }).filter(section=>section.patrons.length>0||section.visitors.length>0);
   if(sections.length===0)return null;
-  return u.jsxs("section",{className:"m36-mobile-room-activity shrink-0 min-w-0 px-0 pb-0",children:sections.map(({room,canSee,patrons,visitors})=>u.jsxs("div",{className:"m36-mobile-room-line",children:[
-    u.jsx("span",{className:"m36-mobile-room-label",children:gs(room).replace(/^the /," ")}),
-    patrons.map(customer=>canSee?u.jsx(M36MobileRoomCustomer,{customer,interaction:activePatronInteraction,wife},customer.id):u.jsxs("span",{className:"text-[0.58rem] text-stone-500 truncate",children:[customer.name]},customer.id)),
-    visitors.map(({of,person})=>u.jsx(wOe,{of,person},person.id))
-  ]},room))});
+  return u.jsxs("section",{className:"m36-mobile-room-activity shrink-0 min-w-0 px-0 pb-0",children:sections.map(({room,canSee,patrons,visitors})=>{
+    const mergedWithPeople=mergePeopleRooms&&(room===playerLoc||room===wifeLoc);
+    return u.jsxs("div",{className:"m36-mobile-room-line",children:[
+      !mergedWithPeople&&u.jsx("span",{className:"m36-mobile-room-label",children:gs(room).replace(/^the /," ")}),
+      patrons.map(customer=>canSee?u.jsx(M36MobileRoomCustomer,{customer,interaction:activePatronInteraction,wife},customer.id):u.jsxs("span",{className:"text-[0.58rem] text-stone-500 truncate",children:[customer.name]},customer.id)),
+      visitors.map(({of,person})=>u.jsx(wOe,{of,person},person.id))
+    ]},room);
+  })});
 }
 function M36MobileCurrentActivity(){
   const state=re(x=>x.state),wife=g(state),playerLoc=be(state),task=jF(wife,state);
