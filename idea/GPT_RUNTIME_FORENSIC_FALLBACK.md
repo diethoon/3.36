@@ -426,6 +426,160 @@ PAT를 clone URL이나 command argument에 넣지 않는다.
 
 ---
 
+## 12-A. GitHub 직접 쓰기 경로 — 현재 연결에서 검증 완료
+
+현재 연결된 GitHub 도구는 읽기 전용이 아니다. 다음 쓰기 API가 실제로 동작하는 것이 확인되었다.
+
+    create_branch
+    create_blob
+    create_tree
+    create_commit
+    update_ref
+    create_file / update_file
+
+특히 대형 파일 작업에서는 
+
+    external runtime에서 전체 파일 materialize
+    → targeted split / patch
+    → static/runtime validation
+    → create_blob
+    → create_tree(base_tree + replaced blob)
+    → create_commit(parent = exact target HEAD)
+    → update_ref(expected_sha = target HEAD)
+
+순서의 low-level Git object 경로를 우선 사용한다.
+
+2026-10-08 실제 검증:
+
+    repository: diethoon/3.36
+    branch: mobile-migration-v1
+    starting HEAD: a1004ff700496c437d39d5f7dc4703fdeee4ab34
+    blob creation: PASS
+    tree creation: PASS
+    commit creation: PASS
+    update_ref: PASS
+    force-with-lease style expected_sha check: PASS
+    final branch HEAD: a1004ff700496c437d39d5f7dc4703fdeee4ab34
+
+검증용 commit은 branch에 남기지 않고 즉시 원래 HEAD로 되돌렸다. 따라서 위 검증은 작업 브랜치의 소스 상태를 변경하지 않았다.
+
+중요:
+
+    GitHub connector가 대형 기존 blob 전체를 효율적으로 반환하지 못해도
+    GitHub 쓰기 권한 자체를 포기할 이유는 없다.
+
+    대형 파일의 '내용 가공'과 GitHub의 '최종 반영'을 분리한다.
+
+또한 인증 계정은 다른 GPT/사용자 세션과 다를 수 있다. 계정명이 다르다는 사실만으로 쓰기 가능 여부를 추정하지 않는다. 반드시 현재 연결에서 get_repo permissions 또는 실제 low-level write probe로 확인한다.
+
+---
+
+## 12-B. 대형 단일 HTML 수정 — 외부 Sandbox / Render 우선
+
+19MB급 단일 HTML은 GitHub connector의 fetch_file/context 경로로 통째로 읽지 않는다. **파일 바이트를 직접 다룰 수 있는 외부 실행환경**을 사용한다.
+
+권장 우선순위:
+
+    A. Vercel Sandbox / 동등한 disposable sandbox
+            ↓
+    B. 이미 연결된 Render shell/service 등 외부 실행환경
+            ↓
+    C. GitHub Actions runner
+            ↓
+    D. targeted static forensic only
+
+여기서 Sandbox/Render는 '검증만' 하는 것이 아니라 대형 파일의 materialize / split / patch / validation에도 사용할 수 있다.
+
+### 12-B-1. Exact source 확보
+
+반드시:
+
+    repository
+    branch/ref
+    exact source SHA
+    file blob SHA
+
+를 먼저 고정한다.
+
+외부 실행환경에서 가능한 경우:
+
+    git clone --filter=blob:none ...
+    git fetch origin <exact-sha>
+    git checkout --detach <exact-sha>
+    또는 public raw URL에서 정확한 SHA의 파일을 다운로드
+
+을 사용한다.
+
+private repo에서는 PAT를 command line이나 clone URL에 삽입하지 않는다. 가능하면 연결된 GitHub provider 또는 short-lived/sandbox-native credential을 사용하고, credential은 로그/파일/commit에 남기지 않는다.
+
+### 12-B-2. 전체 파일을 context로 올리지 않는다
+
+외부 실행환경에서만 전체 바이트를 보관하고:
+
+    grep -n
+    rg
+    sed
+    awk
+    split
+    head / tail
+    Python streaming read
+
+등으로 필요한 함수/selector/EOF만 확인한다.
+
+특히 함수 패치는:
+
+    target anchor count == 1
+    → 주변 chunk 추출
+    → exact old block 확인
+    → 최소 치환
+
+순으로 한다.
+
+### 12-B-3. 패치 후 최소 검증
+
+적어도:
+
+    node --check <extracted-js-or-script>
+    git diff --check
+    changed-file count / name 확인
+    target anchor count 재확인
+
+을 실행한다.
+
+브라우저/runtime이 필요한 UI 작업이면 외부 Sandbox/Render에서 실제 page load와 필요한 interaction까지 수행한다.
+
+### 12-B-4. 성공한 대형 파일을 GitHub에 반영
+
+외부 실행환경에서 최종 HTML이 완성되면 GitHub connector가 파일 전체를 다시 읽어 수정하는 방식으로 돌아가지 않는다.
+
+대신:
+
+    final HTML bytes
+    → create_blob
+    → current exact commit의 base tree 확인
+    → 동일 path의 tree entry만 새 blob SHA로 교체
+    → create_commit
+    → update_ref(expected_sha = 작업 시작 시 HEAD)
+
+를 사용한다.
+
+대용량 문자열을 tool payload가 거부할 경우에는 GitHub Actions/외부 sandbox에서 최종 blob을 생성하는 경로로 전환하고, connector에는 최종 Git object/ref 조작만 맡긴다. 이미 존재하는 대형 blob을 context에 재로딩하여 patch하는 방식은 사용하지 않는다.
+
+### 12-B-5. 성공 여부 판정
+
+최종 반영 후 반드시:
+
+    branch HEAD == newly created commit
+    commit parent == expected starting HEAD
+    target path points to new blob
+    runtime validation target SHA == final commit SHA
+
+를 확인한다.
+
+실패하면 update_ref를 반복해서 덮어쓰지 않는다. 현재 branch HEAD를 다시 읽고 expected_sha를 갱신한 뒤 원인을 확인한다.
+
+---
+
 ## 13. Large HTML forensic 규칙 — Wayward 3.36 핵심
 
 현재:
