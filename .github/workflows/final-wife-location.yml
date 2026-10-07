@@ -54,3 +54,5 @@ jobs:
           git commit -m "fix(mobile): show player and wife locations"
           git push origin HEAD:${{ github.event.pull_request.head.ref }}
 
+
+# trigger-sync
