@@ -55,6 +55,7 @@ jobs:
           node --check /tmp/main.js
           git diff --check
           git add Wayward_MOD_v3.36.html
+          git rm -f .github/workflows/final-right-location-runner.yml
           git config user.name "diethoon"
           git config user.email "jhy67439787@gmail.com"
           TREE=$(git write-tree)
