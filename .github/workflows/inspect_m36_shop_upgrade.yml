@@ -1,0 +1,50 @@
+name: inspect m36 shop upgrade
+
+on:
+  push:
+    branches: [mobile-migration-v1]
+
+permissions:
+  contents: write
+
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: mobile-migration-v1
+          fetch-depth: 1
+      - name: Inspect targeted upgrade anchors
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          p=Path("Wayward_MOD_v3.36.html")
+          b=p.read_bytes()
+          print("SIZE", len(b))
+          terms=[
+            "upgrade","Upgrade","upgrades","store upgrade","shop upgrade",
+            "renovate","renovation","improve","improvements",
+            "가게 업그레이드","가게 업그레이드하기","업그레이드","개조","증축"
+          ]
+          for term in terms:
+            hits=[m.start() for m in re.finditer(re.escape(term.encode()), b)]
+            if hits:
+              print("\nTERM",term,"COUNT",len(hits))
+              for i,pos in enumerate(hits[:6]):
+                lo=max(0,pos-220); hi=min(len(b),pos+420)
+                s=b[lo:hi].decode("utf-8","ignore").replace("\n"," ")
+                print("HIT",i+1, s)
+          for needle in [b"M36MobileStoreStatus", b"M36MobileRoomActivity", b"store", b"upgrade"]:
+            print("COUNT",needle.decode("utf-8","ignore"),b.count(needle))
+          PY
+      - name: Remove temporary workflow
+        run: |
+          git fetch origin mobile-migration-v1
+          git reset --hard origin/mobile-migration-v1
+          git rm .github/workflows/inspect_m36_shop_upgrade.yml
+          git config user.name "vercel-build"
+          git config user.email "vercel-build@users.noreply.github.com"
+          git commit -m "cleanup: remove temporary shop upgrade inspection workflow"
+          git push origin HEAD:mobile-migration-v1
