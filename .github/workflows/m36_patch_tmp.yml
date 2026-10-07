@@ -1,0 +1,94 @@
+name: TEMP M36 mobile patron patch
+
+on:
+  pull_request:
+    branches: [mobile-migration-v1]
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.head_ref }}
+      - name: Apply and validate patch
+        shell: bash
+        env:
+          BASE_SHA: 45e20c27069658147c885b5a08f0dd42d136f800
+          HEAD_BRANCH: ${{ github.head_ref }}
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          p=Path("Wayward_MOD_v3.36.html")
+          text=p.read_text(encoding="utf-8")
+          if 'label:"인사하기"' in text and '.m36-mobile-room-line > .group ~ .group{flex:0 0 100%' in text:
+              raise SystemExit(0)
+
+          old_customer=r'''function M36MobileRoomCustomer({customer:e,interaction:t,wife:o}){
+  const ui=nI(),active=(t?.customerId)===e.id,joined=(t?.joinedPatronIds??[]).includes(e.id),crowd=(t?.crowdPatronIds??[]).includes(e.id);
+  return u.jsx(Hc,{bare:!0,placement:"side",interactive:!1,width:400,className:"block",content:u.jsx(_Oe,{customer:e}),children:u.jsxs("div",{onMouseEnter:()=>ui.hover({kind:"customer",id:e.id}),onMouseLeave:()=>ui.hover(null),onClick:()=>ui.toggle({kind:"customer",id:e.id}),className:["group flex flex-col items-start gap-0 px-1.5 py-0.5 rounded border cursor-default",ui.isActive("customer",e.id)?"border-stone-600 bg-stone-800/60":"border-transparent hover:border-stone-700 hover:bg-stone-800/60"].join(" "),children:[
+    u.jsxs("div",{className:"flex items-center gap-1.5 min-w-0 w-full whitespace-nowrap",children:[
+      u.jsx("span",{className:"m36-mobile-room-customer-name font-medium truncate",style:{fontSize:".7rem",lineHeight:"1"},children:e.name}),
+      e.order&&e.status!=="arrived"&&u.jsx("span",{className:"text-[0.7rem] text-stone-500 truncate",children:u.koLabel("order",e.order)}),
+      e.tab>0&&u.jsx("span",{className:"text-[0.7rem] text-yellow-600 flex-shrink-0",children:[e.tab,"골드"]})
+    ]}),
+    (active||joined||crowd)&&u.jsx("span",{className:"m36-mobile-room-response text-[0.7rem] text-pink-400 leading-tight whitespace-nowrap",children:(o.name||"엘레나")+"가 응대 중"})
+  ]})})
+}'''
+
+          new_customer=r'''function M36MobileRoomCustomer({customer:e,interaction:t,wife:o}){
+  const dispatch=re(x=>x.dispatch),ui=nI(),active=(t?.customerId)===e.id,joined=(t?.joinedPatronIds??[]).includes(e.id),crowd=(t?.crowdPatronIds??[]).includes(e.id)&&!joined,engaged=active||joined||crowd,canAct=o.taskTarget!==e.id&&!engaged;
+  const actionable=canAct&&["arrived","greeted","wants_more","ordered"].includes(e.status);
+  return u.jsx(Hc,{bare:!0,placement:"side",interactive:!1,width:400,className:"block",content:u.jsx(_Oe,{customer:e}),children:u.jsxs("div",{onMouseEnter:()=>ui.hover({kind:"customer",id:e.id}),onMouseLeave:()=>ui.hover(null),onClick:()=>ui.toggle({kind:"customer",id:e.id}),className:["group flex flex-col items-start gap-0 px-1.5 py-0.5 rounded border cursor-default",ui.isActive("customer",e.id)?"border-stone-600 bg-stone-800/60":"border-transparent hover:border-stone-700 hover:bg-stone-800/60"].join(" "),children:[
+    u.jsxs("div",{className:"flex items-center gap-1.5 min-w-0 w-full whitespace-nowrap",children:[
+      u.jsx("span",{className:"m36-mobile-room-customer-name font-medium truncate",style:{fontSize:".7rem",lineHeight:"1"},children:e.name}),
+      e.order&&e.status!=="arrived"&&u.jsx("span",{className:"text-[0.7rem] text-stone-500 truncate",children:u.koLabel("order",e.order)}),
+      e.tab>0&&u.jsx("span",{className:"text-[0.7rem] text-yellow-600 flex-shrink-0",children:[e.tab,"골드"]})
+    ]}),
+    (active||joined||crowd)&&u.jsx("span",{className:"m36-mobile-room-response text-[0.7rem] text-pink-400 leading-tight whitespace-nowrap",children:(o.name||"엘레나")+"가 응대 중"}),
+    actionable&&u.jsxs("div",{className:"flex flex-wrap gap-1",style:{flex:"0 0 100%"},children:[
+      e.status==="arrived"&&u.jsx(E1,{compact:!0,label:"인사하기",onClick:()=>dispatch({type:"greet",customerId:e.id})}),
+      (e.status==="greeted"||e.status==="wants_more")&&u.jsx(E1,{compact:!0,label:"주문받기",onClick:()=>dispatch({type:"take_order",customerId:e.id})}),
+      e.status==="ordered"&&u.jsx(c3e,{compact:!0,customer:e,onServe:()=>dispatch({type:"serve",customerId:e.id}),onApologize:()=>dispatch({type:"apologize_out_of_stock",customerId:e.id})})
+    ]})
+  ]})})
+}'''
+
+          old_css='.m36-mobile-room-line > .group{flex:1 1 auto !important;min-width:0 !important;display:flex !important;flex-wrap:wrap !important;gap:.15rem !important;padding:.08rem .15rem !important;margin:0 !important;border-color:rgb(68 64 60) !important;line-height:1 !important}'
+          new_css=old_css+'\n.m36-mobile-room-line > .group ~ .group{flex:0 0 100% !important;max-width:100% !important;}'
+
+          if text.count(old_customer)!=1: raise SystemExit("customer target count invalid")
+          if text.count(old_css)!=1: raise SystemExit("css target count invalid")
+          text=text.replace(old_customer,new_customer,1)
+          text=text.replace(old_css,new_css,1)
+          p.write_text(text,encoding="utf-8")
+          PY
+          rm -f .github/workflows/m36_patch_tmp.yml
+
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          text=Path("Wayward_MOD_v3.36.html").read_text(encoding="utf-8")
+          if text.count("function M36MobileRoomCustomer")!=1: raise SystemExit("customer function invalid")
+          if 'label:"인사하기"' not in text or 'label:"주문받기"' not in text or 'type:"serve"' not in text: raise SystemExit("actions missing")
+          if ".m36-mobile-room-line > .group ~ .group{flex:0 0 100%" not in text: raise SystemExit("stacking rule missing")
+          scripts=re.findall(r"<script\b[^>]*>(.*?)</script>",text,flags=re.S|re.I)
+          target=next((s for s in scripts if "function M36MobileRoomCustomer" in s),None)
+          if target is None: raise SystemExit("target script missing")
+          Path("/tmp/m36_target_script.js").write_text(target,encoding="utf-8")
+          PY
+          node --check /tmp/m36_target_script.js
+          git diff --check
+          git add -A
+          git reset --soft "$BASE_SHA"
+          test "$(git diff --cached --name-only)" = "Wayward_MOD_v3.36.html"
+          git diff --cached --check
+          git diff --cached --stat
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "fix(mobile): restore patron actions and stack room guests"
+          git push --force-with-lease origin HEAD:refs/heads/$HEAD_BRANCH
