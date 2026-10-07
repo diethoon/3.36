@@ -1,0 +1,60 @@
+name: final-right-location-runner
+on:
+  pull_request:
+    branches:
+      - mobile-migration-v1
+permissions:
+  contents: write
+jobs:
+  patch:
+    if: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: patch clean commit
+        env:
+          TARGET: mobile-migration-v1
+          BASE: fff23e1d8a4bb8460ac59497721418196a389179
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path("Wayward_MOD_v3.36.html")
+          s=p.read_bytes()
+          def once(old,new):
+            global s
+            if s.count(old)!=1: raise SystemExit("replacement count != 1")
+            s=s.replace(old,new,1)
+          once(b'const state=re(d=>d.state),dispatch=re(d=>d.dispatch),wife=g(state),playerLoc=re(d=>vt(d.state)),activePatronInteraction=G9(state),',
+               b'const state=re(d=>d.state),dispatch=re(d=>d.dispatch),wife=g(state),playerLoc=re(d=>vt(d.state)),wifeLoc=re(d=>be(d.state)),activePatronInteraction=G9(state),')
+          once(b'  const feeling=topFeeling?u.koLabel("emotion",topFeeling.emotion):"평온";',
+               b'  const feeling=topFeeling?u.koLabel("emotion",topFeeling.emotion):"평온";\n  const wifeRoomCount=1+state.customers.filter(customer=>Zi(customer)&&ht(state,customer.id)===wifeLoc).length+b7(state,wifeLoc).length+m315StaffAt(state,wifeLoc).length;')
+          once(b'    u.jsx(M36MobileRoomActivity,{room:playerLoc,canSee:!0,showAllRooms})',
+               b'    u.jsx(M36MobileRoomActivity,{room:playerLoc,canSee:!0,showAllRooms,mergePeopleRooms:showAllRooms})')
+          i=s.find(b'function M36MobileRoomActivity('); j=s.find(b'function M36MobileCurrentActivity(',i)
+          if i<0 or j<0: raise SystemExit("activity markers missing")
+          new=b'''function M36MobileRoomActivity({room:targetRoom,canSee:targetCanSee,showAllRooms=false,mergePeopleRooms=false}={}){\n  const state=re(d=>d.state),proximity=Rt(d=>d.proximityMode),current=vt(state),playerLoc=mergePeopleRooms?vt(state):null,wifeLoc=mergePeopleRooms?be(state):null;\n  const baseRooms=showAllRooms?[...Xi]:(targetRoom?[targetRoom]:Yie(state,wx,{proximity}));\n  const rooms=mergePeopleRooms?[...new Set([playerLoc,wifeLoc,...baseRooms])].filter(Boolean):baseRooms;\n  const activePatronInteraction=Y(state),wife=g(state);\n  const sections=rooms.map(room=>{\n    const canSee=targetCanSee??(room===current||!proximity);\n    const patrons=state.customers.filter(customer=>Zi(customer)&&ht(state,customer.id)===room);\n    const visitors=b7(state,room);\n    return {room,canSee,patrons,visitors};\n  }).filter(section=>section.patrons.length>0||section.visitors.length>0);\n  if(sections.length===0)return null;\n  return u.jsxs("section",{className:"m36-mobile-room-activity shrink-0 min-w-0 px-0 pb-0",children:sections.map(({room,canSee,patrons,visitors})=>{\n    const mergedWithPeople=mergePeopleRooms&&(room===playerLoc||room===wifeLoc);\n    return u.jsxs("div",{className:"m36-mobile-room-line",children:[\n      !mergedWithPeople&&u.jsx("span",{className:"m36-mobile-room-label",children:gs(room).replace(/^the /," ")}),\n      patrons.map(customer=>canSee?u.jsx(M36MobileRoomCustomer,{customer,interaction:activePatronInteraction,wife},customer.id):u.jsxs("span",{className:"text-[0.58rem] text-stone-500 truncate",children:[customer.name]},customer.id)),\n      visitors.map(({of,person})=>u.jsx(wOe,{of,person},person.id))\n    ]},room);\n  })});\n}\n'''
+          s=s[:i]+new+s[j:]
+          pos=s.find(b'u.jsx("span",{className:"m36-mobile-store-label",children:wife.name||"엘레나"})')
+          if pos<0: raise SystemExit("wife row missing")
+          ls=s.rfind(b'    u.jsxs("div"',0,pos)
+          ins=b'''    wifeLoc!==playerLoc&&u.jsxs("div",{className:"m36-mobile-store-status-line",children:[\n      u.jsx("span",{className:"m36-mobile-store-label",children:gs(wifeLoc).replace(/^the /,"")}),\n      u.jsx("span",{className:"m36-mobile-store-value",children:wifeRoomCount})\n    ]}),\n'''
+          s=s[:ls]+ins+s[ls:]
+          p.write_bytes(s)
+          PY
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          s=Path("Wayward_MOD_v3.36.html").read_bytes().decode("utf-8")
+          script=next(x for x in re.findall(r"<script(?:[^>]*)>(.*?)</script>",s,re.S) if "function AOe(" in x and "function M36MobileStoreStatus(" in x)
+          Path("/tmp/main.js").write_text(script)
+          for x in ["wifeLoc=re(d=>be(d.state))","wifeLoc!==playerLoc","mergePeopleRooms:showAllRooms","const rooms=mergePeopleRooms?"]:
+            assert x in script,x
+          PY
+          node --check /tmp/main.js
+          git diff --check
+          git add Wayward_MOD_v3.36.html
+          TREE=$(git write-tree)
+          COMMIT=$(printf '%s\n\n%s\n' 'fix(mobile): show player and wife locations in right status' 'Right status now follows the same player/wife location grouping as the store tab.' | git commit-tree "$TREE" -p "$BASE")
+          git push origin "$COMMIT:refs/heads/$TARGET" --force
