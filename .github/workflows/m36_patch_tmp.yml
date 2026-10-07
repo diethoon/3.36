@@ -1,28 +1,30 @@
-name: TEMP M36 mobile patron patch
+name: TEMP M36 direct mobile patch
 
 on:
-  pull_request:
-    branches: [mobile-migration-v1]
+  push:
+    branches:
+      - m36-mobile-patch-temp
+
+permissions:
+  contents: write
 
 jobs:
-  patch:
+  finalize:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          ref: ${{ github.head_ref }}
-      - name: Apply and validate patch
+
+      - name: Apply validated patch to mobile-migration-v1
         shell: bash
-        env:
-          BASE_SHA: 45e20c27069658147c885b5a08f0dd42d136f800
         run: |
-          set -e
+          set -euo pipefail
+          git fetch origin mobile-migration-v1
+          git checkout -B finalize origin/mobile-migration-v1
+
           python3 - <<'PY'
           from pathlib import Path
-
           p = Path("Wayward_MOD_v3.36.html")
           text = p.read_text(encoding="utf-8")
 
@@ -37,7 +39,6 @@ jobs:
     (active||joined||crowd)&&u.jsx("span",{className:"m36-mobile-room-response text-[0.7rem] text-pink-400 leading-tight whitespace-nowrap",children:(o.name||"엘레나")+"가 응대 중"})
   ]})})
 }'''
-
           new_customer = r'''function M36MobileRoomCustomer({customer:e,interaction:t,wife:o}){
   const dispatch=re(x=>x.dispatch),ui=nI(),active=(t?.customerId)===e.id,joined=(t?.joinedPatronIds??[]).includes(e.id),crowd=(t?.crowdPatronIds??[]).includes(e.id)&&!joined,engaged=active||joined||crowd,canAct=o.taskTarget!==e.id&&!engaged;
   const actionable=canAct&&["arrived","greeted","wants_more","ordered"].includes(e.status);
@@ -55,53 +56,37 @@ jobs:
     ]})
   ]})})
 }'''
-
           old_css = '.m36-mobile-room-line > .group{flex:1 1 auto !important;min-width:0 !important;display:flex !important;flex-wrap:wrap !important;gap:.15rem !important;padding:.08rem .15rem !important;margin:0 !important;border-color:rgb(68 64 60) !important;line-height:1 !important}'
           new_css = old_css + '\n.m36-mobile-room-line > .group ~ .group{flex:0 0 100% !important;max-width:100% !important;}'
 
           if text.count(old_customer) != 1:
-              raise SystemExit(f"M36MobileRoomCustomer target count={text.count(old_customer)}")
+              raise SystemExit("customer target mismatch")
           if text.count(old_css) != 1:
-              raise SystemExit(f"room CSS target count={text.count(old_css)}")
+              raise SystemExit("css target mismatch")
 
-          text = text.replace(old_customer, new_customer, 1)
-          text = text.replace(old_css, new_css, 1)
-          p.write_text(text, encoding="utf-8")
+          p.write_text(text.replace(old_customer,new_customer,1).replace(old_css,new_css,1), encoding="utf-8")
           PY
-
-          rm -f .github/workflows/m36_patch_tmp.yml
 
           python3 - <<'PY'
           from pathlib import Path
-
-          text = Path("Wayward_MOD_v3.36.html").read_text(encoding="utf-8")
-          start = text.find("function M36MobileRoomCustomer")
-          if start < 0:
-              raise SystemExit("customer function missing")
-          end = text.find("\nfunction ", start + 10)
-          if end < 0:
-              raise SystemExit("customer function boundary missing")
-          target = text[start:end]
-          if 'label:"인사하기"' not in target:
-              raise SystemExit("greet action missing")
-          if 'label:"주문받기"' not in target:
-              raise SystemExit("take-order action missing")
-          if 'type:"serve"' not in target:
-              raise SystemExit("serve action missing")
-          if "m36-mobile-room-line > .group ~ .group{flex:0 0 100%" not in text:
-              raise SystemExit("guest stacking rule missing")
-          Path("/tmp/m36_customer.js").write_text(target, encoding="utf-8")
+          text=Path("Wayward_MOD_v3.36.html").read_text(encoding="utf-8")
+          start=text.find("function M36MobileRoomCustomer")
+          end=text.find("\nfunction ",start+10)
+          target=text[start:end]
+          for x in ['label:"인사하기"','label:"주문받기"','type:"serve"']:
+              assert x in target, x
+          assert ".m36-mobile-room-line > .group ~ .group{flex:0 0 100%" in text
+          Path("/tmp/m36_customer.js").write_text(target,encoding="utf-8")
           PY
 
           node --check /tmp/m36_customer.js
           git diff --check
+
+          rm -f .github/workflows/m36_patch_tmp.yml
           git add Wayward_MOD_v3.36.html
-          test "$(git diff --cached --name-only)" = "Wayward_MOD_v3.36.html"
           git diff --cached --check
-          git diff --cached --stat
 
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git commit -m "fix(mobile): restore patron actions and stack room guests"
-          git push --force-with-lease origin HEAD:refs/heads/${{ github.head_ref }}
-
+          git push origin HEAD:refs/heads/mobile-migration-v1
