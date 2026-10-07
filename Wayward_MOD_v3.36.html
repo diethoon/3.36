@@ -2479,7 +2479,7 @@ function M36MobileStoreStatus({showAllRooms=false}={}){
       u.jsx("span",{className:"m36-mobile-store-gauge-label",children:bar.label}),
       u.jsx("span",{className:"m36-mobile-store-gauge-track",children:u.jsx("span",{className:"m36-mobile-store-gauge-fill "+bar.tone,style:{width:Math.max(0,Math.min(100,bar.value))+"%"}})})
     ]},bar.key))}),
-    u.jsxs("div",{className:"m36-mobile-store-status-line",children:[
+    wifeLoc!==playerLoc&&u.jsxs("div",{className:"m36-mobile-store-status-line",children:[
       u.jsx("span",{className:"m36-mobile-store-label",children:gs(wifeLoc).replace(/^the /,"")}),
       u.jsx("span",{className:"m36-mobile-store-value",children:wifeRoomCount})
     ]}),
@@ -2496,15 +2496,18 @@ function M36MobileStoreStatus({showAllRooms=false}={}){
   ]});
 }
 function M36MobileRoomCustomer({customer:e,interaction:t,wife:o}){
-  const ui=nI(),active=(t?.customerId)===e.id,joined=(t?.joinedPatronIds??[]).includes(e.id),crowd=(t?.crowdPatronIds??[]).includes(e.id);
+  const ui=nI(),dispatch=re(d=>d.dispatch),active=(t?.customerId)===e.id,joined=(t?.joinedPatronIds??[]).includes(e.id),crowd=(t?.crowdPatronIds??[]).includes(e.id),canAct=!active&&!joined&&!crowd;
   return u.jsx(Hc,{bare:!0,placement:"side",interactive:!1,width:400,className:"block",content:u.jsx(_Oe,{customer:e}),children:u.jsxs("div",{onMouseEnter:()=>ui.hover({kind:"customer",id:e.id}),onMouseLeave:()=>ui.hover(null),onClick:()=>ui.toggle({kind:"customer",id:e.id}),className:["group flex flex-col items-start gap-0 px-1.5 py-0.5 rounded border cursor-default",ui.isActive("customer",e.id)?"border-stone-600 bg-stone-800/60":"border-transparent hover:border-stone-700 hover:bg-stone-800/60"].join(" "),children:[
-    u.jsxs("div",{className:"flex items-center gap-1.5 min-w-0 w-full whitespace-nowrap",children:[
-      u.jsx("span",{className:"m36-mobile-room-customer-name font-medium truncate",style:{fontSize:".7rem",lineHeight:"1"},children:e.name}),
-      e.order&&e.status!=="arrived"&&u.jsx("span",{className:"text-[0.7rem] text-stone-500 truncate",children:u.koLabel("order",e.order)}),
-      e.tab>0&&u.jsx("span",{className:"text-[0.7rem] text-yellow-600 flex-shrink-0",children:[e.tab,"골드"]})
-    ]}),
-    (active||joined||crowd)&&u.jsx("span",{className:"m36-mobile-room-response text-[0.7rem] text-pink-400 leading-tight whitespace-nowrap",children:(o.name||"엘레나")+"가 응대 중"})
-  ]})})
+  u.jsxs("div",{className:"flex items-center gap-1.5 min-w-0 w-full whitespace-nowrap",children:[
+    u.jsx("span",{className:"m36-mobile-room-customer-name font-medium truncate",style:{fontSize:".7rem",lineHeight:"1"},children:e.name}),
+    e.order&&e.status!=="arrived"&&u.jsx("span",{className:"text-[0.7rem] text-stone-500 truncate",children:u.koLabel("order",e.order)}),
+    e.tab>0&&u.jsx("span",{className:"text-[0.7rem] text-yellow-600 flex-shrink-0",children:[e.tab,"골드"]})
+  ]}),
+  (active||joined||crowd)&&u.jsx("span",{className:"m36-mobile-room-response text-[0.7rem] text-pink-400 leading-tight whitespace-nowrap",children:(o.name||"엘레나")+"가 응대 중"}),
+  canAct&&e.status==="arrived"&&u.jsx(E1,{compact:!0,label:"인사하기",onClick:()=>dispatch({type:"greet",customerId:e.id})}),
+  canAct&&(e.status==="greeted"||e.status==="wants_more")&&u.jsx(E1,{compact:!0,label:"주문받기",onClick:()=>dispatch({type:"take_order",customerId:e.id})}),
+  canAct&&e.status==="ordered"&&u.jsx(c3e,{compact:!0,customer:e,onServe:()=>dispatch({type:"serve",customerId:e.id}),onApologize:()=>dispatch({type:"apologize_out_of_stock",customerId:e.id})})
+]})})
 }
 function M36MobileRoomActivity({room:targetRoom,canSee:targetCanSee,showAllRooms=false}={}){
   const state=re(d=>d.state),proximity=Rt(d=>d.proximityMode),current=vt(state),rooms=showAllRooms?[...Xi]:(targetRoom?[targetRoom]:Yie(state,wx,{proximity})),activePatronInteraction=Y(state),wife=g(state);
@@ -3912,6 +3915,7 @@ body[data-wayward-theme="ivory"] .m34-stock-empty{color:#a61d32}
 .m36-mobile-room-activity{padding:0 !important;margin:.1rem 0 .25rem !important}
 .m36-mobile-room-line{display:flex !important;flex-wrap:wrap !important;align-items:center !important;gap:.12rem !important;min-width:0 !important;line-height:1 !important}
 .m36-mobile-room-label{display:inline-flex !important;align-items:center !important;gap:.12rem !important;flex:0 0 auto !important;font-size:.54rem !important;line-height:1 !important;color:rgb(168 162 158) !important;white-space:nowrap !important}
+.m36-mobile-room-line > .group ~ .group{flex:0 0 100% !important;max-width:100% !important;}
 .m36-mobile-room-line > .group{flex:1 1 auto !important;min-width:0 !important;display:flex !important;flex-wrap:wrap !important;gap:.15rem !important;padding:.08rem .15rem !important;margin:0 !important;border-color:rgb(68 64 60) !important;line-height:1 !important}
 .m36-mobile-room-line > .group > span{font-size:.56rem !important;line-height:1 !important;min-width:0 !important}
 .m36-mobile-room-line > .group > span.text-pink-400{flex:0 0 100% !important;margin-left:.55rem !important;font-size:.54rem !important;line-height:1.05 !important}

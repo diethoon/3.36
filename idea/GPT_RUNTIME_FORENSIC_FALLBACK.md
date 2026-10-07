@@ -1182,3 +1182,19 @@ Temporary infrastructure가 final production branch에 남아 있으면 작업 �
 
 대형 파일 전체를 ChatGPT context에 올리지 않는다.
 
+
+### 28. 2026-10-08 M36 손님 액션/행 분리 패치 성공 경로
+
+19MB급 HTML은 ChatGPT context에 적재하지 않고 Vercel/Git runner filesystem에서 targeted patch한다.
+
+    M36MobileRoomCustomer에 기존 greet/take_order/serve/apologize dispatch 복원
+    → 고객별 full-width row
+    → Elena 위치는 wifeLoc!==playerLoc 조건 유지
+    → containing script node --check
+    → diff --check
+    → temporary patch script 제거
+    → final git commit/push
+
+주의:
+    - action semantics를 새 로직으로 대체하지 않는다.
+    - 대형 HTML 전체를 모델 context에 출력하지 않는다.
