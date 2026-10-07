@@ -7,36 +7,43 @@ permissions:
   contents: write
 jobs:
   patch:
-    if: ${{ !contains(github.event.head_commit.message, '[location-fix]') }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
           persist-credentials: true
-      - run: |
+      - name: patch
+        run: |
           python3 - <<'PY'
           from pathlib import Path
           import re
           p=Path("Wayward_MOD_v3.36.html")
           data=p.read_bytes()
-          def once(old,new,label):
-              global data
-              n=data.count(old)
-              print(label,n)
-              if n!=1: raise SystemExit(f"{label}: expected 1, got {n}")
-              data=data.replace(old,new,1)
-          once(b'const state=re(d=>d.state),dispatch=re(d=>d.dispatch),wife=g(state),playerLoc=re(d=>vt(d.state)),activePatronInteraction=G9(state),',b'const state=re(d=>d.state),dispatch=re(d=>d.dispatch),wife=g(state),playerLoc=re(d=>vt(d.state)),wifeLoc=re(d=>be(d.state)),activePatronInteraction=G9(state),','wife selector')
-          once(b'  const feeling=topFeeling?u.koLabel("emotion",topFeeling.emotion):"평온";\n',b'  const feeling=topFeeling?u.koLabel("emotion",topFeeling.emotion):"평온";\n  const wifeRoomCount=1+state.customers.filter(customer=>Zi(customer)&&ht(state,customer.id)===wifeLoc).length+b7(state,wifeLoc).length+m315StaffAt(state,wifeLoc).length;\n','wife count')
-          once(b'''    u.jsxs("div",{className:"m36-mobile-store-status-line",children:[
+          marker=b'playerLoc=re(d=>vt(d.state)),wifeLoc=re(d=>be(d.state))'
+          if marker in data:
+              print("already patched")
+          else:
+              def once(old,new,label):
+                  global data
+                  n=data.count(old)
+                  print(label,n)
+                  if n!=1: raise SystemExit(f"{label}: expected 1, got {n}")
+                  data=data.replace(old,new,1)
+              once(b'const state=re(d=>d.state),dispatch=re(d=>d.dispatch),wife=g(state),playerLoc=re(d=>vt(d.state)),activePatronInteraction=G9(state),',b'const state=re(d=>d.state),dispatch=re(d=>d.dispatch),wife=g(state),playerLoc=re(d=>vt(d.state)),wifeLoc=re(d=>be(d.state)),activePatronInteraction=G9(state),','wife selector')
+              once(b'  const feeling=topFeeling?u.koLabel("emotion",topFeeling.emotion):"평온";
+',b'  const feeling=topFeeling?u.koLabel("emotion",topFeeling.emotion):"평온";
+  const wifeRoomCount=1+state.customers.filter(customer=>Zi(customer)&&ht(state,customer.id)===wifeLoc).length+b7(state,wifeLoc).length+m315StaffAt(state,wifeLoc).length;
+','wife count')
+              once(b'''    u.jsxs("div",{className:"m36-mobile-store-status-line",children:[
       u.jsx("span",{className:"m36-mobile-store-label",children:wife.name||"엘레나"}),''',b'''    wifeLoc!==playerLoc&&u.jsxs("div",{className:"m36-mobile-store-status-line",children:[
       u.jsx("span",{className:"m36-mobile-store-label",children:gs(wifeLoc).replace(/^the /,"")}),
       u.jsx("span",{className:"m36-mobile-store-value",children:wifeRoomCount})
     ]}),
     u.jsxs("div",{className:"m36-mobile-store-status-line",children:[
       u.jsx("span",{className:"m36-mobile-store-label",children:wife.name||"엘레나"}),''','wife line')
-          p.write_bytes(data)
-          s=data.decode()
+              p.write_bytes(data)
+          s=p.read_text(encoding="utf-8")
           js=next((x for x in re.findall(r"<script(?:[^>]*)>(.*?)</script>",s,re.S) if "function AOe(" in x and "function M36MobileStoreStatus(" in x),None)
           if not js: raise SystemExit("JS not found")
           Path("/tmp/main.js").write_text(js,encoding="utf-8")
@@ -48,6 +55,11 @@ jobs:
           git diff --check
           git config user.name "diethoon"
           git config user.email "jhy67439787@gmail.com"
-          git add Wayward_MOD_v3.36.html
-          git commit -m "fix(mobile): show player and wife locations [location-fix]"
+          if git diff --quiet -- Wayward_MOD_v3.36.html; then
+            git rm -f .github/workflows/apply-right-location.yml .github/workflows/one-shot-right-location-fix.yml
+            git commit -m "chore: remove temporary location runners [location-fix]"
+          else
+            git add Wayward_MOD_v3.36.html
+            git commit -m "fix(mobile): show player and wife locations [location-fix]"
+          fi
           git push
