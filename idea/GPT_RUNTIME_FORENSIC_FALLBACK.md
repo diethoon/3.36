@@ -1135,3 +1135,50 @@ Temporary infrastructure가 final production branch에 남아 있으면 작업 �
     9. final HEAD 확인
 
 문서 자체는 runtime 결과가 아니다. 문서에 적힌 절차를 실제 실행하고 실제 evidence를 확보해야 한다.
+
+### 27. 2026-10-08 최종 성공 상태
+
+현재 `mobile-migration-v1` 최종 기준:
+
+    final verified commit:
+    d687a28133d28680079da664fad67a71c8e28b65
+
+    parent:
+    20398ad533fa2702dbafe4497ad1d2ab11a081e8
+
+    changed production files:
+    Wayward_MOD_v3.36.html
+    idea/GPT_RUNTIME_FORENSIC_FALLBACK.md
+
+최종 HTML 변경은 오른쪽 상태의 엘레나 위치 행을 같은 방에서도 표시하도록 조건 하나를 제거한 1줄 변경이다.
+
+최종 HTML blob:
+
+    3c2c7e17717e38935be541893c34f53dd686c21c
+    size = 19,589,615 bytes
+
+검증된 상태:
+
+    function M36MobileStoreStatus = 1
+    wifeLoc=re(d=>be(d.state)) = 1
+    wifeLoc!==playerLoc = 0
+    wifeRoomCount = 1
+    function M36MobileRoomCustomer = 1
+    label:"인사하기" = 1
+    label:"주문받기" = 1
+    type:"serve",customerId:e.id = 1
+    node --check = PASS
+
+현재 브랜치에는 실험용 workflow/trigger 파일을 남기지 않는다.
+
+앞으로 같은 대형 HTML을 수정할 때는 이 성공 사례를 우선 사용한다:
+
+    19MB source → external runtime / Git data
+    → targeted anchor forensic
+    → minimal byte patch
+    → script extraction + node --check
+    → blob/tree/commit/ref
+    → final branch re-read
+
+대형 파일 전체를 ChatGPT context에 올리지 않는다.
+
