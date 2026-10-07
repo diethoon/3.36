@@ -1,7 +1,7 @@
 name: TEMP M36 mobile patron patch
 
 on:
-  pull_request:
+  pull_request_target:
     branches: [mobile-migration-v1]
 
 jobs:
