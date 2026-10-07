@@ -1,15 +1,15 @@
 name: Forensic apply wife location status
 
 on:
-  pull_request:
-    types: [opened, synchronize, reopened]
+  push:
+    branches:
+      - gpt-apply-wife-location-20261007
 
 permissions:
   contents: write
 
 jobs:
   apply:
-    if: !contains(github.event.pull_request.head.ref, '[no-apply]')
     runs-on: ubuntu-latest
     steps:
       - name: Checkout PR head
