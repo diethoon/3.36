@@ -1,0 +1,138 @@
+name: one-shot m36 resume patch 20261008
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: contains(github.event.head_commit.message, '[m36-resume-patch]')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout main trigger
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Patch exact mobile base and replace branch head
+        shell: bash
+        env:
+          TARGET_SHA: d658b0acaa464b715ac801f51b469967d20a5a2c
+          EXPECTED_REMOTE_HEAD: f6bd19231b563f17c45bbfb9ae0505ae1af23bc5
+        run: |
+          set -euo pipefail
+          git fetch origin mobile-migration-v1
+          remote_head="$(git rev-parse FETCH_HEAD)"
+          test "$remote_head" = "$EXPECTED_REMOTE_HEAD"
+          git checkout -q "$TARGET_SHA"
+
+          echo "--- forensic target ---"
+          line=$(grep -n -m1 'function M36MobileStoreStatus' Wayward_MOD_v3.36.html | cut -d: -f1)
+          echo "M36MobileStoreStatus line=$line"
+          start=$((line - 12))
+          end=$((line + 65))
+          sed -n "${start},${end}p" Wayward_MOD_v3.36.html
+
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path("Wayward_MOD_v3.36.html")
+          data=p.read_bytes()
+
+          targets=[
+            (
+              b'const state=re(d=>d.state),dispatch=re(d=>d.dispatch),wife=g(state),playerLoc=re(d=>vt(d.state)),activePatronInteraction=G9(state),',
+              b'const state=re(d=>d.state),dispatch=re(d=>d.dispatch),wife=g(state),playerLoc=re(d=>vt(d.state)),wifeLoc=re(d=>be(d.state)),activePatronInteraction=G9(state),',
+              "wife location selector"
+            ),
+            (
+              b'  const feeling=topFeeling?u.koLabel("emotion",topFeeling.emotion):"평온";\n',
+              b'  const feeling=topFeeling?u.koLabel("emotion",topFeeling.emotion):"평온";\n  const wifeRoomCount=1+state.customers.filter(customer=>Zi(customer)&&ht(state,customer.id)===wifeLoc).length+b7(state,wifeLoc).length+m315StaffAt(state,wifeLoc).length;\n',
+              "wife room count"
+            ),
+            (
+              b'''    u.jsxs("div",{className:"m36-mobile-store-status-line",children:[
+      u.jsx("span",{className:"m36-mobile-store-label",children:wife.name||"엘레나"}),''',
+              b'''    wifeLoc!==playerLoc&&u.jsxs("div",{className:"m36-mobile-store-status-line",children:[
+      u.jsx("span",{className:"m36-mobile-store-label",children:gs(wifeLoc).replace(/^the /,"")}),
+      u.jsx("span",{className:"m36-mobile-store-value",children:wifeRoomCount})
+    ]}),
+    u.jsxs("div",{className:"m36-mobile-store-status-line",children:[
+      u.jsx("span",{className:"m36-mobile-store-label",children:wife.name||"엘레나"}),''',
+              "wife location row"
+            )
+          ]
+
+          if b"wifeLoc!==playerLoc" in data:
+              raise SystemExit("wife-location patch already exists; refusing duplicate patch")
+
+          for old,new,label in targets:
+              n=data.count(old)
+              print(f"{label}: anchor_count={n}")
+              if n != 1:
+                  raise SystemExit(f"{label}: expected exactly 1 anchor, got {n}")
+
+          for old,new,label in targets:
+              data=data.replace(old,new,1)
+          p.write_bytes(data)
+          print("PATCH_APPLIED=3")
+          PY
+
+          line=$(grep -n -m1 'function M36MobileStoreStatus' Wayward_MOD_v3.36.html | cut -d: -f1)
+          start=$((line - 4))
+          end=$((line + 70))
+          sed -n "${start},${end}p" Wayward_MOD_v3.36.html
+
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          text=Path("Wayward_MOD_v3.36.html").read_text(encoding="utf-8")
+          scripts=re.findall(r"<script\b[^>]*>(.*?)</script>",text,flags=re.S|re.I)
+          target=next((s for s in scripts if "function M36MobileStoreStatus(" in s),None)
+          if target is None:
+              raise SystemExit("target JS block not found")
+          Path("/tmp/m36-target.js").write_text(target,encoding="utf-8")
+          for marker in [
+              "playerLoc=re(d=>vt(d.state))",
+              "wifeLoc=re(d=>be(d.state))",
+              "wifeRoomCount=",
+              "wifeLoc!==playerLoc"
+          ]:
+              if marker not in target:
+                  raise SystemExit("missing marker: "+marker)
+          for marker in ['label:"인사하기"','label:"주문받기"','type:"serve",customerId:e.id']:
+              if marker not in target:
+                  raise SystemExit("existing interaction marker missing: "+marker)
+          print("TARGETED_FORENSIC_ASSERTIONS=PASS")
+          PY
+
+          node --check /tmp/m36-target.js
+          git diff --check
+          test "$(git diff --name-only)" = "Wayward_MOD_v3.36.html"
+          git diff --stat
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add Wayward_MOD_v3.36.html
+          git diff --cached --check
+          git commit -m "fix(mobile): show wife location in right status"
+          patch_sha="$(git rev-parse HEAD)"
+          git push --force-with-lease=refs/heads/mobile-migration-v1:$EXPECTED_REMOTE_HEAD origin "HEAD:refs/heads/mobile-migration-v1"
+          echo "PATCH_SHA=$patch_sha"
+
+      - name: Remove one-shot runner from main
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          git checkout -q main
+          test -f .github/workflows/m36-resume-patch-20261008.yml
+          git rm .github/workflows/m36-resume-patch-20261008.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "chore: remove one-shot m36 resume patch runner"
+          git push origin HEAD:refs/heads/main
