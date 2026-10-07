@@ -2454,7 +2454,6 @@ function M36MobileStoreStatus({showAllRooms=false}={}){
   const wifeArousal=Math.round(wife.stats?.arousal??0);
   const wifeTask=jF(wife,state),topFeeling=mf(wife,1).filter(x=>x.intensity>15)[0];
   const feeling=topFeeling?u.koLabel("emotion",topFeeling.emotion):"평온";
-  const wifeRoomCount=1+state.customers.filter(customer=>Zi(customer)&&ht(state,customer.id)===wifeLoc).length+b7(state,wifeLoc).length+m315StaffAt(state,wifeLoc).length;
   const playerGauges=[
     {key:"player-energy",label:"기력",value:playerEnergy,tone:Xl(playerEnergy)},
     ...(playerMana!==null?[{key:"player-mana",label:"마나",value:playerMana,tone:"bg-blue-400"}]:[])
@@ -2481,7 +2480,7 @@ function M36MobileStoreStatus({showAllRooms=false}={}){
     ]},bar.key))}),
     wifeLoc!==playerLoc&&u.jsxs("div",{className:"m36-mobile-store-status-line",children:[
       u.jsx("span",{className:"m36-mobile-store-label",children:gs(wifeLoc).replace(/^the /,"")}),
-      u.jsx("span",{className:"m36-mobile-store-value",children:wifeRoomCount})
+      u.jsx("span",{className:"m36-mobile-store-value",children:"\xed\x98\x84\xec\uc7ac \xec\uc704\xec\uce58"})
     ]}),
     u.jsxs("div",{className:"m36-mobile-store-status-line",children:[
       u.jsx("span",{className:"m36-mobile-store-label",children:wife.name||"엘레나"}),
