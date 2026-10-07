@@ -1,0 +1,146 @@
+name: m36 wife-location forensic patch
+
+on:
+  pull_request:
+    branches:
+      - main
+    types: [opened, synchronize]
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.event.pull_request.head.ref == 'tmp-m36-wife-location-forensic'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout runner branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Checkout exact mobile target
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin mobile-migration-v1
+          git checkout -q FETCH_HEAD
+          echo "TARGET_HEAD=$(git rev-parse HEAD)"
+          test "$(git rev-parse HEAD)" = "a1004ff700496c437d39d5f7dc4703fdeee4ab34"
+
+      - name: Forensic chunk inspection
+        shell: bash
+        run: |
+          set -euo pipefail
+          line=$(grep -n -m1 'function M36MobileStoreStatus' Wayward_MOD_v3.36.html | cut -d: -f1)
+          echo "M36MobileStoreStatus line=$line"
+          start=$((line - 12))
+          end=$((line + 55))
+          echo "--- target chunk ${start}:${end} ---"
+          sed -n "${start},${end}p" Wayward_MOD_v3.36.html
+          echo "--- anchor counts ---"
+          python3 - <<'PY'
+          from pathlib import Path
+          data = Path("Wayward_MOD_v3.36.html").read_bytes()
+          anchors = {
+              "wife location selector":
+                  b'const state=re(d=>d.state),dispatch=re(d=>d.dispatch),wife=g(state),playerLoc=re(d=>vt(d.state)),activePatronInteraction=G9(state),',
+              "wife room count anchor":
+                  b'  const feeling=topFeeling?u.koLabel("emotion",topFeeling.emotion):"평온";\n',
+              "wife row anchor":
+                  b'''    u.jsxs("div",{className:"m36-mobile-store-status-line",children:[
+      u.jsx("span",{className:"m36-mobile-store-label",children:wife.name||"엘레나"}),''',
+          }
+          for name, anchor in anchors.items():
+              print(f"{name}: {data.count(anchor)}")
+          PY
+
+      - name: Apply exact minimal patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path("Wayward_MOD_v3.36.html")
+          data = p.read_bytes()
+
+          def once(old: bytes, new: bytes, label: str):
+              global data
+              n = data.count(old)
+              print(f"{label}: {n}")
+              if n != 1:
+                  raise SystemExit(f"{label}: expected exactly 1 anchor, got {n}")
+              data = data.replace(old, new, 1)
+
+          once(
+              b'const state=re(d=>d.state),dispatch=re(d=>d.dispatch),wife=g(state),playerLoc=re(d=>vt(d.state)),activePatronInteraction=G9(state),',
+              b'const state=re(d=>d.state),dispatch=re(d=>d.dispatch),wife=g(state),playerLoc=re(d=>vt(d.state)),wifeLoc=re(d=>be(d.state)),activePatronInteraction=G9(state),',
+              "wife location selector"
+          )
+
+          once(
+              b'  const feeling=topFeeling?u.koLabel("emotion",topFeeling.emotion):"평온";\n',
+              b'  const feeling=topFeeling?u.koLabel("emotion",topFeeling.emotion):"평온";\n  const wifeRoomCount=1+state.customers.filter(customer=>Zi(customer)&&ht(state,customer.id)===wifeLoc).length+b7(state,wifeLoc).length+m315StaffAt(state,wifeLoc).length;\n',
+              "wife room count"
+          )
+
+          once(
+              b'''    u.jsxs("div",{className:"m36-mobile-store-status-line",children:[
+      u.jsx("span",{className:"m36-mobile-store-label",children:wife.name||"엘레나"}),''',
+              b'''    wifeLoc!==playerLoc&&u.jsxs("div",{className:"m36-mobile-store-status-line",children:[
+      u.jsx("span",{className:"m36-mobile-store-label",children:gs(wifeLoc).replace(/^the /,"")}),
+      u.jsx("span",{className:"m36-mobile-store-value",children:wifeRoomCount})
+    ]}),
+    u.jsxs("div",{className:"m36-mobile-store-status-line",children:[
+      u.jsx("span",{className:"m36-mobile-store-label",children:wife.name||"엘레나"}),''',
+              "wife location row"
+          )
+
+          p.write_bytes(data)
+          PY
+
+      - name: Validate only targeted source block
+        shell: bash
+        run: |
+          set -euo pipefail
+          line=$(grep -n -m1 'function M36MobileStoreStatus' Wayward_MOD_v3.36.html | cut -d: -f1)
+          start=$((line - 4))
+          end=$((line + 50))
+          sed -n "${start},${end}p" Wayward_MOD_v3.36.html > /tmp/m36-target-chunk.txt
+          grep -q 'wifeLoc=re(d=>be(d.state))' /tmp/m36-target-chunk.txt
+          grep -q 'wifeLoc!==playerLoc' /tmp/m36-target-chunk.txt
+          grep -q 'wifeRoomCount=' /tmp/m36-target-chunk.txt
+
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          text = Path("Wayward_MOD_v3.36.html").read_text(encoding="utf-8")
+          scripts = re.findall(r"<script\\b[^>]*>(.*?)</script>", text, flags=re.S|re.I)
+          target = next((s for s in scripts if "function M36MobileStoreStatus(" in s), None)
+          if target is None:
+              raise SystemExit("target JS block not found")
+          Path("/tmp/m36-target.js").write_text(target, encoding="utf-8")
+          print("target JS extraction: PASS")
+          PY
+          node --check /tmp/m36-target.js
+          git diff --check
+          echo "--- diff stat ---"
+          git diff --stat
+          echo "--- changed files ---"
+          test "$(git diff --name-only)" = "Wayward_MOD_v3.36.html"
+
+      - name: Commit verified patch to mobile branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add Wayward_MOD_v3.36.html
+          git commit -m "fix(mobile): show wife location in right status"
+          current=$(git rev-parse HEAD)
+          expected=$(git ls-remote origin refs/heads/mobile-migration-v1 | awk '{print $1}')
+          test "$expected" = "a1004ff700496c437d39d5f7dc4703fdeee4ab34"
+          git push --force-with-lease=refs/heads/mobile-migration-v1:$expected origin "HEAD:refs/heads/mobile-migration-v1"
+          echo "PATCH_COMMIT=$current"
