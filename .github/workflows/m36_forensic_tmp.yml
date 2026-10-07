@@ -1,10 +1,8 @@
 name: TEMP M36 forensic inspect
 
 on:
-  push:
+  pull_request:
     branches: [mobile-migration-v1]
-    paths:
-      - '.github/workflows/m36_forensic_tmp.yml'
 
 jobs:
   inspect:
@@ -41,13 +39,13 @@ jobs:
           print("\n=== M36MobileStoreStatus SOURCE ===")
           if idx>=0:
               end=text.find("\nfunction ", idx+10)
-              if end<0: end=min(len(text), idx+50000)
+              if end<0: end=min(len(text), idx+60000)
               print(text[idx:end])
           else:
               print("NOT FOUND")
           PY
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add m36_forensic_output.txt
-          git commit -m "chore(forensic): extract M36 status evidence"
-          git push
+      - name: Upload forensic evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: m36-forensic-output
+          path: m36_forensic_output.txt
