@@ -565,7 +565,132 @@ private repo에서는 PAT를 command line이나 clone URL에 삽입하지 않는
 
 대용량 문자열을 tool payload가 거부할 경우에는 GitHub Actions/외부 sandbox에서 최종 blob을 생성하는 경로로 전환하고, connector에는 최종 Git object/ref 조작만 맡긴다. 이미 존재하는 대형 blob을 context에 재로딩하여 patch하는 방식은 사용하지 않는다.
 
-### 12-B-5. 성공 여부 판정
+### 12-C. 2026-10-08 실증 결과 — 대형 HTML materialize 경로와 인증 경계
+
+2026-10-08 현재 다음은 실제로 확인되었다.
+
+### 12-C-1. Vercel Sandbox 생성 경로
+
+기존 팀-scoped project에서 Sandbox 생성은 다음 오류가 발생할 수 있다.
+
+    403 Not authorized: scope "hoon-ead4"
+
+반복해서 같은 team scope를 호출하지 않는다.
+
+실증에서 성공한 생성 순서는:
+
+    Vercel project를 별도 temporary project로 생성
+    → create_sandboxes_v3
+    → teamId/slug를 명시하지 않음
+    → public Git source 또는 raw SHA source
+    → region=icn1
+    → runtime node22
+    → vcpus=2 / memory=4096
+    → networkPolicy=allow-all
+    → persistent=false
+
+이 방식으로 Sandbox 자체 생성은 실제 성공했다.
+
+### 12-C-2. 19.6MB HTML materialize
+
+GitHub connector의 fetch_file은 대형 HTML에 대해 올바른 blob SHA/size를 반환하지만 content가 비어 있을 수 있다. 이것은 파일이 비어 있다는 뜻이 아니라 connector의 대형 응답 제한이다.
+
+대신 Sandbox 안에서 exact SHA의 public raw URL을 직접 받아온다.
+
+    https://raw.githubusercontent.com/diethoon/3.36/<EXACT_SHA>/Wayward_MOD_v3.36.html
+
+2026-10-08 실제 확인:
+
+    size = 19589636 bytes
+    sha256 = d766c98dab757f2d39d5e1397e3eaa2d90d02afecc994cdf25ed8a99218477f0
+
+즉:
+
+    GitHub connector(context)
+    X 19.6MB 전체 fetch
+
+    Sandbox network
+    O exact SHA raw download
+
+으로 분리해야 한다.
+
+### 12-C-3. Sandbox에서 실제 포렌식 가능
+
+Exact source를 Sandbox로 가져온 후 다음 검증이 실제 성공했다.
+
+    function M36MobileStoreStatus 위치 추출
+    wifeLoc=re(d=>be(d.state)) count=1
+    wifeLoc!==playerLoc count=1
+    wifeRoomCount= count=1
+    label:"인사하기" count=1
+    label:"주문받기" count=1
+    type:"serve",customerId:e.id count=1
+
+따라서 대형 파일 materialize/targeted read/patch/node --check 자체는 Sandbox 경로로 처리할 수 있다.
+
+### 12-C-4. Vercel build runtime을 GitHub writer로 사용하지 않는다
+
+기존 wayward Vercel project에서 확인된 GITHUB_TOKEN은 민감형 환경변수였지만 Vercel build에서 GitHub API 호출 시 HTTP 401이 실제 발생했다. 또한 build workspace에 .git이 존재하는 것은 확인됐지만 usable origin push credential은 확인되지 않았다.
+
+따라서:
+
+    Vercel project secret GITHUB_TOKEN
+    !=
+    현재 유효한 GitHub write credential
+
+으로 취급한다.
+
+이 secret을 decrypt하거나 출력하거나 문서에 기록하지 않는다.
+
+### 12-C-5. GitHub Actions 판정
+
+2026-10-07 과거에 동일 저장소에서 Temporary M36 Mobile Patch run 37580731162가 실제 SUCCESS한 증거가 있다. 그러나 2026-10-08 현재 일부 임시 workflow는 jobs=[]/infrastructure failure로 종료되었다.
+
+따라서 Actions는:
+
+    실제 run + job success가 확인되면 사용
+    jobs=[] / runner unavailable이면 UNKNOWN으로 판정하고 반복 재시도하지 않음
+
+으로 한다.
+
+### 12-C-6. 최종 반영에 필요한 조건
+
+대형 파일을 외부 runtime에서 성공적으로 가공한 뒤 최종 branch에 반영하려면 그 runtime에 유효한 GitHub write credential이 있어야 한다.
+
+권장 순서:
+
+    외부 remote workspace
+    → exact SHA materialize
+    → targeted patch
+    → node --check / diff --check
+    → valid GitHub credential 확인
+    → git push 또는 GitHub blob → tree → commit → ref
+
+PAT/SSH private key를 ChatGPT 대화에 붙여넣지 않는다.
+
+현재 검증되지 않은 것은:
+
+    Vercel build runtime 자체가 GitHub writer가 되는 것
+
+이고,
+
+    GitHub-connected remote workspace에서 exact large file을 patch하고 push하는 것
+
+이 최종 대형-file 성공 경로의 남은 증명 대상이다.
+
+### 12-C-7. 현재 clean state
+
+2026-10-08 실험 후 임시 patch runner/스크립트를 모두 작업 브랜치에서 제거하고 mobile-migration-v1을:
+
+    d658b0acaa464b715ac801f51b469967d20a5a2c
+
+로 복구했다.
+
+실패한 Vercel deployment나 temporary project는 source branch의 코드와 별개다. Production source에 임시 runner를 남기지 않는다.
+
+---
+
+## 12-B-5. 성공 여부 판정
 
 최종 반영 후 반드시:
 
