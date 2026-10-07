@@ -678,6 +678,56 @@ PAT/SSH private key를 ChatGPT 대화에 붙여넣지 않는다.
 
 이 최종 대형-file 성공 경로의 남은 증명 대상이다.
 
+### 12-C-8. 2026-10-08 GitHub large-blob direct patch success
+
+2026-10-08 실제 성공한 대형 HTML 최종 반영 경로:
+
+    Exact branch HEAD 고정
+    → GitHub fetch_blob로 19MB급 blob을 tool runtime 내부에 materialize
+    → 모델 context에는 전체 파일을 출력하지 않음
+    → exact target anchor count == 1 확인
+    → in-memory 최소 치환
+    → 기존 action/renderer anchor 보존 확인
+    → Vercel Sandbox에서 실제 containing script 추출
+    → node --check
+    → GitHub create_blob로 수정 blob 생성
+    → create_blob 응답이 h2/protocol error로 끊겨도 서버 생성 여부를 blob SHA로 검증
+    → base tree의 동일 path만 새 blob SHA로 교체
+    → create_commit(parent = 정확한 시작 HEAD)
+    → update_ref(expected_sha = 시작 HEAD)
+    → 최종 branch HEAD와 새 blob 내용 재검증
+
+이번 작업에서 실제 수정 blob:
+    
+    3c2c7e17717e38935be541893c34f53dd686c21c
+
+수정 후 파일 크기:
+
+    19,589,615 bytes
+
+검증 결과:
+
+    function M36MobileStoreStatus = 1
+    wifeLoc=re(d=>be(d.state)) = 1
+    wifeLoc!==playerLoc = 0
+    wifeRoomCount = 1
+    function M36MobileRoomCustomer = 1
+    label:"인사하기" = 1
+    label:"주문받기" = 1
+    type:"serve",customerId:e.id = 1
+    node --check = PASS
+
+주의사항:
+
+    - 19MB 파일 전체를 ChatGPT context에 출력하지 않는다.
+    - GitHub fetch_file의 empty content와 fetch_blob의 실제 blob materialize는 구분한다.
+    - create_blob의 대형 payload는 응답이 protocol error로 끊겨도 서버 쪽 object 생성이 완료될 수 있다.
+    - 같은 대형 create_blob을 무조건 재전송하지 말고 먼저 예상 Git blob SHA를 계산하여 fetch_blob으로 존재/내용을 검증한다.
+    - 최종 tree는 변경 파일의 blob만 교체하고 나머지는 base tree를 그대로 사용한다.
+    - update_ref에는 expected_sha를 지정하여 다른 작업자의 변경을 덮어쓰지 않는다.
+    - GitHub Actions가 jobs=[]인 경우 이 direct Git-data 경로로 즉시 전환할 수 있다.
+    - DigitalOcean 같은 유료 remote workspace는 필요하지 않다.
+
 ### 12-C-7. 현재 clean state
 
 2026-10-08 실험 후 임시 patch runner/스크립트를 모두 작업 브랜치에서 제거하고 mobile-migration-v1을:

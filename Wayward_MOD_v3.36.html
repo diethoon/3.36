@@ -2479,7 +2479,7 @@ function M36MobileStoreStatus({showAllRooms=false}={}){
       u.jsx("span",{className:"m36-mobile-store-gauge-label",children:bar.label}),
       u.jsx("span",{className:"m36-mobile-store-gauge-track",children:u.jsx("span",{className:"m36-mobile-store-gauge-fill "+bar.tone,style:{width:Math.max(0,Math.min(100,bar.value))+"%"}})})
     ]},bar.key))}),
-    wifeLoc!==playerLoc&&u.jsxs("div",{className:"m36-mobile-store-status-line",children:[
+    u.jsxs("div",{className:"m36-mobile-store-status-line",children:[
       u.jsx("span",{className:"m36-mobile-store-label",children:gs(wifeLoc).replace(/^the /,"")}),
       u.jsx("span",{className:"m36-mobile-store-value",children:wifeRoomCount})
     ]}),
