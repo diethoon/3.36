@@ -69,7 +69,7 @@ jobs:
           p.write_text(text, encoding="utf-8")
           PY
 
-          rm -f .github/workflows/m36_patch_tmp.yml
+          rm -f .github/workflows/m36_patch_tmp.yml .github/m36_pr_seed.tmp
 
           python3 - <<'PY'
           from pathlib import Path
