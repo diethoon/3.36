@@ -9,15 +9,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Extract targeted evidence
+      - name: Extract customer renderers
         shell: bash
         run: |
-          python3 - <<'PY' > m36_forensic_output3.txt
+          python3 - <<'PY' > m36_customer_renderers.txt
           from pathlib import Path
           p=Path("Wayward_MOD_v3.36.html")
           text=p.read_text(encoding="utf-8", errors="replace")
-          print("BYTES", p.stat().st_size)
-          for name in ["M36MobileRoomCustomer","M36MobileRoomActivity","M36MobileStoreStatus","M36MobileCurrentActivity","GF","xOe","wOe"]:
+          for name in ["e3","GF","M36MobileRoomCustomer","M36MobileRoomActivity"]:
               print(f"\n=== SOURCE {name} ===")
               idx=text.find("function "+name)
               print("INDEX",idx)
@@ -25,11 +24,9 @@ jobs:
                   end=text.find("\nfunction ",idx+10)
                   if end<0: end=min(len(text),idx+120000)
                   print(text[idx:end])
-              else:
-                  print("NOT FOUND")
           PY
-      - name: Upload forensic evidence
+      - name: Upload renderer evidence
         uses: actions/upload-artifact@v4
         with:
-          name: m36-forensic-output-3
-          path: m36_forensic_output3.txt
+          name: m36-customer-renderers
+          path: m36_customer_renderers.txt
