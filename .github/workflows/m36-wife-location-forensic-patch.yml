@@ -4,6 +4,10 @@ on:
   push:
     branches:
       - tmp-m36-wife-location-forensic
+  pull_request:
+    branches:
+      - main
+    types: [synchronize]
 
 permissions:
   contents: write
@@ -26,7 +30,7 @@ jobs:
           git fetch origin mobile-migration-v1
           git checkout -q FETCH_HEAD
           echo "TARGET_HEAD=$(git rev-parse HEAD)"
-          test "$(git rev-parse HEAD)" = "a1004ff700496c437d39d5f7dc4703fdeee4ab34"
+          test "$(git rev-parse HEAD)" = "b9e01c47338dc574d70c2d81f1c6be74cfd3a721"
 
       - name: Forensic chunk inspection
         shell: bash
@@ -139,6 +143,6 @@ jobs:
           git commit -m "fix(mobile): show wife location in right status"
           current=$(git rev-parse HEAD)
           expected=$(git ls-remote origin refs/heads/mobile-migration-v1 | awk '{print $1}')
-          test "$expected" = "a1004ff700496c437d39d5f7dc4703fdeee4ab34"
+          test "$expected" = "b9e01c47338dc574d70c2d81f1c6be74cfd3a721"
           git push --force-with-lease=refs/heads/mobile-migration-v1:$expected origin "HEAD:refs/heads/mobile-migration-v1"
           echo "PATCH_COMMIT=$current"
