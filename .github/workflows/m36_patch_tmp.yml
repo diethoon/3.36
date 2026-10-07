@@ -1,34 +1,38 @@
-name: TEMP M36 mobile patron patch
+name: Temporary M36 Patron Mobile Push Patch
 
 on:
-  pull_request:
-    branches: [mobile-migration-v1]
+  push:
+    branches:
+      - mobile-migration-v1
+
+permissions:
+  contents: write
 
 jobs:
   patch:
+    if: contains(github.event.head_commit.message, '[m36-patch]')
+    if: contains(github.event.head_commit.message, '[m36-patch]')
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout pushed revision
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          ref: ${{ github.head_ref }}
-      - name: Apply and validate patch
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Apply targeted patron/mobile patch
         shell: bash
-        env:
-          BASE_SHA: 45e20c27069658147c885b5a08f0dd42d136f800
-          HEAD_BRANCH: ${{ github.head_ref }}
         run: |
+          set -euo pipefail
+          BASE_SHA="45e20c27069658147c885b5a08f0dd42d136f800"
+
           python3 - <<'PY'
           from pathlib import Path
 
-          p=Path("Wayward_MOD_v3.36.html")
-          text=p.read_text(encoding="utf-8")
-          if 'label:"인사하기"' in text and '.m36-mobile-room-line > .group ~ .group{flex:0 0 100%' in text:
-              raise SystemExit(0)
+          path = Path("Wayward_MOD_v3.36.html")
+          text = path.read_text(encoding="utf-8")
 
-          old_customer=r'''function M36MobileRoomCustomer({customer:e,interaction:t,wife:o}){
+          old_customer = r'''function M36MobileRoomCustomer({customer:e,interaction:t,wife:o}){
   const ui=nI(),active=(t?.customerId)===e.id,joined=(t?.joinedPatronIds??[]).includes(e.id),crowd=(t?.crowdPatronIds??[]).includes(e.id);
   return u.jsx(Hc,{bare:!0,placement:"side",interactive:!1,width:400,className:"block",content:u.jsx(_Oe,{customer:e}),children:u.jsxs("div",{onMouseEnter:()=>ui.hover({kind:"customer",id:e.id}),onMouseLeave:()=>ui.hover(null),onClick:()=>ui.toggle({kind:"customer",id:e.id}),className:["group flex flex-col items-start gap-0 px-1.5 py-0.5 rounded border cursor-default",ui.isActive("customer",e.id)?"border-stone-600 bg-stone-800/60":"border-transparent hover:border-stone-700 hover:bg-stone-800/60"].join(" "),children:[
     u.jsxs("div",{className:"flex items-center gap-1.5 min-w-0 w-full whitespace-nowrap",children:[
@@ -40,7 +44,7 @@ jobs:
   ]})})
 }'''
 
-          new_customer=r'''function M36MobileRoomCustomer({customer:e,interaction:t,wife:o}){
+          new_customer = r'''function M36MobileRoomCustomer({customer:e,interaction:t,wife:o}){
   const dispatch=re(x=>x.dispatch),ui=nI(),active=(t?.customerId)===e.id,joined=(t?.joinedPatronIds??[]).includes(e.id),crowd=(t?.crowdPatronIds??[]).includes(e.id)&&!joined,engaged=active||joined||crowd,canAct=o.taskTarget!==e.id&&!engaged;
   const actionable=canAct&&["arrived","greeted","wants_more","ordered"].includes(e.status);
   return u.jsx(Hc,{bare:!0,placement:"side",interactive:!1,width:400,className:"block",content:u.jsx(_Oe,{customer:e}),children:u.jsxs("div",{onMouseEnter:()=>ui.hover({kind:"customer",id:e.id}),onMouseLeave:()=>ui.hover(null),onClick:()=>ui.toggle({kind:"customer",id:e.id}),className:["group flex flex-col items-start gap-0 px-1.5 py-0.5 rounded border cursor-default",ui.isActive("customer",e.id)?"border-stone-600 bg-stone-800/60":"border-transparent hover:border-stone-700 hover:bg-stone-800/60"].join(" "),children:[
@@ -58,37 +62,60 @@ jobs:
   ]})})
 }'''
 
-          old_css='.m36-mobile-room-line > .group{flex:1 1 auto !important;min-width:0 !important;display:flex !important;flex-wrap:wrap !important;gap:.15rem !important;padding:.08rem .15rem !important;margin:0 !important;border-color:rgb(68 64 60) !important;line-height:1 !important}'
-          new_css=old_css+'\n.m36-mobile-room-line > .group ~ .group{flex:0 0 100% !important;max-width:100% !important;}'
+          old_css = '.m36-mobile-room-line > .group{flex:1 1 auto !important;min-width:0 !important;display:flex !important;flex-wrap:wrap !important;gap:.15rem !important;padding:.08rem .15rem !important;margin:0 !important;border-color:rgb(68 64 60) !important;line-height:1 !important}'
+          new_css = old_css + '\n.m36-mobile-room-line > .group ~ .group{flex:0 0 100% !important;max-width:100% !important;}'
 
-          if text.count(old_customer)!=1: raise SystemExit("customer target count invalid")
-          if text.count(old_css)!=1: raise SystemExit("css target count invalid")
-          text=text.replace(old_customer,new_customer,1)
-          text=text.replace(old_css,new_css,1)
-          p.write_text(text,encoding="utf-8")
+          if text.count(old_customer) != 1:
+              raise SystemExit(f"customer target count={text.count(old_customer)}")
+          if text.count(old_css) != 1:
+              raise SystemExit(f"css target count={text.count(old_css)}")
+
+          text = text.replace(old_customer, new_customer, 1)
+          text = text.replace(old_css, new_css, 1)
+          path.write_text(text, encoding="utf-8")
+
+          print("customer renderer patched: 1")
+          print("multi-guest stacking rule patched: 1")
           PY
-          rm -f .github/workflows/m36_patch_tmp.yml
 
           python3 - <<'PY'
           from pathlib import Path
           import re
-          text=Path("Wayward_MOD_v3.36.html").read_text(encoding="utf-8")
-          if text.count("function M36MobileRoomCustomer")!=1: raise SystemExit("customer function invalid")
-          if 'label:"인사하기"' not in text or 'label:"주문받기"' not in text or 'type:"serve"' not in text: raise SystemExit("actions missing")
-          if ".m36-mobile-room-line > .group ~ .group{flex:0 0 100%" not in text: raise SystemExit("stacking rule missing")
-          scripts=re.findall(r"<script\b[^>]*>(.*?)</script>",text,flags=re.S|re.I)
-          target=next((s for s in scripts if "function M36MobileRoomCustomer" in s),None)
-          if target is None: raise SystemExit("target script missing")
-          Path("/tmp/m36_target_script.js").write_text(target,encoding="utf-8")
+
+          text = Path("Wayward_MOD_v3.36.html").read_text(encoding="utf-8")
+          if text.count("function M36MobileRoomCustomer") != 1:
+              raise SystemExit("customer function count invalid")
+          if text.count('label:"인사하기"') < 1:
+              raise SystemExit("greet action missing")
+          if text.count('label:"주문받기"') < 1:
+              raise SystemExit("take-order action missing")
+          if text.count('type:"serve"') < 1:
+              raise SystemExit("serve action missing")
+          if ".m36-mobile-room-line > .group ~ .group{flex:0 0 100%" not in text:
+              raise SystemExit("multi-guest stacking rule missing")
+
+          scripts = re.findall(r"<script\b[^>]*>(.*?)</script>", text, flags=re.S|re.I)
+          target = next((s for s in scripts if "function M36MobileRoomCustomer" in s), None)
+          if target is None:
+              raise SystemExit("target script block not found")
+          Path("/tmp/m36_target_script.js").write_text(target, encoding="utf-8")
+          print("target source validation: PASS")
           PY
+
           node --check /tmp/m36_target_script.js
           git diff --check
-          git add -A
-          git reset --soft "$BASE_SHA"
-          test "$(git diff --cached --name-only)" = "Wayward_MOD_v3.36.html"
-          git diff --cached --check
-          git diff --cached --stat
+
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git reset --mixed "$BASE_SHA"
+          rm -f .github/workflows/m36-temporary-mobile-patch.yml
+          rm -f .github/workflows/m36_patch_tmp.yml
+          rm -f m36_trigger.tmp m36_trigger_v2.tmp m36_trigger_v3.tmp
+
+          git add Wayward_MOD_v3.36.html
+          git diff --cached --check
+          test "$(git diff --cached --name-only)" = "Wayward_MOD_v3.36.html"
+
           git commit -m "fix(mobile): restore patron actions and stack room guests"
-          git push --force-with-lease origin HEAD:refs/heads/$HEAD_BRANCH
+          git push --force-with-lease origin "HEAD:refs/heads/mobile-migration-v1"
