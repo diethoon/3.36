@@ -12,40 +12,38 @@ jobs:
       - name: Extract targeted evidence
         shell: bash
         run: |
-          python3 - <<'PY' > m36_forensic_output.txt
+          python3 - <<'PY' > m36_forensic_output2.txt
           from pathlib import Path
+          import re
           p=Path("Wayward_MOD_v3.36.html")
           text=p.read_text(encoding="utf-8", errors="replace")
-          print("BYTES", p.stat().st_size)
           lines=text.splitlines()
-          print("LINES", len(lines))
-          for needle in [
-              "function M36MobileStoreStatus",
-              "인사하기",
-              "주문받기",
-              "주문 받기",
-              "서빙",
-              "Serve",
-              "m36-mobile-store",
-              "crowdNames"
-          ]:
-              print("\n=== NEEDLE", needle, "===")
+          print("BYTES", p.stat().st_size, "LINES", len(lines))
+          print("\n=== MOBILE FUNCTION INDEX 2300-2550 ===")
+          for i,l in enumerate(lines,1):
+              if 2300 <= i <= 2550 and re.search(r'function\s+\w*', l):
+                  print(f"{i}:{l[:240]}")
+          names=["M36MobileRoomActivity","M36MobileStoreStatus"]
+          for name in names:
+              print(f"\n=== SOURCE {name} ===")
+              idx=text.find("function "+name)
+              print("INDEX",idx)
+              if idx>=0:
+                  end=text.find("\nfunction ",idx+10)
+                  if end<0: end=min(len(text),idx+100000)
+                  print(text[idx:end])
+          for needle in ["인사하기","주문받기","주문 받기","서빙","손님","patron","customer","crowdNames"]:
+              print(f"\n=== HITS {needle} ===")
               hits=[i for i,l in enumerate(lines,1) if needle in l]
-              print("HITS", hits[:50], "COUNT", len(hits))
-              for i in hits[:20]:
-                  for j in range(max(1,i-2), min(len(lines),i+2)+1):
-                      print(f"{j}:{lines[j-1]}")
-          idx=text.find("function M36MobileStoreStatus")
-          print("\n=== M36MobileStoreStatus SOURCE ===")
-          if idx>=0:
-              end=text.find("\nfunction ", idx+10)
-              if end<0: end=min(len(text), idx+60000)
-              print(text[idx:end])
-          else:
-              print("NOT FOUND")
+              print("HITS",hits[:80],"COUNT",len(hits))
+              for i in hits[:40]:
+                  if 1800 <= i <= 3900:
+                      print(f"--- line {i} ---")
+                      for j in range(max(1,i-3),min(len(lines),i+3)+1):
+                          print(f"{j}:{lines[j-1]}")
           PY
       - name: Upload forensic evidence
         uses: actions/upload-artifact@v4
         with:
-          name: m36-forensic-output
-          path: m36_forensic_output.txt
+          name: m36-forensic-output-2
+          path: m36_forensic_output2.txt
