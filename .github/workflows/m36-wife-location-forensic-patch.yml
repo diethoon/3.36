@@ -1,17 +1,15 @@
 name: m36 wife-location forensic patch
 
 on:
-  pull_request:
+  push:
     branches:
-      - main
-    types: [opened, synchronize]
+      - tmp-m36-wife-location-forensic
 
 permissions:
   contents: write
 
 jobs:
   patch:
-    if: github.event.pull_request.head.ref == 'tmp-m36-wife-location-forensic'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout runner branch
