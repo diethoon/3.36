@@ -9,24 +9,25 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Extract customer renderers
+      - name: Extract mobile room CSS
         shell: bash
         run: |
-          python3 - <<'PY' > m36_customer_renderers.txt
+          python3 - <<'PY' > m36_room_css.txt
           from pathlib import Path
-          p=Path("Wayward_MOD_v3.36.html")
-          text=p.read_text(encoding="utf-8", errors="replace")
-          for name in ["e3","GF","M36MobileRoomCustomer","M36MobileRoomActivity"]:
-              print(f"\n=== SOURCE {name} ===")
-              idx=text.find("function "+name)
-              print("INDEX",idx)
-              if idx>=0:
-                  end=text.find("\nfunction ",idx+10)
-                  if end<0: end=min(len(text),idx+120000)
-                  print(text[idx:end])
+          text=Path("Wayward_MOD_v3.36.html").read_text(encoding="utf-8",errors="replace")
+          for needle in [".m36-mobile-room-activity",".m36-mobile-room-line",".m36-mobile-room-customer-name",".m36-mobile-room-response"]:
+              print(f"\n=== {needle} ===")
+              p=0; n=0
+              while True:
+                  p=text.find(needle,p)
+                  if p<0: break
+                  n+=1
+                  print("---",n,"index",p,"---")
+                  print(text[max(0,p-800):p+2500])
+                  p+=len(needle)
           PY
-      - name: Upload renderer evidence
+      - name: Upload CSS evidence
         uses: actions/upload-artifact@v4
         with:
-          name: m36-customer-renderers
-          path: m36_customer_renderers.txt
+          name: m36-room-css
+          path: m36_room_css.txt
