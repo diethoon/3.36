@@ -146,3 +146,5 @@ jobs:
           test "$expected" = "b9e01c47338dc574d70c2d81f1c6be74cfd3a721"
           git push --force-with-lease=refs/heads/mobile-migration-v1:$expected origin "HEAD:refs/heads/mobile-migration-v1"
           echo "PATCH_COMMIT=$current"
+
+# synchronize trigger probe
