@@ -1,0 +1,138 @@
+name: M36 temporary PR runner
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  patch:
+    if: github.repository == 'diethoon/3.36' && github.event.pull_request.base.ref == 'mobile-migration-v1' && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout PR head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+          repository: ${{ github.repository }}
+          fetch-depth: 0
+
+      - name: Targeted forensic patch
+        env:
+          EXPECTED_BASE: 20398ad533fa2702dbafe4497ad1d2ab11a081e8
+        run: |
+          set -euo pipefail
+          git merge-base --is-ancestor "$EXPECTED_BASE" HEAD
+
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib
+
+          p = Path("Wayward_MOD_v3.36.html")
+          d = p.read_bytes()
+
+          old = b'wifeLoc!==playerLoc&&u.jsxs("div",{className:"m36-mobile-store-status-line",children:['
+          new = b'u.jsxs("div",{className:"m36-mobile-store-status-line",children:['
+
+          checks = {
+              b"function M36MobileStoreStatus": 1,
+              old: 1,
+              b"wifeLoc=re(d=>be(d.state))": 1,
+              b"wifeRoomCount=": 1,
+              b"function M36MobileRoomCustomer": 1,
+              'label:"인사하기"'.encode(): 1,
+              'label:"주문받기"'.encode(): 1,
+              b'type:"serve",customerId:e.id': 1,
+          }
+
+          for a, expected in checks.items():
+              got = d.count(a)
+              if got != expected:
+                  raise SystemExit(f"anchor count mismatch: {a!r}: {got} != {expected}")
+
+          d = d.replace(old, new, 1)
+          p.write_bytes(d)
+
+          assert d.count(b"wifeLoc!==playerLoc") == 0
+          print("FILE_SIZE", len(d))
+          print("FILE_SHA256", hashlib.sha256(d).hexdigest())
+
+          target = d.find(b"function M36MobileStoreStatus")
+          scan = 0
+          while True:
+              s = d.find(b"<script", scan)
+              if s < 0:
+                  raise SystemExit("containing script start not found")
+              gt = d.find(b">", s)
+              e = d.find(b"</script>", gt + 1)
+              if gt < target < e:
+                  Path("/tmp/m36-main.js").write_bytes(d[gt+1:e])
+                  break
+              scan = e + 9
+          PY
+
+          node --check /tmp/m36-main.js
+          git diff --check
+          test "$(git diff --name-only)" = "Wayward_MOD_v3.36.html"
+          echo "M36_STATIC_PASS"
+
+      - name: Update handoff documentation
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path("idea/GPT_RUNTIME_FORENSIC_FALLBACK.md")
+          text = p.read_text(encoding="utf-8")
+          marker = "### 12-C-8. 2026-10-08 GitHub Actions PR-triggered large-file patch success path"
+          if marker not in text:
+              insert = """
+### 12-C-8. 2026-10-08 GitHub Actions PR-triggered large-file patch success path
+
+검증된 무료 경로:
+
+    mobile-migration-v1에 임시 pull_request workflow 추가
+    → exact base SHA에서 same-repository temporary branch 생성
+    → base branch로 temporary PR 생성
+    → PR workflow가 GitHub Actions runner에서 19MB HTML을 checkout
+    → runner filesystem에서 target anchor를 1회 검증
+    → exact byte patch
+    → 실제 containing <script>를 순차 탐색하여 node --check
+    → git diff --check 및 변경 파일 목록 확인
+    → 임시 workflow를 PR branch에서 삭제
+    → patch + documentation + workflow deletion을 함께 commit
+    → temporary PR squash merge
+    → final branch에서 temporary workflow가 사라진 상태 재확인
+
+핵심:
+
+    대형 HTML 전체를 ChatGPT/GitHub connector context로 읽지 않는다.
+    19MB 파일은 Actions runner filesystem에서만 다룬다.
+    push-triggered jobs=[]가 발생해도 PR-triggered workflow는 별도 경로로 시험한다.
+    workflow는 base branch에 먼저 존재해야 PR event에서 실제 실행될 수 있다.
+
+주의:
+
+    - expected base SHA를 반드시 검증한다.
+    - target old block count가 정확히 1이 아니면 중단한다.
+    - <script> 문자열 내부의 가짜 태그를 피하려고 containing script를 순차 탐색한다.
+    - GITHUB_TOKEN 원문을 출력하지 않는다.
+    - 최종 merge 후 임시 workflow 파일이 없어야 한다.
+    - DigitalOcean 등 유료 원격 머신은 필요하지 않다.
+"""
+              text = text.replace("
+### 12-C-7. 현재 clean state", insert + "
+### 12-C-7. 현재 clean state", 1)
+              p.write_text(text, encoding="utf-8")
+          PY
+
+      - name: Remove temporary workflow from PR branch and commit
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          rm -f .github/workflows/m36-pr-base-runner.yml
+          git add Wayward_MOD_v3.36.html idea/GPT_RUNTIME_FORENSIC_FALLBACK.md .github/workflows/m36-pr-base-runner.yml
+          git commit -m "fix(mobile): always show Elena location in right status"
+          git push origin "${{ github.event.pull_request.head.ref }}"
