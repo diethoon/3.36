@@ -2,7 +2,7 @@ name: TEMP M36 mobile patch runner
 # sync-trigger
 
 on:
-  pull_request:
+  pull_request_target:
     branches:
       - mobile-migration-v1
 
