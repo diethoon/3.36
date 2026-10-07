@@ -53,3 +53,4 @@ jobs:
           git add Wayward_MOD_v3.36.html
           git commit -m "fix(mobile): show player and wife locations"
           git push origin HEAD:${{ github.event.pull_request.head.ref }}
+
