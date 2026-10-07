@@ -2445,7 +2445,7 @@ function M36MobilePersistentStatus(){
   ]});
 }
 function M36MobileStoreStatus({showAllRooms=false}={}){
-  const state=re(d=>d.state),dispatch=re(d=>d.dispatch),wife=g(state),playerLoc=re(d=>vt(d.state)),activePatronInteraction=G9(state),crowdNames=((activePatronInteraction?.crowdPatronIds??[]).map(id=>state.customers.find(customer=>customer.id===id)?.name).filter(Boolean));
+  const state=re(d=>d.state),dispatch=re(d=>d.dispatch),wife=g(state),playerLoc=re(d=>vt(d.state)),wifeLoc=re(d=>be(d.state)),activePatronInteraction=G9(state),crowdNames=((activePatronInteraction?.crowdPatronIds??[]).map(id=>state.customers.find(customer=>customer.id===id)?.name).filter(Boolean));
   const playerEnergy=Math.round(state.player?.stats?.energy??0);
   const playerMagic=state.player?.magic;
   const playerMana=playerMagic?.grimoireFound?Math.round(po(playerMagic)):null;
@@ -2454,6 +2454,7 @@ function M36MobileStoreStatus({showAllRooms=false}={}){
   const wifeArousal=Math.round(wife.stats?.arousal??0);
   const wifeTask=jF(wife,state),topFeeling=mf(wife,1).filter(x=>x.intensity>15)[0];
   const feeling=topFeeling?u.koLabel("emotion",topFeeling.emotion):"평온";
+  const wifeRoomCount=1+state.customers.filter(customer=>Zi(customer)&&ht(state,customer.id)===wifeLoc).length+b7(state,wifeLoc).length+m315StaffAt(state,wifeLoc).length;
   const playerGauges=[
     {key:"player-energy",label:"기력",value:playerEnergy,tone:Xl(playerEnergy)},
     ...(playerMana!==null?[{key:"player-mana",label:"마나",value:playerMana,tone:"bg-blue-400"}]:[])
@@ -2478,6 +2479,10 @@ function M36MobileStoreStatus({showAllRooms=false}={}){
       u.jsx("span",{className:"m36-mobile-store-gauge-label",children:bar.label}),
       u.jsx("span",{className:"m36-mobile-store-gauge-track",children:u.jsx("span",{className:"m36-mobile-store-gauge-fill "+bar.tone,style:{width:Math.max(0,Math.min(100,bar.value))+"%"}})})
     ]},bar.key))}),
+    wifeLoc!==playerLoc&&u.jsxs("div",{className:"m36-mobile-store-status-line",children:[
+      u.jsx("span",{className:"m36-mobile-store-label",children:gs(wifeLoc).replace(/^the /,"")}),
+      u.jsx("span",{className:"m36-mobile-store-value",children:wifeRoomCount})
+    ]}),
     u.jsxs("div",{className:"m36-mobile-store-status-line",children:[
       u.jsx("span",{className:"m36-mobile-store-label",children:wife.name||"엘레나"}),
       u.jsx("span",{className:"m36-mobile-store-value",children:wifeTask}),
