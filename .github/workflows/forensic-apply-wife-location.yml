@@ -76,4 +76,4 @@ jobs:
           git rm .github/workflows/forensic-apply-wife-location.yml
           git add Wayward_MOD_v3.36.html
           git commit -m "fix(mobile): refine wife location status label"
-          git push origin HEAD:${{ github.event.pull_request.head.ref }}
+          git push origin HEAD:gpt-apply-wife-location-20261007
