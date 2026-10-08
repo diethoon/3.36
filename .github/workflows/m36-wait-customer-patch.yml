@@ -1,0 +1,64 @@
+name: m36-wait-customer-patch
+on:
+  push:
+    branches: [mobile-migration-v1]
+    paths-ignore:
+      - "__m36_wait_customer_trigger.txt"
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: {ref: mobile-migration-v1}
+      - name: Apply targeted wait patch
+        shell: python
+        run: |
+          from pathlib import Path
+          
+          p=Path("Wayward_MOD_v3.36.html")
+          s=p.read_text(encoding="utf-8")
+          
+          old='''function el({dispatch:e,description:t,showUntilCustomer:o}){Rt(x=>x.mod32Hotkeys);const n=[{label:"1분",minutes:1,hotkey:"1"},{label:"5분",minutes:5,hotkey:"2"},{label:"15분",minutes:15,hotkey:"3"}],s="flex-1 px-1 desk:px-2 py-1.5 text-[0.8rem] desk:text-sm bg-stone-900 hover:bg-stone-700 transition-colors border-r border-stone-700 last:border-r-0";return u.jsxs("div",{className:"w-full rounded-lg border-y desk:border bg-stone-800 border-stone-700 overflow-hidden",children:[u.jsxs("div",{className:"px-2 desk:px-3 pt-2 pb-1",children:[u.jsxs("div",{className:"flex items-baseline justify-between gap-1.5 min-w-0",children:[u.jsxs("span",{className:"font-medium text-[0.8rem] desk:text-sm",children:[u.jsx(vm,{hotkey:"w"}),"기다리기"]}),u.jsx("span",{className:"text-[0.65rem] desk:text-xs text-stone-500 shrink-0",children:"시간 보내기"})]}),t&&u.jsx("div",{className:"hidden desk:block text-xs text-stone-400 mt-0.5 break-words",children:t})]}),u.jsxs("div",{className:"flex border-t border-stone-700",children:[n.map(r=>u.jsxs("button",{onClick:()=>e({type:"wait",minutes:r.minutes}),title:`${r.minutes}분 기다리기${r.minutes===1?"":""}${m32HintSuffix(r.hotkey)}`,className:s,children:[u.jsx(vm,{hotkey:r.hotkey}),r.label]},r.label)),o&&u.jsxs("button",{onClick:()=>e({type:"wait",until:"customer"}),title:"새 손님이 들어올 때까지 시간 경과 (최대 60분)"+m32HintSuffix("enter"),className:"hidden desk:block flex-[1.5] px-2 py-1.5 text-sm bg-stone-900 hover:bg-stone-700 transition-colors",children:[u.jsx(vm,{hotkey:"↵"}),"손님이 올 때까지"]})]})]})}'''
+          
+          new='''function el({dispatch:e,description:t,showUntilCustomer:o}){Rt(x=>x.mod32Hotkeys);const n=[{label:"1분",minutes:1,hotkey:"1"},{label:"5분",minutes:5,hotkey:"2"},{label:"15분",minutes:15,hotkey:"3"}],s="flex-1 min-w-0 px-1 desk:px-2 py-1.5 text-[0.8rem] desk:text-sm bg-stone-900 hover:bg-stone-700 transition-colors border-r border-stone-700 last:border-r-0";return u.jsxs("div",{className:"w-full rounded-lg border-y desk:border bg-stone-800 border-stone-700 overflow-hidden",children:[u.jsxs("div",{className:"px-2 desk:px-3 pt-2 pb-1",children:[o?u.jsx("button",{type:"button",onClick:()=>e({type:"wait",until:"customer"}),title:"새 손님이 들어올 때까지 시간 경과 (최대 60분)"+m32HintSuffix("enter"),className:"m36-wait-customer-button",children:[u.jsx(vm,{hotkey:"↵"}),u.jsx("span",{className:"m36-wait-customer-label",children:"손님 올 때까지 기다리기"})]}):u.jsxs("div",{className:"font-medium text-[0.8rem] desk:text-sm text-stone-200",children:[u.jsx(vm,{hotkey:"w"}),"기다리기"]}),t&&u.jsx("div",{className:"hidden desk:block text-xs text-stone-400 mt-0.5 break-words",children:t})]}),u.jsxs("div",{className:"flex border-t border-stone-700",children:[n.map(r=>u.jsxs("button",{onClick:()=>e({type:"wait",minutes:r.minutes}),title:`${r.minutes}분 기다리기${r.minutes===1?"":""}${m32HintSuffix(r.hotkey)}`,className:s,children:[u.jsx(vm,{hotkey:r.hotkey}),r.label]},r.label))]})]})}'''
+          
+          if s.count(old)!=1:
+              raise SystemExit(f"WAIT_COMPONENT_ANCHOR_COUNT={s.count(old)}")
+          
+          s=s.replace(old,new,1)
+          
+          style='''<style id="wayward-mobile-wait-customer-v1">
+          .m36-wait-customer-button{
+            width:100%;min-width:0;display:flex;align-items:center;justify-content:center;gap:.3rem;
+            box-sizing:border-box;padding:.42rem .55rem;border:1px solid #57534e;border-radius:.5rem;
+            background:#1c1917;color:#f5f5f4;font-weight:600;line-height:1;white-space:nowrap;
+            overflow:hidden;text-overflow:ellipsis;
+          }
+          .m36-wait-customer-button:hover{background:#292524}
+          .m36-wait-customer-label{
+            min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+            font-size:clamp(10px,2.7vw,14px);letter-spacing:-.02em;
+          }
+          @media(min-width:1024px){
+            .m36-wait-customer-label{font-size:13px}
+          }
+          </style>'''
+          if 'id="wayward-mobile-wait-customer-v1"' in s:
+              raise SystemExit("WAIT_STYLE_ALREADY_PRESENT")
+          if s.count("</head>")!=1:
+              raise SystemExit("HEAD_COUNT_INVALID")
+          s=s.replace("</head>",style+"</head>",1)
+          
+          p.write_text(s,encoding="utf-8")
+          print("M36_WAIT_CUSTOMER_PATCH_APPLIED")
+          
+      - name: Validate and commit
+        run: |
+          git diff --check
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add Wayward_MOD_v3.36.html
+          git commit -m "fix(mobile): promote wait-for-customer action"
+          git push
