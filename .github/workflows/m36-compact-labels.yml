@@ -1,0 +1,35 @@
+name: m36 compact labels one-shot
+on:
+  push:
+    branches: [mobile-migration-v1]
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: mobile-migration-v1
+          fetch-depth: 1
+      - name: Apply compact labels
+        run: python3 .github/m36_compact_labels_patch.py
+      - name: Validate
+        run: |
+          set -euo pipefail
+          git diff --check
+          grep -q 'label:"부탁"' Wayward_MOD_v3.36.html
+          grep -q 'label:"지배"' Wayward_MOD_v3.36.html
+          grep -q 'label:"기만"' Wayward_MOD_v3.36.html
+          grep -q 'label:"접대"' Wayward_MOD_v3.36.html
+          grep -q 'label:"골드"' Wayward_MOD_v3.36.html
+          grep -q 'label:"호기심"' Wayward_MOD_v3.36.html
+          echo COMPACT_LABEL_VALIDATION_PASS
+      - name: Commit and cleanup
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add Wayward_MOD_v3.36.html .github/m36_compact_labels_patch.py .github/workflows/m36-compact-labels.yml
+          git commit -m "fix(mobile): compact request and reason labels for screen space"
+          git push origin mobile-migration-v1
