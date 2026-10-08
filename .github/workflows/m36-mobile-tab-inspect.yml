@@ -63,6 +63,14 @@ jobs:
               console.log('STYLE',label,i,JSON.stringify(await e.evaluate(el=>{
                 const s=getComputedStyle(el); return {display:s.display,width:s.width,minWidth:s.minWidth,maxWidth:s.maxWidth,whiteSpace:s.whiteSpace,overflowWrap:s.overflowWrap,wordBreak:s.wordBreak,fontSize:s.fontSize,lineHeight:s.lineHeight,padding:s.padding};
               })));
+              console.log('ANCESTORS',label,i,JSON.stringify(await e.evaluate(el=>{
+                const arr=[]; let n=el;
+                for(let k=0;k<5 && n;k++,n=n.parentElement){
+                  const s=getComputedStyle(n),r=n.getBoundingClientRect();
+                  arr.push({tag:n.tagName,cls:String(n.className),text:(n.innerText||'').slice(0,180),rect:{x:r.x,y:r.y,w:r.width,h:r.height},display:s.display,width:s.width,minWidth:s.minWidth,maxWidth:s.maxWidth,whiteSpace:s.whiteSpace,flexWrap:s.flexWrap,grid:s.gridTemplateColumns,gap:s.gap,justify:s.justifyContent,overflow:s.overflow});
+                }
+                return arr;
+              })));
             }
           }
           await browser.close();
