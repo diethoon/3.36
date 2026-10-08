@@ -1,0 +1,31 @@
+name: m36-assay-purse-forensic
+on:
+  push:
+    branches: [mobile-migration-v1]
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Targeted scan only
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path("Wayward_MOD_v3.36.html")
+          s=p.read_text(encoding="utf-8", errors="ignore")
+          needles=["Assay the Purse","assay the purse","주머니 감정","소지금 파악","purse","assayPurse","assay_purse"]
+          out=[]
+          for needle in needles:
+              start=0
+              while True:
+                  i=s.find(needle,start)
+                  if i<0: break
+                  a=max(0,i-2200); b=min(len(s),i+4200)
+                  out.append("\n=== MATCH "+repr(needle)+" @ "+str(i)+" ===\n"+s[a:b])
+                  start=i+1
+                  if len(out)>=30: break
+              if len(out)>=30: break
+          Path("/tmp/report.txt").write_text("\n".join(out),encoding="utf-8")
+          print("\n".join(out))
+          PY
