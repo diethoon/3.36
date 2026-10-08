@@ -13,13 +13,11 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: mobile-migration-v1
-          fetch-depth: 1
+          fetch-depth: 2
       - name: Patch from clean accepted commit
         shell: bash
         run: |
           set -euo pipefail
-          git fetch origin 0d3c3a4ebab002057a722f02d9188e29a49659b6
-          git reset --hard 0d3c3a4ebab002057a722f02d9188e29a49659b6
           python3 - <<'PY'
           from pathlib import Path
           p=Path("Wayward_MOD_v3.36.html")
