@@ -3,7 +3,7 @@ on:
   push:
     branches: [mobile-migration-v1]
 permissions:
-  contents: read
+  contents: write
 jobs:
   patch:
     runs-on: ubuntu-latest
