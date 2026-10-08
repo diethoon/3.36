@@ -84,8 +84,10 @@ jobs:
             await settingsBtn.click();
             await page.waitForTimeout(350);
 
-            const option=page.getByText(label,{exact:true}).last();
-            await option.click();
+            const fontSelect=page.locator('select').filter({
+              has:page.locator('option[value="0.9"]')
+            }).first();
+            await fontSelect.selectOption({label});
             await page.waitForTimeout(700);
 
             const close=page.getByText('✕',{exact:true}).last();
