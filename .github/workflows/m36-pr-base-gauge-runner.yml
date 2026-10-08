@@ -1,6 +1,8 @@
 name: M36 temporary gauge PR runner
 
 on:
+  push:
+    branches: [mobile-gauge-fixed-1026-1008]
   pull_request:
     types: [opened, synchronize, reopened]
 
