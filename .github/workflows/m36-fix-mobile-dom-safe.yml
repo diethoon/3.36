@@ -21,6 +21,7 @@ jobs:
 
           p = Path("Wayward_MOD_v3.36.html")
           s = p.read_text(encoding="utf-8")
+
           marker = '<script id="m36-mobile-next-ui-script">'
           start = s.find(marker)
           if start < 0:
@@ -57,9 +58,7 @@ jobs:
             overflow:hidden!important;
             white-space:nowrap!important;
           }
-          .m36-mobile-disabled-choice > *{
-            display:none!important;
-          }
+          .m36-mobile-disabled-choice > *{display:none!important;}
           .m36-mobile-disabled-choice::before{
             content:attr(data-m36-disabled-choice-label);
             display:block!important;
@@ -74,7 +73,6 @@ jobs:
           .m36-mobile-disabled-choice::after{
             content:attr(data-m36-disabled-choice-status);
             display:block!important;
-            flex-shrink:0!important;
             white-space:nowrap!important;
             font-size:.68rem!important;
             line-height:1.2!important;
@@ -92,29 +90,37 @@ jobs:
               white-space:normal!important;
             }
             .m36-mobile-disabled-choice::before,
-            .m36-mobile-disabled-choice::after{
-              content:none!important;
-            }
-            .m36-mobile-disabled-choice > *{
-              display:revert!important;
-            }
+            .m36-mobile-disabled-choice::after{content:none!important;}
+            .m36-mobile-disabled-choice > *{display:revert!important;}
           }'''
-
-          s = s[:style_start] + new_css + s[style_end:]
 
           new_js = r'''(()=>{
             const mq=window.matchMedia("(max-width:1023px)");
             const root=()=>document.querySelector(".mobile-layout");
-            const norm=v=>String(v||"").replace(/s+/g," ").trim();
-            const META=/(?:무료|d+s*골드|d+s*(?:분|시간)|오후s*d+시|·|•|완료|종료|마감|끝났|시간 부족|사용 불가|이용 불가|영업 전)/;
+            const norm=v=>String(v||"").trim().split("
+").join(" ").split("	").join(" ");
+
+            function cutAtNumberToken(x,token){
+              const idx=x.indexOf(token);
+              if(idx<0) return x;
+              let start=idx;
+              const digits="0123456789 ";
+              while(start>0 && digits.includes(x[start-1])) start--;
+              return x.slice(0,start);
+            }
 
             function cleanLabel(v){
               let x=norm(v);
-              x=x.replace(/s*[·•]s*.*/,"");
-              x=x.replace(/s*(?:무료|d+s*골드).*/,"");
-              x=x.replace(/s*d+s*(?:분|시간).*/,"");
-              x=x.replace(/s*오후s*d+시.*/,"");
-              x=x.replace(/(?:완료|종료|마감|끝났|시간 부족|사용 불가|이용 불가|영업 전).*/,"");
+              const cuts=["·","•","무료","영업 전","시간 부족","시간이 부족","사용 불가","이용 불가","완료","종료","마감","끝났","오후"];
+              let cut=x.length;
+              for(const token of cuts){
+                const idx=x.indexOf(token);
+                if(idx>=0 && idx<cut) cut=idx;
+              }
+              x=x.slice(0,cut);
+              x=cutAtNumberToken(x,"골드");
+              x=cutAtNumberToken(x,"분");
+              x=cutAtNumberToken(x,"시간");
               return norm(x);
             }
 
@@ -122,18 +128,18 @@ jobs:
               const candidates=[...btn.querySelectorAll("span,strong,b")].map(el=>norm(el.textContent)).filter(Boolean);
               for(const text of candidates){
                 const cleaned=cleanLabel(text);
-                if(cleaned && cleaned.length<=60 && !META.test(cleaned)) return cleaned;
+                if(cleaned && cleaned.length<=60) return cleaned;
               }
               return cleanLabel(btn.textContent)||"선택지";
             }
 
             function choiceStatus(text){
               const x=norm(text);
-              if(/완료/.test(x)) return "완료";
-              if(/오후s*5시|영업s*(?:전|시간)/.test(x)) return "영업 전";
-              if(/늦|시간이 부족|시간s*없|너무 늦/.test(x)) return "시간 부족";
-              if(/종료|마감|끝났/.test(x)) return "종료";
-              if(/없습니다|없어요|방 안에/.test(x)) return "이용 불가";
+              if(x.includes("완료")) return "완료";
+              if(x.includes("오후 5시")||x.includes("영업 전")||x.includes("영업시간")) return "영업 전";
+              if(x.includes("시간이 부족")||x.includes("시간 부족")||x.includes("시간이 너무")||x.includes("너무 늦")||x.includes("늦었습니다")) return "시간 부족";
+              if(x.includes("종료")||x.includes("마감")||x.includes("끝났")) return "종료";
+              if(x.includes("없습니다")||x.includes("없어요")||x.includes("방 안에")) return "이용 불가";
               return "사용 불가";
             }
 
@@ -162,9 +168,9 @@ jobs:
               const r=root();
               if(!r) return;
               r.querySelectorAll("h4").forEach(h=>{
-                const title=norm(h.textContent).replace(/^[▸▾]s*/,"");
+                const title=norm(h.textContent).split("▸").join("").split("▾").join("").trim();
                 const isOutside=title==="외출";
-                const isVillage=title.startsWith("마을 둘러보기");
+                const isVillage=title.indexOf("마을 둘러보기")===0;
                 if(!(isOutside||isVillage)) return;
                 const list=h.nextElementSibling;
                 if(!list) return;
@@ -212,16 +218,21 @@ jobs:
             sync();
           })();'''
 
+          s = s[:style_start] + new_css + s[style_end:]
           s = s[:body_start] + new_js + s[body_end:]
           p.write_text(s, encoding="utf-8")
 
           js_path=Path("/tmp/m36-mobile-next-ui.js")
           js_path.write_text(new_js,encoding="utf-8")
           subprocess.run(["node","--check",str(js_path)],check=True)
+
           if "replaceWith" in new_js:
               raise SystemExit("unsafe replaceWith remains")
-          if "button:disabled" not in new_js or "m36-mobile-disabled-choice" not in new_js:
-              raise SystemExit("disabled-choice patch missing")
+          if "button:disabled" not in new_js:
+              raise SystemExit("disabled selector missing")
+          if "data-m36-disabled-choice-label" not in new_js:
+              raise SystemExit("label attribute missing")
+
           print("node --check: PASS")
           print("DOM replacement: NONE")
           PY
@@ -229,16 +240,11 @@ jobs:
       - name: Diff check
         run: git diff --check
 
-      - name: Commit patch and remove temporary forensic workflows
+      - name: Commit DOM-safe patch
         shell: bash
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add Wayward_MOD_v3.36.html
           git commit -m "fix(mobile): avoid React DOM replacement during navigation"
-          
-          rm -f             .github/workflows/m36-fix-mobile-dom-safe.yml             .github/workflows/m36-movement-forensics.yml             .github/workflows/m36-movement-targets.yml             .github/workflows/m36-movement-action-trace.yml             .github/workflows/m36-movement-handler-definitions.yml             .github/workflows/m36-movement-bw-trace.yml             .github/workflows/m36-shared-return-helper-scan.yml
-          
-          git add -u .github/workflows
-          git commit -m "chore: remove temporary movement forensic workflows"
           git push origin HEAD:mobile-migration-v1
