@@ -2,6 +2,7 @@ name: mobile-forensic-choice-probe
 on:
   push:
     branches: [mobile-migration-v1]
+  workflow_dispatch:
 jobs:
   probe:
     runs-on: ubuntu-latest
