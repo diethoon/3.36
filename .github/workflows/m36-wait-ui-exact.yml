@@ -1,0 +1,37 @@
+name: m36-wait-ui-exact
+on:
+  push:
+    branches: [mobile-migration-v1]
+    paths-ignore: ["__m36_wait_ui_trigger.txt"]
+permissions:
+  contents: write
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: {ref: mobile-migration-v1}
+      - name: Exact
+        shell: python
+        run: |
+          from pathlib import Path
+          s=Path("Wayward_MOD_v3.36.html").read_text(encoding="utf-8")
+          keys=['const K=[{label:"1분",minutes:1','label:"시간 보내기"','label:"기다리기"','label:"5분",minutes:5','label:"15분",minutes:15']
+          out=[]
+          for k in keys:
+              pos=0
+              count=0
+              while True:
+                  p=s.find(k,pos)
+                  if p<0: break
+                  count+=1
+                  out.append(f"### {k} offset={p}\n{s[max(0,p-5000):min(len(s),p+8000)]}")
+                  pos=p+len(k)
+          Path("__m36_wait_ui_exact.txt").write_text("\n---\n".join(out[:20]),encoding="utf-8")
+          print("MATCH_COUNT",len(out))
+      - run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add __m36_wait_ui_exact.txt
+          git commit -m "chore: exact wait UI forensic report" || exit 0
+          git push
