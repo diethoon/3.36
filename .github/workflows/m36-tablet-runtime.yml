@@ -22,7 +22,9 @@ jobs:
           const browser=await chromium.launch({headless:true});
           const page=await browser.newPage({viewport:{width:1280,height:800},deviceScaleFactor:1});
           await page.goto(url,{waitUntil:'networkidle',timeout:120000});
-          await page.waitForTimeout(3000);
+          await page.waitForTimeout(1500);
+          const yes=page.getByText('예',{exact:true}).first();
+          if(await yes.count()) { await yes.click(); await page.waitForTimeout(3000); }
           fs.mkdirSync('shots',{recursive:true});
           await page.screenshot({path:'shots/tablet-initial.png',fullPage:false});
           const body=(await page.locator('body').innerText()).slice(0,12000);
