@@ -1,0 +1,32 @@
+name: m36-wait-use-forensic
+on:
+  push:
+    branches: [mobile-migration-v1]
+    paths-ignore: ["__m36_wait_use_trigger.txt"]
+permissions:
+  contents: write
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: {ref: mobile-migration-v1}
+      - name: Extract uses
+        shell: python
+        run: |
+          from pathlib import Path
+          import re
+          s=Path("Wayward_MOD_v3.36.html").read_text(encoding="utf-8")
+          out=[]
+          for needle in ["function el(","u.jsx(el","el({","showUntilCustomer","type:"wait""]:
+              poss=[m.start() for m in re.finditer(re.escape(needle),s)]
+              out.append(f"### {needle} count={len(poss)}")
+              for p in poss[:20]:
+                  out.append(f"--- offset={p} ---\n{s[max(0,p-1800):min(len(s),p+2500)]}")
+          Path("__m36_wait_use_forensic.txt").write_text("\n".join(out),encoding="utf-8")
+      - run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add __m36_wait_use_forensic.txt
+          git commit -m "chore: wait use forensic report" || exit 0
+          git push
