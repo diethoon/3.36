@@ -1,0 +1,28 @@
+name: m36-assay-ui-trace
+on:
+  push:
+    branches: [mobile-migration-v1]
+jobs:
+  trace:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Trace assay UI only
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          s=Path("Wayward_MOD_v3.36.html").read_text(encoding="utf-8",errors="ignore")
+          needles=["activeAssay","readAssay","zL(","reads[","reads.","assay_purse","돈주머니들이 희미하게 빛납니다"]
+          out=[]
+          for n in needles:
+            pos=0
+            while True:
+              i=s.find(n,pos)
+              if i<0: break
+              out.append(f"=== {n} @ {i} ===\n{s[max(0,i-3000):min(len(s),i+5000)]}")
+              pos=i+1
+              if len(out)>=18: break
+            if len(out)>=18: break
+          Path("/tmp/out.txt").write_text("\n\n".join(out),encoding="utf-8")
+          print("\n\n".join(out))
+          PY
