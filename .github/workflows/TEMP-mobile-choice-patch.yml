@@ -22,7 +22,7 @@ jobs:
           from pathlib import Path
           p=Path("Wayward_MOD_v3.36.html")
           b=p.read_bytes()
-          old1=b'px-[0.85rem] py-[0.7rem] desk:p-3 min-h-[2.75rem] desk:min-h-0'
+          old1=b'px-[0.6rem] py-[0.35rem] desk:p-3 min-h-0 desk:min-h-0'
           new1=b'px-[0.6rem] py-[0.4rem] desk:p-3 min-h-0 desk:min-h-0'
           old2=b'.m36-mobile-stock-button{width:100%;min-height:32px;margin-top:.25rem;padding:.25rem .45rem;display:flex;align-items:center;justify-content:space-between;gap:.3rem;border:1px solid rgb(120 53 15);border-radius:.3rem;background:rgb(124 45 18);color:rgb(255 247 237);font-size:.66rem}'
           new2=b'.m36-mobile-stock-button{width:100%;min-height:34px;margin-top:.25rem;padding:.35rem .55rem;display:flex;align-items:center;justify-content:space-between;gap:.3rem;border:1px solid rgb(217 119 6);border-radius:.4rem;background:rgb(146 64 14);color:rgb(255 247 237);font-size:.68rem;font-weight:700;box-shadow:inset 0 1px 0 rgba(255,255,255,.08),0 1px 2px rgba(0,0,0,.35);cursor:pointer}'
