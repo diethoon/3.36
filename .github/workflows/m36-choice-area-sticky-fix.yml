@@ -1,0 +1,97 @@
+name: m36-choice-area-sticky-fix
+
+on:
+  push:
+    branches: [mobile-migration-v1]
+    paths-ignore:
+      - "__m36_sticky_trigger.txt"
+      - "__m36_forensic_choice_area.txt"
+      - "__m36_forensic_choice_trigger.txt"
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: mobile-migration-v1
+
+      - name: Patch fixed area above choices
+        shell: python
+        run: |
+          from pathlib import Path
+
+          p=Path("Wayward_MOD_v3.36.html")
+          s=p.read_text(encoding="utf-8")
+          if 'className:"m36-mobile-choice-fixed"' in s:
+              print("M36_STICKY_ALREADY_PRESENT")
+              raise SystemExit(0)
+
+          # Event/dialogue choice branch.
+          marker='return u.jsxs("div",{children:[u.jsxs("h3",{className:"text-sm font-bold text-amber-400 uppercase tracking-wider mb-1 m36-mobile-dialogue-source-title"'
+          start=s.find(marker)
+          assert start>=0, "event branch start not found"
+          root_start=s.rfind('return u.jsxs("div",{children:[',0,start)
+          assert root_start>=0, "event root not found"
+          grid_marker='u.jsxs("div",{className:"grid grid-cols-1 gap-2",children:[m326CompletionChoices'
+          grid=s.find(grid_marker,start)
+          assert grid>=0, "event choices grid not found"
+          s=s[:root_start]+s[root_start:].replace(
+              'return u.jsxs("div",{children:[',
+              'return u.jsxs("div",{children:[u.jsx("div",{className:"m36-mobile-choice-fixed",children:u.jsxs(u.Fragment,{children:[',
+              1
+          )
+          grid=s.find(grid_marker,start)
+          assert grid>=0
+          s=s[:grid]+']})}),' + s[grid:]
+
+          # Normal/action-panel branch.
+          marker2='return u.jsxs("div",{children:[u.jsx(m3e,{phase:n,roomEmpty:a}),u.jsx(M331ActionStatus,{state:t,surface:"panel",proximity:V}),'
+          start2=s.find(marker2)
+          assert start2>=0, "normal branch start not found"
+          root2=s.rfind('return u.jsxs("div",{children:[',0,start2)
+          assert root2>=0
+          grid2='u.jsx("div",{className:"grid grid-cols-1 gap-2",children:u.jsx(o3e,{dispatch:e'
+          g2=s.find(grid2,start2)
+          assert g2>=0, "normal choices grid not found"
+          # Re-find exact root because the first replacement changed offsets.
+          s=s[:root2]+s[root2:].replace(
+              'return u.jsxs("div",{children:[',
+              'return u.jsxs("div",{children:[u.jsx("div",{className:"m36-mobile-choice-fixed",children:u.jsxs(u.Fragment,{children:[',
+              1
+          )
+          g2=s.find(grid2,start2)
+          assert g2>=0
+          s=s[:g2]+']})}),' + s[g2:]
+
+          style='''<style id="wayward-mobile-choice-fixed-v1">
+          @media(max-width:1023px){
+            .mobile-action-scroll .m36-mobile-choice-fixed{
+              position:sticky;top:0;z-index:28;
+              margin:0 -0.25rem .25rem;
+              padding:.25rem .25rem .35rem;
+              background:rgb(28 25 23);
+              border-bottom:1px solid rgba(68,64,60,.78);
+            }
+          }
+          @media(min-width:1024px){
+            .m36-mobile-choice-fixed{display:contents;}
+          }
+          </style>'''
+          assert 'id="wayward-mobile-choice-fixed-v1"' not in s
+          assert s.count("</head>")==1
+          s=s.replace("</head>",style+"</head>",1)
+          p.write_text(s,encoding="utf-8")
+          print("M36_STICKY_PATCH_APPLIED")
+
+      - name: Validate and commit
+        run: |
+          git diff --check
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add Wayward_MOD_v3.36.html
+          git commit -m "fix(mobile): keep choice context fixed above scrolling options"
+          git push
