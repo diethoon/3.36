@@ -1,0 +1,86 @@
+name: patch mobile gauge fixed
+on:
+  push:
+    branches:
+      - mobile-migration-v1
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: mobile-migration-v1
+      - name: Patch
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import sys
+          p=Path("Wayward_MOD_v3.36.html")
+          s=p.read_text(encoding="utf-8")
+
+          a='U&&I&&u.jsxs("div",{className:"mb-3 space-y-1.5",children:'
+          b='U&&I&&u.jsxs("div",{className:"m36-mobile-dialogue-gauge mb-3 space-y-1.5",children:'
+          if s.count(a)!=1:
+              raise SystemExit("first gauge pattern count=%s" % s.count(a))
+          s=s.replace(a,b,1)
+
+          a='K&&(N==null?void 0:N.patronPleasure)!=null&&u.jsxs("div",{className:"mb-3 space-y-1.5",children:'
+          b='K&&(N==null?void 0:N.patronPleasure)!=null&&u.jsxs("div",{className:"m36-mobile-dialogue-gauge mb-3 space-y-1.5",children:'
+          if s.count(a)!=1:
+              raise SystemExit("second gauge pattern count=%s" % s.count(a))
+          s=s.replace(a,b,1)
+
+          marker='@media(max-width:1023px){\n  .m36-mobile-dialogue-source-title,'
+          css='''@media(max-width:1023px){
+  .m36-mobile-dialogue-gauge{
+    position:sticky;
+    top:0;
+    z-index:25;
+    margin-left:-.35rem !important;
+    margin-right:-.35rem !important;
+    padding:.25rem .35rem .35rem;
+    background:rgb(28 25 23);
+    border-bottom:1px solid rgba(68,64,60,.62);
+  }
+  .m36-mobile-dialogue-source-title,'''.replace("\n  .m36-mobile-dialogue-source-title,","")
+          # Insert a separate rule before the existing mobile dialogue rule.
+          insert='''@media(max-width:1023px){
+  .m36-mobile-dialogue-gauge{
+    position:sticky;
+    top:0;
+    z-index:25;
+    margin-left:-.35rem !important;
+    margin-right:-.35rem !important;
+    padding:.25rem .35rem .35rem;
+    background:rgb(28 25 23);
+    border-bottom:1px solid rgba(68,64,60,.62);
+  }
+}
+'''
+          pos=s.find('<style id="wayward-mobile-dialogue-fixed-v1">')
+          if pos<0:
+              raise SystemExit("style marker missing")
+          s=s[:pos]+insert+s[pos:]
+
+          p.write_text(s,encoding="utf-8")
+          print("patched",len(s))
+          PY
+      - name: Validate
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          s=Path("Wayward_MOD_v3.36.html").read_text(encoding="utf-8")
+          assert s.count('className:"m36-mobile-dialogue-gauge mb-3 space-y-1.5"')==2
+          assert s.count(".m36-mobile-dialogue-gauge")>=3
+          print("gauge structure OK")
+          PY
+      - name: Commit and cleanup
+        run: |
+          rm -f .github/workflows/patch-mobile-gauge-fixed.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add Wayward_MOD_v3.36.html .github/workflows/patch-mobile-gauge-fixed.yml
+          git commit -m "fix(mobile): keep dialogue gauges fixed above choices"
+          git push
