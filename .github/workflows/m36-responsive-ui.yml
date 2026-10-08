@@ -1,94 +1,17 @@
 name: m36 responsive ui one-shot
-
 on:
   push:
-    branches:
-      - mobile-migration-v1
-
+    branches: [mobile-migration-v1]
 permissions:
-  contents: write
-
+  contents: read
 jobs:
   patch:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
+          ref: mobile-migration-v1
           fetch-depth: 1
-
-      - name: Apply exact mobile-only patch
-        run: |
-          python3 - <<'PY'
-          from pathlib import Path
-          import sys
-
-          p = Path("Wayward_MOD_v3.36.html")
-          s = p.read_text(encoding="utf-8")
-
-          if 'id="m36-responsive-ui-20261009"' in s:
-              print("PATCH_ALREADY_PRESENT")
-              raise SystemExit(0)
-
-          start = s.find("function p3e(")
-          end = s.find("function _3e(", start + 1)
-          if start < 0 or end < 0:
-              raise SystemExit("p3e/_3e anchors not found")
-
-          p3 = s[start:end]
-          old_p = 'className:"mb-3 flex items-center gap-1.5"'
-          if p3.count(old_p) != 1:
-              raise SystemExit(f"p3e anchor count={p3.count(old_p)}")
-          p3 = p3.replace(
-              old_p,
-              'className:"m36-responsive-request mb-3 flex items-center gap-1.5"',
-              1,
-          )
-          s = s[:start] + p3 + s[end:]
-
-          start = s.find("function _3e(")
-          if start < 0:
-              raise SystemExit("_3e anchor missing after p3e patch")
-          old_r = 'className:"mb-3 flex items-center gap-1.5 flex-wrap"'
-          new_r = 'className:"m36-responsive-reasons mb-3 flex items-center gap-1.5 flex-wrap"'
-          tail = s[start:]
-          if old_r not in tail:
-              raise SystemExit("_3e class anchor not found")
-          s = s[:start] + tail.replace(old_r, new_r, 1)
-
-          css = r'''<style id="m36-responsive-ui-20261009">
-@media (max-width:700px){
-  .m36-responsive-request{display:flex!important;flex-wrap:wrap!important;align-items:center!important;gap:4px!important;margin-bottom:8px!important}
-  .m36-responsive-request>button{flex:1 1 auto!important;min-width:0!important;white-space:nowrap!important;padding:7px 9px!important;min-height:34px!important;line-height:1.1!important;font-size:clamp(.72rem,3.2vw,.84rem)!important}
-  .m36-responsive-reasons{display:flex!important;flex-wrap:wrap!important;align-items:center!important;gap:4px!important;margin-bottom:8px!important}
-  .m36-responsive-reasons>span{flex:0 0 auto!important;margin-right:2px!important;white-space:nowrap!important}
-  .m36-responsive-reasons>button{flex:0 1 auto!important;min-width:0!important;white-space:nowrap!important;padding:6px 8px!important;min-height:32px!important;line-height:1.1!important;font-size:clamp(.68rem,3vw,.8rem)!important}
-}
-</style>
-'''
-          head = s.find("</head>")
-          if head < 0:
-              raise SystemExit("</head> not found")
-          s = s[:head] + css + "\n" + s[head:]
-
-          p.write_text(s, encoding="utf-8")
-          print("PATCH_APPLIED")
-          PY
-
-      - name: Validate
-        run: |
-          set -euo pipefail
-          git diff --check
-          test "$(grep -o 'm36-responsive-ui-20261009' Wayward_MOD_v3.36.html | wc -l)" = "1"
-          test "$(grep -o 'm36-responsive-request' Wayward_MOD_v3.36.html | wc -l)" = "1"
-          test "$(grep -o 'm36-responsive-reasons' Wayward_MOD_v3.36.html | wc -l)" = "1"
-          echo "VALIDATION_PASS"
-
-      - name: Commit patch and remove one-shot workflow
-        run: |
-          set -euo pipefail
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add Wayward_MOD_v3.36.html .github/workflows/m36-responsive-ui.yml
-          git commit -m "fix(mobile): improve responsive control spacing"
-          git push origin mobile-migration-v1
+      - name: Smoke
+        shell: bash
+        run: echo M36_RUNNER_SMOKE_OK
