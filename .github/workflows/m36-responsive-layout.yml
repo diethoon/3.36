@@ -1,0 +1,32 @@
+name: m36 responsive layout one-shot
+on:
+  push:
+    branches: [mobile-migration-v1]
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: mobile-migration-v1
+          fetch-depth: 1
+      - name: Apply layout patch
+        run: python3 .github/m36_responsive_layout_patch.py
+      - name: Validate
+        run: |
+          set -euo pipefail
+          git diff --check
+          grep -q 'grid-template-columns:repeat(3,minmax(0,1fr))' Wayward_MOD_v3.36.html
+          grep -q 'grid-template-columns:repeat(2,minmax(0,1fr))' Wayward_MOD_v3.36.html
+          grep -q 'box-sizing:border-box' Wayward_MOD_v3.36.html
+          echo RESPONSIVE_LARGE_TEXT_VALIDATION_PASS
+      - name: Commit and cleanup
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add Wayward_MOD_v3.36.html .github/m36_responsive_layout_patch.py .github/workflows/m36-responsive-layout.yml
+          git commit -m "fix(mobile): stabilize responsive control grid at large text"
+          git push origin mobile-migration-v1
