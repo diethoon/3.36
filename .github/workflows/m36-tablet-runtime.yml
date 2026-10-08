@@ -44,7 +44,9 @@ jobs:
           const randomize=page.getByText('모두 운명에 맡기기',{exact:true}).first();
           if(await randomize.count() && await randomize.isEnabled()) { await randomize.click(); await page.waitForTimeout(500); }
           const start=page.getByText('시작 — 피파 →',{exact:true}).first();
-          if(await start.count()) { await start.click(); await page.waitForTimeout(6000); } }
+          if(await start.count()) { await start.click(); await page.waitForTimeout(6000); }
+          const skip=page.getByText('건너뛰기',{exact:true}).first();
+          if(await skip.count()) { await skip.click(); await page.waitForTimeout(5000); } }
           fs.mkdirSync('shots',{recursive:true});
           await page.screenshot({path:'shots/tablet-initial.png',fullPage:false});
           const body=(await page.locator('body').innerText()).slice(0,12000);
