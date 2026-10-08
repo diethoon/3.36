@@ -5383,27 +5383,57 @@ v3.25 storage: wrap only the game autosave adapter, WCe and UCe with m325WriteSt
 v3.20 keeps m320NativeSue byte-identical to the 3.19 sue body. Its wrapper calls it once and returns the original result unchanged when settings.autoPosition is ON. Only OFF maps an available takesPosition to pendingPositionRequest, reusing supplied v2.109 request text and native manual consent. Native clothing autonomy and the 3.19 first-scene lock remain. The flag stays in sibling modData; missing legacy value means ON. Existing afterglow values now read sixteen validated balance keys, with identical defaults and native ke/iq/caps/record expiry. Do not copy the older LX probability formula or change a global guest transition engine. Check source, full-file reversal, numeric audit, and handoff before porting.
 END_WAYWARD_MOD_PARENT_3_25_EXTENSION_GUIDE -->
 <style id="m36-mobile-next-ui-v1">
-@media(max-width:1023px){
-  .m36-mobile-tabs > button{font-size:clamp(.75rem,3.4vw,1rem)!important;line-height:1!important;padding:.15rem .3rem!important}
-  .m36-mobile-disabled-choice{display:flex;align-items:center;justify-content:space-between;gap:.5rem;min-width:0;padding:.45rem .55rem;margin:.08rem 0;border:1px solid rgb(68 64 60);border-radius:.45rem;background:rgba(28,25,23,.72);color:rgb(120 113 108)}
-  .m36-mobile-disabled-choice .m36-choice-label{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:.72rem}
-  .m36-mobile-disabled-choice .m36-choice-status{flex-shrink:0;font-size:.62rem;color:rgb(87 83 78);white-space:nowrap}
+.m36-mobile-disabled-choice{
+  position:relative!important;
+  display:grid!important;
+  grid-template-columns:minmax(0,1fr) auto!important;
+  align-items:center!important;
+  gap:.5rem!important;
+  width:100%!important;
+  min-width:0!important;
+  min-height:1.9rem!important;
+  padding:.32rem .5rem!important;
+  text-align:left!important;
+  font-size:0!important;
+  line-height:1.2!important;
+  opacity:.58!important;
+  overflow:hidden!important;
+  white-space:nowrap!important;
 }
-@media(min-width:1024px){.m36-mobile-disabled-choice{display:none!important}}
-</style>
-<script id="m36-mobile-next-ui-script">(()=>{
+.m36-mobile-disabled-choice > *{display:none!important;}
+.m36-mobile-disabled-choice::before{
+  content:attr(data-m36-disabled-choice-label);
+  display:block!important;
+  min-width:0!important;
+  overflow:hidden!important;
+  text-overflow:ellipsis!important;
+  white-space:nowrap!important;
+  font-size:.74rem!importa(()=>{
   const mq=window.matchMedia("(max-width:1023px)");
   const root=()=>document.querySelector(".mobile-layout");
-  const norm=v=>String(v||"").replace(/\s+/g," ").trim();
-  const META=/(?:\b무료\b|\d+\s*골드|\d+\s*(?:분|시간)|오후\s*\d+시|·|•|완료|종료|마감|끝났|시간 부족|사용 불가|이용 불가|영업 전)/;
+  const norm=v=>String(v||"").trim().split(String.fromCharCode(10)).join(" ").split(String.fromCharCode(9)).join(" ");
+
+  function cutAtNumberToken(x,token){
+    const idx=x.indexOf(token);
+    if(idx<0) return x;
+    let start=idx;
+    const digits="0123456789 ";
+    while(start>0 && digits.includes(x[start-1])) start--;
+    return x.slice(0,start);
+  }
 
   function cleanLabel(v){
     let x=norm(v);
-    x=x.replace(/\s*[·•]\s*.*/,"");
-    x=x.replace(/\s*(?:무료|\d+\s*골드).*/,"");
-    x=x.replace(/\s*\d+\s*(?:분|시간).*/,"");
-    x=x.replace(/\s*오후\s*\d+시.*/,"");
-    x=x.replace(/(?:완료|종료|마감|끝났|시간 부족|사용 불가|이용 불가|영업 전).*/,"");
+    const cuts=["·","•","무료","영업 전","시간 부족","시간이 부족","사용 불가","이용 불가","완료","종료","마감","끝났","오후"];
+    let cut=x.length;
+    for(const token of cuts){
+      const idx=x.indexOf(token);
+      if(idx>=0 && idx<cut) cut=idx;
+    }
+    x=x.slice(0,cut);
+    x=cutAtNumberToken(x,"골드");
+    x=cutAtNumberToken(x,"분");
+    x=cutAtNumberToken(x,"시간");
     return norm(x);
   }
 
@@ -5411,48 +5441,49 @@ END_WAYWARD_MOD_PARENT_3_25_EXTENSION_GUIDE -->
     const candidates=[...btn.querySelectorAll("span,strong,b")].map(el=>norm(el.textContent)).filter(Boolean);
     for(const text of candidates){
       const cleaned=cleanLabel(text);
-      if(cleaned && cleaned.length<=60 && !META.test(cleaned)) return cleaned;
+      if(cleaned && cleaned.length<=60) return cleaned;
     }
-    const fallback=cleanLabel(btn.textContent);
-    return fallback||"선택지";
+    return cleanLabel(btn.textContent)||"선택지";
   }
 
   function choiceStatus(text){
     const x=norm(text);
-    if(/완료/.test(x)) return "완료";
-    if(/오후\s*5시|영업\s*(?:전|시간)/.test(x)) return "영업 전";
-    if(/늦|시간이 부족|시간\s*없|너무 늦/.test(x)) return "시간 부족";
-    if(/종료|마감|끝났/.test(x)) return "종료";
-    if(/없습니다|없어요|방 안에/.test(x)) return "이용 불가";
+    if(x.includes("완료")) return "완료";
+    if(x.includes("오후 5시")||x.includes("영업 전")||x.includes("영업시간")) return "영업 전";
+    if(x.includes("시간이 부족")||x.includes("시간 부족")||x.includes("시간이 너무")||x.includes("너무 늦")||x.includes("늦었습니다")) return "시간 부족";
+    if(x.includes("종료")||x.includes("마감")||x.includes("끝났")) return "종료";
+    if(x.includes("없습니다")||x.includes("없어요")||x.includes("방 안에")) return "이용 불가";
     return "사용 불가";
+  }
+
+  function clearButton(btn){
+    btn.classList.remove("m36-mobile-disabled-choice");
+    btn.removeAttribute("data-m36-disabled-choice-label");
+    btn.removeAttribute("data-m36-disabled-choice-status");
   }
 
   function renderDisabled(){
     const r=root();
-    if(!r||!mq.matches) return;
+    if(!r) return;
+    if(!mq.matches){
+      r.querySelectorAll("button.m36-mobile-disabled-choice").forEach(clearButton);
+      return;
+    }
     r.querySelectorAll("button:disabled").forEach(btn=>{
-      if(btn.dataset.m36DisabledChoice==="1") return;
-      const row=document.createElement("div");
-      row.className="m36-mobile-disabled-choice";
-      row.setAttribute("role","status");
-      const left=document.createElement("span");
-      left.className="m36-mobile-disabled-choice-label";
-      left.textContent=choiceLabel(btn);
-      const right=document.createElement("span");
-      right.className="m36-mobile-disabled-choice-status";
-      right.textContent=choiceStatus(btn.textContent);
-      row.append(left,right);
-      btn.replaceWith(row);
+      btn.classList.add("m36-mobile-disabled-choice");
+      btn.setAttribute("data-m36-disabled-choice-label",choiceLabel(btn));
+      btn.setAttribute("data-m36-disabled-choice-status",choiceStatus(btn.textContent));
     });
+    r.querySelectorAll("button.m36-mobile-disabled-choice:not(:disabled)").forEach(clearButton);
   }
 
   function bindCategories(){
     const r=root();
     if(!r) return;
     r.querySelectorAll("h4").forEach(h=>{
-      const title=norm(h.textContent).replace(/^[▸▾]\s*/,"");
+      const title=norm(h.textContent).split("▸").join("").split("▾").join("").trim();
       const isOutside=title==="외출";
-      const isVillage=title.startsWith("마을 둘러보기");
+      const isVillage=title.indexOf("마을 둘러보기")===0;
       if(!(isOutside||isVillage)) return;
       const list=h.nextElementSibling;
       if(!list) return;
@@ -5463,6 +5494,7 @@ END_WAYWARD_MOD_PARENT_3_25_EXTENSION_GUIDE -->
         list.style.display="";
         const arrow=h.querySelector(".m36-category-arrow");
         if(arrow) arrow.remove();
+        h.dataset.m36CategoryBound="";
         return;
       }
       if(h.dataset.m36CategoryBound==="1") return;
@@ -5471,6 +5503,33 @@ END_WAYWARD_MOD_PARENT_3_25_EXTENSION_GUIDE -->
       h.style.userSelect="none";
       const arrow=document.createElement("span");
       arrow.className="m36-category-arrow";
+      arrow.textContent=" ▸";
+      h.appendChild(arrow);
+      list.style.display="none";
+      h.onclick=()=>{
+        const open=list.style.display!=="none";
+        list.style.display=open?"none":"";
+        arrow.textContent=open?" ▸":" ▾";
+      };
+    });
+  }
+
+  let ticking=false;
+  function sync(){
+    if(ticking) return;
+    ticking=true;
+    queueMicrotask(()=>{
+      ticking=false;
+      renderDisabled();
+      bindCategories();
+    });
+  }
+
+  const observer=new MutationObserver(sync);
+  observer.observe(document.body,{childList:true,subtree:true,attributes:true,attributeFilter:["disabled"]});
+  mq.addEventListener?.("change",sync);
+  sync();
+})();ame="m36-category-arrow";
       arrow.textContent=" ▸";
       h.appendChild(arrow);
       list.style.display="none";
