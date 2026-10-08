@@ -1,0 +1,22 @@
+name: m36-tab-label-trace
+on:
+  push:
+    branches: [mobile-migration-v1]
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          s=Path("Wayward_MOD_v3.36.html").read_text(encoding="utf-8",errors="ignore")
+          for term in ["이야기","가게","엘레나"]:
+            ps=[m.start() for m in re.finditer(term,s)]
+            print("\n###",term,"COUNT",len(ps))
+            for i in ps[-12:]:
+              print("\n@",i,"\n",s[max(0,i-1800):min(len(s),i+2800)])
+          PY
