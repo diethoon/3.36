@@ -1,0 +1,142 @@
+name: m36-responsive-ui-patch
+
+on:
+  push:
+    branches:
+      - mobile-migration-v1
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Apply targeted mobile responsive spacing
+        shell: python
+        run: |
+          from pathlib import Path
+          import re, sys
+
+          p = Path("Wayward_MOD_v3.36.html")
+          s = p.read_text(encoding="utf-8")
+
+          # Target only the two known selector components by function boundary.
+          m = re.search(r'function p3e\([^}]+?\{.*?className:"mb-3 flex items-center gap-1\\.5"', s, re.S)
+          if not m:
+              print("p3e target not found")
+              sys.exit(1)
+
+          old_p = 'className:"mb-3 flex items-center gap-1.5"'
+          new_p = 'className:"m36-responsive-request mb-3 flex items-center gap-1.5"'
+          s2 = s[:m.start()] + s[m.start():].replace(old_p, new_p, 1)
+
+          m2 = re.search(r'function _3e\([^}]+?\{.*?className:"mb-3 flex items-center gap-1\\.5 flex-wrap"', s2, re.S)
+          if not m2:
+              print("_3e target not found")
+              sys.exit(1)
+
+          old_r = 'className:"mb-3 flex items-center gap-1.5 flex-wrap"'
+          new_r = 'className:"m36-responsive-reasons mb-3 flex items-center gap-1.5 flex-wrap"'
+          s3 = s2[:m2.start()] + s2[m2.start():].replace(old_r, new_r, 1)
+
+          if s3 == s:
+              print("No source changes")
+              sys.exit(1)
+
+          # Compact only the intended mobile controls. Desktop remains untouched.
+          css = r'''
+<style id="m36-responsive-ui-20261009">
+@media (max-width: 700px) {
+  .m36-responsive-request {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    align-items: center !important;
+    gap: 4px !important;
+    margin-bottom: 8px !important;
+  }
+  .m36-responsive-request > button {
+    flex: 1 1 auto !important;
+    min-width: 0 !important;
+    white-space: nowrap !important;
+    padding: 7px 9px !important;
+    min-height: 34px !important;
+    line-height: 1.1 !important;
+    font-size: clamp(0.72rem, 3.2vw, 0.84rem) !important;
+  }
+  .m36-responsive-reasons {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    align-items: center !important;
+    gap: 4px !important;
+    margin-bottom: 8px !important;
+  }
+  .m36-responsive-reasons > span {
+    flex: 0 0 auto !important;
+    margin-right: 2px !important;
+    white-space: nowrap !important;
+  }
+  .m36-responsive-reasons > button {
+    flex: 0 1 auto !important;
+    min-width: 0 !important;
+    white-space: nowrap !important;
+    padding: 6px 8px !important;
+    min-height: 32px !important;
+    line-height: 1.1 !important;
+    font-size: clamp(0.68rem, 3vw, 0.8rem) !important;
+  }
+}
+</style>
+'''
+          if 'id="m36-responsive-ui-20261009"' in s3:
+              print("CSS marker already exists")
+              sys.exit(1)
+
+          insert_at = s3.find("</head>")
+          if insert_at < 0:
+              print("</head> not found")
+              sys.exit(1)
+
+          s3 = s3[:insert_at] + css + "\n" + s3[insert_at:]
+
+          p.write_text(s3, encoding="utf-8")
+
+          # Guard: React DOM replacement is not part of this patch.
+          assert "replaceWith(" not in css
+          print("Targeted source patch applied.")
+          print("p3e class marker:", "m36-responsive-request" in s3)
+          print("_3e class marker:", "m36-responsive-reasons" in s3)
+
+      - name: Validate patch
+        run: |
+          git diff --check
+          test -n "$(grep -o 'm36-responsive-ui-20261009' Wayward_MOD_v3.36.html | head -1)"
+          test "$(grep -o 'm36-responsive-request' Wayward_MOD_v3.36.html | wc -l)" -ge 1
+          test "$(grep -o 'm36-responsive-reasons' Wayward_MOD_v3.36.html | wc -l)" -ge 1
+          echo "Validation: PASS"
+
+      - name: Commit and push
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add Wayward_MOD_v3.36.html
+          git commit -m "fix(mobile): improve responsive control spacing"
+          git push origin mobile-migration-v1
+
+      - name: Remove temporary workflow
+        if: always()
+        run: |
+          git fetch origin mobile-migration-v1
+          git checkout -B mobile-migration-v1 origin/mobile-migration-v1
+          if [ -f ".github/workflows/m36-responsive-ui-patch.yml" ]; then
+            git rm ".github/workflows/m36-responsive-ui-patch.yml"
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git commit -m "chore: remove temporary responsive UI workflow"
+            git push origin mobile-migration-v1
+          fi
