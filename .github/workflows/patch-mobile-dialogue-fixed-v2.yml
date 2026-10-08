@@ -16,23 +16,25 @@ jobs:
           ref: mobile-migration-v1
 
       - name: Patch structure
-        shell: python
         run: |
+          python3 - <<'PY'
           from pathlib import Path
           import sys
 
           p = Path("Wayward_MOD_v3.36.html")
           raw = p.read_text(encoding="utf-8")
 
-          old_fixed = '''u.jsxs("div",{className:"m36-mobile-dialogue-fixed",children:[
-      u.jsx("div",{className:"m36-mobile-dialogue-label",children:ee?''' + chr(96) + '''[대화] ${o.name} <> 당신''' + chr(96) + ''':'''+ chr(96) + '''[이벤트] ${wt}''' + chr(96) + '''}),
-      u.jsx("div",{className:''' + chr(96) + '''m36-mobile-dialogue-box ${Be}''' + chr(96) + ''',children:u.jsx("p",{className:"text-sm text-stone-200 leading-relaxed whitespace-pre-wrap break-words",children:d.text})})
-    ]}),
-    '''
-          if raw.count(old_fixed) != 1:
-              print("old_fixed count", raw.count(old_fixed))
+          start_marker = 'u.jsxs("div",{className:"m36-mobile-dialogue-fixed",children:['
+          if raw.count(start_marker) != 1:
+              print("fixed start count", raw.count(start_marker))
               sys.exit(2)
-          raw = raw.replace(old_fixed, "", 1)
+
+          start = raw.index(start_marker)
+          end_marker = '    ]}),'
+          end = raw.index(end_marker, start) + len(end_marker)
+          raw = raw[:start] + raw[end:]
+          if raw[start:].startswith("\n"):
+              raw = raw[:start] + raw[start+1:]
 
           marker = "function HD(){"
           if raw.count(marker) != 1:
@@ -44,7 +46,7 @@ jobs:
 '''
           raw = raw.replace(marker, comp + marker, 1)
 
-          old_panel = '''u.jsx("div",{className:"mobile-action-scroll flex-1 min-h-0 overflow-y-auto py-1 text-[0.72rem]",children:u.jsx(HD,{})})'''
+          old_panel = 'u.jsx("div",{className:"mobile-action-scroll flex-1 min-h-0 overflow-y-auto py-1 text-[0.72rem]",children:u.jsx(HD,{})})'
           new_panel = '''u.jsxs("div",{className:"flex-1 min-h-0 flex flex-col",children:[
     u.jsx(M36MobileDialogueFixed,{event:e.pendingEvent,wifeName:d.name}),
     u.jsx("div",{className:"mobile-action-scroll flex-1 min-h-0 overflow-y-auto py-1 text-[0.72rem]",children:u.jsx(HD,{})})
@@ -79,13 +81,15 @@ jobs:
           raw = raw.replace(margin_old, margin_new, 1)
 
           p.write_text(raw, encoding="utf-8")
-          print("patched bytes:", len(raw))
+          print("patched bytes", len(raw))
+          PY
 
       - name: Validate structure
-        shell: python
         run: |
+          python3 - <<'PY'
           from pathlib import Path
           import re
+
           s=Path("Wayward_MOD_v3.36.html").read_text(encoding="utf-8")
           css_start=s.find('<style id="wayward-mobile-dialogue-fixed-v1">')
           css_end=s.find('</style>',css_start)
@@ -95,19 +99,20 @@ jobs:
           fixed=s.find('u.jsx(M36MobileDialogueFixed,{event:e.pendingEvent,wifeName:d.name})')
           scroll=s.find('u.jsx("div",{className:"mobile-action-scroll flex-1 min-h-0 overflow-y-auto py-1 text-[0.72rem]",children:u.jsx(HD,{})})')
           assert fixed < scroll
-          assert 'm36-mobile-dialogue-fixed' in s
           assert s.count('className:"m36-mobile-dialogue-fixed"') == 1
+
           chunks=[]
-          for m in re.finditer(r'<script[^>]*>([\\s\\S]*?)</script>',s):
+          for m in re.finditer(r'<script[^>]*>([\s\S]*?)</script>',s):
               if m.group(1).strip():
                   chunks.append(m.group(1))
           Path("/tmp/wayward-chunks.js").write_text("\n".join(chunks),encoding="utf-8")
-          print("PASS structural checks; script chunks:",len(chunks))
+          print("PASS structural checks; chunks",len(chunks))
+          PY
 
       - name: Node syntax check
         run: node --check /tmp/wayward-chunks.js
 
-      - name: Remove workflow and commit
+      - name: Commit and remove workflow
         run: |
           rm -f .github/workflows/patch-mobile-dialogue-fixed-v2.yml
           git config user.name "github-actions[bot]"
