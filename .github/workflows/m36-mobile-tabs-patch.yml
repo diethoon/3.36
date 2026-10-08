@@ -1,0 +1,73 @@
+name: m36 mobile tabs responsive patch
+on:
+  push:
+    branches: [mobile-migration-v1]
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: mobile-migration-v1
+          fetch-depth: 1
+      - name: Patch tab wrapping
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path("Wayward_MOD_v3.36.html")
+          s=p.read_text(encoding="utf-8")
+          marker='<!-- M36_MOBILE_TABS_RESPONSIVE -->'
+          css='''<style>
+          /* M36_MOBILE_TABS_RESPONSIVE */
+          @media (max-width:700px){
+            .mobile-narration > div.sticky.top-0.z-10{
+              display:flex!important;
+              flex-wrap:wrap!important;
+              align-items:stretch!important;
+              gap:4px!important;
+              overflow-x:visible!important;
+              margin-bottom:4px!important;
+            }
+            .mobile-narration > div.sticky.top-0.z-10 > button{
+              flex:1 1 auto!important;
+              min-width:max-content!important;
+              width:auto!important;
+              max-width:100%!important;
+              white-space:nowrap!important;
+              word-break:keep-all!important;
+              overflow-wrap:normal!important;
+              overflow:visible!important;
+              line-height:1.15!important;
+              padding:6px 7px!important;
+            }
+          }
+          </style>'''
+          if marker in s:
+              raise SystemExit("responsive tab patch already present")
+          pos=s.find("</head>")
+          if pos<0:
+              raise SystemExit("head close not found")
+          s=s[:pos]+css+"\n"+s[pos:]
+          p.write_text(s,encoding="utf-8")
+          print("TAB_RESPONSIVE_PATCH_READY")
+          PY
+      - name: Validate
+        run: |
+          set -euo pipefail
+          git diff --check
+          grep -q 'M36_MOBILE_TABS_RESPONSIVE' Wayward_MOD_v3.36.html
+          grep -q 'flex-wrap:wrap!important' Wayward_MOD_v3.36.html
+          grep -q 'white-space:nowrap!important' Wayward_MOD_v3.36.html
+          grep -q 'word-break:keep-all!important' Wayward_MOD_v3.36.html
+          echo TAB_RESPONSIVE_PATCH_VALID
+      - name: Commit and remove patch workflow
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add Wayward_MOD_v3.36.html
+          git rm -f .github/workflows/m36-mobile-tabs-patch.yml
+          git commit -m "fix(mobile): make narrative tabs responsive to larger font sizes"
+          git push origin mobile-migration-v1
