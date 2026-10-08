@@ -18,7 +18,7 @@ jobs:
           cat > capture.mjs <<'EOF'
           import { chromium } from 'playwright';
           import fs from 'fs';
-          const url='https://static-3-36.onrender.com';
+          const url='https://static-3-36.onrender.com/Wayward_MOD_v3.36.html';
           const browser=await chromium.launch({headless:true});
           const page=await browser.newPage({viewport:{width:1280,height:800},deviceScaleFactor:1});
           await page.goto(url,{waitUntil:'networkidle',timeout:120000});
