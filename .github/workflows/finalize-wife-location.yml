@@ -1,0 +1,58 @@
+name: finalize-wife-location
+on:
+  push:
+    branches:
+      - fix-player-location-right-status
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+      - name: patch from clean base
+        run: |
+          set -e
+          git fetch origin fff23e1d8a4bb8460ac59497721418196a389179
+          git checkout -B clean-work fff23e1d8a4bb8460ac59497721418196a389179
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path("Wayward_MOD_v3.36.html")
+          d=p.read_bytes()
+          old1=b'const state=re(d=>d.state),dispatch=re(d=>d.dispatch),wife=g(state),playerLoc=re(d=>vt(d.state)),activePatronInteraction=G9(state),'
+          new1=b'const state=re(d=>d.state),dispatch=re(d=>d.dispatch),wife=g(state),playerLoc=re(d=>vt(d.state)),wifeLoc=re(d=>be(d.state)),activePatronInteraction=G9(state),'
+          if d.count(old1)!=1: raise SystemExit(f"location selector count={d.count(old1)}")
+          d=d.replace(old1,new1,1)
+          anchor=b'''    u.jsxs("div",{className:"m36-mobile-store-status-line",children:[
+      u.jsx("span",{className:"m36-mobile-store-label",children:wife.name||'''
+          if d.count(anchor)!=1: raise SystemExit(f"wife row anchor count={d.count(anchor)}")
+          prefix=b'''    wifeLoc!==playerLoc&&u.jsxs("div",{className:"m36-mobile-store-status-line",children:[
+      u.jsx("span",{className:"m36-mobile-store-label",children:gs(wifeLoc).replace(/^the /,"")}),
+      u.jsx("span",{className:"m36-mobile-store-value",children:"현재 위치"})
+    ]}),
+'''
+          d=d.replace(anchor,prefix+anchor,1)
+          p.write_bytes(d)
+          PY
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          s=Path("Wayward_MOD_v3.36.html").read_text(encoding="utf-8")
+          scripts=re.findall(r"<script(?:[^>]*)>(.*?)</script>",s,re.S)
+          main=next((x for x in scripts if "function AOe(" in x and "function M36MobileStoreStatus(" in x),None)
+          if not main: raise SystemExit("main JS block not found")
+          for marker in ['playerLoc=re(d=>vt(d.state))','wifeLoc=re(d=>be(d.state))','wifeLoc!==playerLoc']:
+              if marker not in main: raise SystemExit("missing marker: "+marker)
+          Path("/tmp/wayward-main.js").write_text(main,encoding="utf-8")
+          PY
+          node --check /tmp/wayward-main.js
+          git diff --check -- Wayward_MOD_v3.36.html
+          git diff --stat fff23e1d8a4bb8460ac59497721418196a389179
+          git config user.name "diethoon"
+          git config user.email "jhy67439787@gmail.com"
+          git add Wayward_MOD_v3.36.html
+          git commit -m "fix(mobile): show wife location in right status"
+          git push origin HEAD:mobile-migration-v1 --force
