@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   patch:
-    if: github.repository == 'diethoon/3.36' && github.event.pull_request.base.ref == 'mobile-migration-v1' && github.event.pull_request.head.repo.full_name == github.repository
+    if: github.repository == 'diethoon/3.36' && (github.event_name == 'push' || (github.event.pull_request.base.ref == 'mobile-migration-v1' && github.event.pull_request.head.repo.full_name == github.repository))
     runs-on: ubuntu-latest
     steps:
       - name: Checkout PR head
