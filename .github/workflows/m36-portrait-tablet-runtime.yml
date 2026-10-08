@@ -38,7 +38,11 @@ jobs:
           if(await yes.count()) { await yes.click(); await page.waitForTimeout(1800); }
 
           const agree=page.getByText('이해하고 동의합니다',{exact:true}).first();
-          if(await agree.count()) { await agree.click(); await page.waitForTimeout(3000); }
+          if(await agree.count()) { await agree.click({force:true}); await page.waitForTimeout(2500); }
+          await page.keyboard.press('Escape').catch(()=>{});
+          await page.waitForTimeout(700);
+          const remainingConsent=page.getByText('이해하고 동의합니다',{exact:true}).first();
+          if(await remainingConsent.count()) { await remainingConsent.click({force:true}).catch(()=>{}); await page.waitForTimeout(1000); }
 
           const settings=page.getByText('설정',{exact:true}).first();
           if(await settings.count()) {
