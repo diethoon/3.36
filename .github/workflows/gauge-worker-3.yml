@@ -1,0 +1,25 @@
+name: gauge worker 3
+on:
+  push:
+    branches:
+      - mobile-migration-v1
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: echo ZnJvbSBwYXRobGliIGltcG9ydCBQYXRoCnA9UGF0aCgiV2F5d2FyZF9NT0RfdjMuMzYuaHRtbCIpCnM9cC5yZWFkX3RleHQoZW5jb2Rpbmc9InV0Zi04IikKc3RhcnQ9cy5maW5kKCJtMzYtbW9iaWxlLWRpYWxvZ3VlLXNvdXJjZS10aXRsZSIpCmVuZD1zLmZpbmQoIm0zNi1tb2JpbGUtZGlhbG9ndWUtc291cmNlLWJvZHkiLHN0YXJ0KQphc3NlcnQgc3RhcnQ+PTAgYW5kIGVuZD5zdGFydApxPSN1b3Rhcmk= | base64 -d > /tmp/patch.py && python3 /tmp/patch.py
+      - run: python3 - <<'PY'
+          from pathlib import Path
+          import re
+          s=Path("Wayward_MOD_v3.36.html").read_text(encoding="utf-8")
+          chunks=[]
+          for m in re.finditer(r'<script[^>]*>([\s\S]*?)</script>',s):
+              if m.group(1).strip(): chunks.append(m.group(1))
+          Path("/tmp/wayward-chunks.js").write_text("\n".join(chunks),encoding="utf-8")
+          print("chunks",len(chunks))
+          PY
+      - run: node --check /tmp/wayward-chunks.js
+      - run: git config user.name "github-actions[bot]" && git config user.email "41898282+github-actions[bot]@users.noreply.github.com" && git add Wayward_MOD_v3.36.html && git commit -m "fix(mobile): keep dialogue gauges fixed above choices" && git push
