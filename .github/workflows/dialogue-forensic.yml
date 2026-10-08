@@ -1,4 +1,4 @@
-name: Temporary workflow validation
+name: Temporary mobile dialogue patch
 
 on:
   push:
@@ -8,10 +8,10 @@ on:
       - ".github/workflows/dialogue-forensic.yml"
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
-  test:
+  patch:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -19,8 +19,116 @@ jobs:
         with:
           ref: mobile-migration-v1
           fetch-depth: 1
-      - name: Echo
+
+      - name: Patch
         shell: bash
         run: |
-          echo "workflow-ok"
-          wc -c Wayward_MOD_v3.36.html
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+
+          p=Path("Wayward_MOD_v3.36.html")
+          s=p.read_text(encoding="utf-8")
+
+          old_title='u.jsxs("h3",{className:"text-sm font-bold text-amber-400 uppercase tracking-wider mb-1",children:[wt,It&&u.jsxs("span",{className:"text-stone-500 normal-case font-normal ml-2",children:["› ",u.jsx("span",{className:"text-pink-300",children:nt[It]??ko14Conversation(It)})]})]}),'
+          new_title='u.jsxs("h3",{className:"text-sm font-bold text-amber-400 uppercase tracking-wider mb-1 m36-mobile-dialogue-source-title",children:[wt,It&&u.jsxs("span",{className:"text-stone-500 normal-case font-normal ml-2",children:["› ",u.jsx("span",{className:"text-pink-300",children:nt[It]??ko14Conversation(It)})]})]}),'
+
+          old_body='u.jsx("div",{className:`p-3 rounded-lg border-2 ${Be} bg-stone-800 mb-3`,children:u.jsx("p",{className:"text-sm text-stone-200 leading-relaxed",children:d.text})}),'
+          new_body='u.jsx("div",{className:`p-3 rounded-lg border-2 ${Be} bg-stone-800 mb-3 m36-mobile-dialogue-source-body`,children:u.jsx("p",{className:"text-sm text-stone-200 leading-relaxed",children:d.text})}),'
+
+          old_choice='u.jsxs("div",{className:"grid grid-cols-1 gap-2",children:[m326CompletionChoices'
+          new_choice='''u.jsxs("div",{className:"m36-mobile-dialogue-fixed",children:[
+      u.jsx("div",{className:"m36-mobile-dialogue-label",children:ee?`[대화] ${o.name} <> 당신`:`[이벤트] ${wt}`}),
+      u.jsx("div",{className:`m36-mobile-dialogue-box ${Be}`,children:u.jsx("p",{className:"text-sm text-stone-200 leading-relaxed whitespace-pre-wrap break-words",children:d.text})})
+    ]}),
+    u.jsxs("div",{className:"grid grid-cols-1 gap-2",children:[m326CompletionChoices'''
+
+          counts=(s.count(old_title),s.count(old_body),s.count(old_choice))
+          if counts!=(1,1,1):
+              raise SystemExit(f"anchor count mismatch: {counts}")
+
+          s=s.replace(old_title,new_title,1)
+          s=s.replace(old_body,new_body,1)
+          s=s.replace(old_choice,new_choice,1)
+
+          css='''<style id="wayward-mobile-dialogue-fixed-v1">
+@media(max-width:1023px){
+  .m36-mobile-dialogue-source-title,
+  .m36-mobile-dialogue-source-body{display:none !important;}
+  .m36-mobile-dialogue-fixed{
+    position:sticky;
+    top:0;
+    z-index:30;
+    display:block;
+    margin:-.25rem -.25rem .45rem;
+    padding:.3rem .35rem .4rem;
+    background:rgb(28 25 23);
+    border-bottom:1px solid rgba(68,64,60,.78);
+  }
+  .m36-mobile-dialogue-label{
+    margin-bottom:.25rem;
+    color:rgb(245 158 11);
+    font-size:.66rem;
+    font-weight:700;
+    line-height:1.15;
+    letter-spacing:.01em;
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+  }
+  .m36-mobile-dialogue-box{
+    padding:.55rem .65rem;
+    border-width:1px;
+    border-radius:.45rem;
+    background:rgba(41,37,36,.96);
+  }
+}
+@media(min-width:1024px){
+  .m36-mobile-dialogue-fixed{display:none !important;}
+}
+</style>'''
+          if "id=" + chr(34) + "wayward-mobile-dialogue-fixed-v1" + chr(34) in s:
+              raise SystemExit("CSS already present")
+          if s.count("</head>")!=1:
+              raise SystemExit("head anchor mismatch")
+          s=s.replace("</head>",css+"\n</head>",1)
+
+          p.write_text(s,encoding="utf-8")
+          print("fixed:",s.count("m36-mobile-dialogue-fixed"))
+          print("source-title:",s.count("m36-mobile-dialogue-source-title"))
+          print("source-body:",s.count("m36-mobile-dialogue-source-body"))
+          print("css:",s.count("wayward-mobile-dialogue-fixed-v1"))
+          PY
+
+      - name: Validate
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          s=Path("Wayward_MOD_v3.36.html").read_text(encoding="utf-8")
+          required=["m36-mobile-dialogue-fixed","m36-mobile-dialogue-source-title","m36-mobile-dialogue-source-body",'id="wayward-mobile-dialogue-fixed-v1"']
+          missing=[x for x in required if x not in s]
+          if missing: raise SystemExit("missing: "+repr(missing))
+          blocks=re.findall(r"<script\b[^>]*>(.*?)</script>",s,flags=re.S|re.I)
+          block=next((x for x in blocks if "function HD()" in x and "m36-mobile-dialogue-fixed" in x),None)
+          if block is None: raise SystemExit("patched HD block missing")
+          Path("/tmp/wayward-patched.js").write_text(block,encoding="utf-8")
+          PY
+          node --check /tmp/wayward-patched.js
+          git diff --check
+          git diff --stat
+          git diff --unified=2 -- Wayward_MOD_v3.36.html | head -100
+
+      - name: Commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add Wayward_MOD_v3.36.html
+          git diff --cached --check
+          git diff --cached --name-only
+          git commit -m "fix(mobile): pin dialogue text above choice list"
+          git push origin HEAD:mobile-migration-v1
