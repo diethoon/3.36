@@ -1,0 +1,27 @@
+name: m36-apply-next
+on:
+  push:
+    branches: [mobile-migration-v1]
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run temporary patch script
+        shell: bash
+        run: python3 .github/scripts/m36_apply_next.py
+      - name: Commit patch
+        shell: bash
+        run: |
+          git diff --check
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add Wayward_MOD_v3.36.html
+          if git diff --cached --quiet; then
+            echo "nothing to commit"
+            exit 0
+          fi
+          git commit -m "fix(mobile): improve assay tabs and collapsed choices"
+          git push origin HEAD:mobile-migration-v1
