@@ -12,6 +12,24 @@ jobs:
         with:
           ref: mobile-migration-v1
           fetch-depth: 1
-      - name: Smoke
+      - name: Apply responsive mobile patch
         shell: bash
-        run: echo M36_RUNNER_SMOKE_OK
+        run: python3 .github/m36_responsive_patch.py
+      - name: Validate
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --check
+          test "$(grep -o 'm36-responsive-ui-20261009' Wayward_MOD_v3.36.html | wc -l)" = "1"
+          test "$(grep -o 'm36-responsive-request' Wayward_MOD_v3.36.html | wc -l)" = "1"
+          test "$(grep -o 'm36-responsive-reasons' Wayward_MOD_v3.36.html | wc -l)" = "1"
+          echo "RESPONSIVE_PATCH_VALIDATION_PASS"
+      - name: Commit patch and cleanup
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add Wayward_MOD_v3.36.html .github/m36_responsive_patch.py .github/workflows/m36-responsive-ui.yml
+          git commit -m "fix(mobile): make request and reason controls responsive"
+          git push origin mobile-migration-v1
