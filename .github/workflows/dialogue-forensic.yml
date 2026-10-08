@@ -4,6 +4,7 @@ on:
     branches: [mobile-migration-v1]
     paths:
       - ".github/workflows/dialogue-forensic.yml"
+      - "m36-forensic-trigger"
 permissions:
   contents: read
 jobs:
