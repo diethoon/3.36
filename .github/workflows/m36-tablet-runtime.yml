@@ -91,8 +91,8 @@ jobs:
             await page.waitForTimeout(700);
 
             const close=page.getByText('✕',{exact:true}).last();
-            await close.click();
-            await page.waitForTimeout(500);
+            await close.click({force:true});
+            await page.waitForTimeout(800);
 
             await page.screenshot({path:file,fullPage:false});
           }
