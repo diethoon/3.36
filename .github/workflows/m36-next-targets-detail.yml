@@ -1,0 +1,39 @@
+name: m36-next-targets-detail
+on:
+  push:
+    branches: [mobile-migration-v1]
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Detail scan
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          s=Path("Wayward_MOD_v3.36.html").read_text(encoding="utf-8",errors="ignore")
+          pats=[
+            r'children:"이야기"',
+            r'children:"가게"',
+            r'children:"엘레나"',
+            r'children:"외출"',
+            r'children:"마을 둘러보기"',
+            r'function e3\(\{customer:e,paired:t\}\)',
+          ]
+          for p in pats:
+            print("\n### PATTERN",p)
+            ms=list(re.finditer(p,s))
+            print("COUNT",len(ms))
+            for m in ms[-5:]:
+              i=m.start()
+              print("\n@",i,"\n",s[max(0,i-3500):min(len(s),i+6500)])
+          # disabled candidates with nearby likely mobile action/choice wording
+          print("\n### DISABLED CANDIDATES")
+          for m in list(re.finditer(r'disabled:',s))[-80:]:
+            i=m.start(); chunk=s[max(0,i-800):i+1800]
+            if any(x in chunk for x in ["외출","둘러보기","완료","늦","시간","children","onClick"]):
+              print("\n@",i,"\n",chunk)
+          PY
