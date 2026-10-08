@@ -1,102 +1,50 @@
-name: M36 temporary gauge PR runner
-
+name: forensic gauge fixed patch
 on:
-  pull_request:
-    types: [opened, synchronize, reopened]
-
+  push:
+    branches: [mobile-migration-v1]
 permissions:
   contents: write
-  pull-requests: write
-
 jobs:
   patch:
-    if: github.repository == 'diethoon/3.36' && github.event.pull_request.base.ref == 'mobile-migration-v1' && github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout PR head
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.pull_request.head.ref }}
-          repository: ${{ github.repository }}
-          fetch-depth: 0
-          token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Targeted gauge patch
-        env:
-          EXPECTED_BASE: 39b91db66814eab2be7c7a44431f26b2e4a57eb6
-        shell: bash
-        run: |
+      - uses: actions/checkout@v4
+      - run: |
           set -euo pipefail
-          git merge-base --is-ancestor "$EXPECTED_BASE" HEAD
-
           python3 - <<'PY'
           from pathlib import Path
-
           p=Path("Wayward_MOD_v3.36.html")
-          text=p.read_text(encoding="utf-8")
-
+          s=p.read_text(encoding="utf-8")
           old_gauge='''U&&I&&u.jsxs("div",{className:"mb-3 space-y-1.5",children:[u.jsx(t_,{label:"당신",value:I.playerPleasure,color:"bg-blue-500"}),u.jsx(t_,{label:"그녀",value:I.elenaMoaning,color:"bg-pink-500"})]}),K&&(N==null?void 0:N.patronPleasure)!=null&&u.jsxs("div",{className:"mb-3 space-y-1.5",children:[u.jsx(t_,{label:"그 사내",value:N.patronPleasure,color:"bg-violet-500"}),u.jsx(t_,{label:"그녀",value:N.elenaPleasure??0,color:"bg-pink-500"})]}),'''
           new_gauge='''U&&I&&u.jsxs("div",{className:"mb-3 space-y-1.5 m36-mobile-choice-gauge",children:[u.jsx(t_,{label:"당신",value:I.playerPleasure,color:"bg-blue-500"}),u.jsx(t_,{label:"그녀",value:I.elenaMoaning,color:"bg-pink-500"})]}),K&&(N==null?void 0:N.patronPleasure)!=null&&u.jsxs("div",{className:"mb-3 space-y-1.5 m36-mobile-choice-gauge",children:[u.jsx(t_,{label:"그 사내",value:N.patronPleasure,color:"bg-violet-500"}),u.jsx(t_,{label:"그녀",value:N.elenaPleasure??0,color:"bg-pink-500"})]}),'''
-
           old_dialogue='''function M36MobileDialogueFixed({event:e,wifeName:t}){if(!e||["confrontation","outfit_reaction","back_room_interrupt"].includes(e.type))return null;const o=e.type==="wife_conversation",n=e.type==="sex_scene",r=e.type==="patron_interaction"&&e.customerName?e.customerName+" & "+t:o||n?t:"⚠ 돌발 상황";return u.jsxs("div",{className:"m36-mobile-dialogue-fixed",children:[u.jsx("div",{className:"m36-mobile-dialogue-label",children:o?"[대화] "+t+" <> 당신":"[이벤트] "+r}),u.jsx("div",{className:"m36-mobile-dialogue-box",children:u.jsx("p",{className:"text-sm text-stone-200 leading-relaxed whitespace-pre-wrap break-words",children:e.text})})]})}'''
           new_dialogue='''function M36MobileDialogueFixed({event:e,wifeName:t}){if(!e||["confrontation","outfit_reaction","back_room_interrupt"].includes(e.type))return null;const o=e.type==="wife_conversation",n=e.type==="sex_scene",r=e.type==="patron_interaction"&&e.customerName?e.customerName+" & "+t:o||n?t:"⚠ 돌발 상황";return u.jsxs("div",{className:"m36-mobile-dialogue-fixed",children:[u.jsx("div",{className:"m36-mobile-dialogue-label",children:o?"[대화] "+t+" <> 당신":"[이벤트] "+r}),u.jsx("div",{className:"m36-mobile-dialogue-box",children:u.jsx("p",{className:"text-sm text-stone-200 leading-relaxed whitespace-pre-wrap break-words",children:e.text})})]})}
 function M36MobilePleasureFixed({state:e}){const t=e.pendingEvent,o=Ye(e),n=Y(e),r=t?.type==="sex_scene",a=t?.type==="patron_interaction";if(!r&&!a)return null;return r&&o?u.jsxs("div",{className:"m36-mobile-pleasure-fixed",children:[u.jsx(t_,{label:"당신",value:o.playerPleasure,color:"bg-blue-500"}),u.jsx(t_,{label:"그녀",value:o.elenaMoaning,color:"bg-pink-500"})]}):a&&n?.patronPleasure!=null?u.jsxs("div",{className:"m36-mobile-pleasure-fixed",children:[u.jsx(t_,{label:"그 사내",value:n.patronPleasure,color:"bg-violet-500"}),u.jsx(t_,{label:"그녀",value:n.elenaPleasure??0,color:"bg-pink-500"})]}):null}'''
-
           old_aoe='''u.jsx(M36MobileDialogueFixed,{event:e.pendingEvent,wifeName:d.name}),u.jsx("div",{className:"mobile-action-scroll flex-1 min-h-0 overflow-y-auto py-1 text-[0.72rem]",children:u.jsx(HD,{})})'''
           new_aoe='''u.jsx(M36MobileDialogueFixed,{event:e.pendingEvent,wifeName:d.name}),u.jsx(M36MobilePleasureFixed,{state:e}),u.jsx("div",{className:"mobile-action-scroll flex-1 min-h-0 overflow-y-auto py-1 text-[0.72rem]",children:u.jsx(HD,{})})'''
-
-          already=("function M36MobilePleasureFixed" in text and text.count('u.jsx(M36MobilePleasureFixed,{state:e})')==1)
-          if not already:
-              assert text.count(old_gauge)==1
-              assert text.count(old_dialogue)==1
-              assert text.count(old_aoe)==1
-              text=text.replace(old_gauge,new_gauge,1)
-              text=text.replace(old_dialogue,new_dialogue,1)
-              text=text.replace(old_aoe,new_aoe,1)
-
-              style='''<style id="wayward-mobile-pleasure-fixed-v1">
+          if "function M36MobilePleasureFixed" in s: raise SystemExit("already patched")
+          assert s.count(old_gauge)==1
+          assert s.count(old_dialogue)==1
+          assert s.count(old_aoe)==1
+          s=s.replace(old_gauge,new_gauge,1)
+          s=s.replace(old_dialogue,new_dialogue,1)
+          s=s.replace(old_aoe,new_aoe,1)
+          style='''<style id="wayward-mobile-pleasure-fixed-v1">
           @media(max-width:1023px){
             .mobile-action-scroll .m36-mobile-choice-gauge{display:none !important;}
-            .m36-mobile-pleasure-fixed{
-              flex:0 0 auto;position:relative;z-index:29;display:grid;gap:.35rem;
-              padding:.25rem .45rem .4rem;background:rgb(28 25 23);
-              border-bottom:1px solid rgba(68,64,60,.78);
-            }
+            .m36-mobile-pleasure-fixed{flex:0 0 auto;position:relative;z-index:29;display:grid;gap:.35rem;padding:.25rem .45rem .4rem;background:rgb(28 25 23);border-bottom:1px solid rgba(68,64,60,.78);}
           }
           @media(min-width:1024px){.m36-mobile-pleasure-fixed{display:none !important;}}
           </style>'''
-              assert text.count('id="wayward-mobile-pleasure-fixed-v1"')==0
-              assert text.count("</head>")==1
-              text=text.replace("</head>",style+"</head>",1)
-              p.write_text(text,encoding="utf-8")
-
-          assert text.count("function M36MobilePleasureFixed")==1
-          assert text.count("u.jsx(M36MobilePleasureFixed,{state:e})")==1
-          assert text.count("m36-mobile-choice-gauge")==3
-          assert text.count('id="wayward-mobile-pleasure-fixed-v1"')==1
-
-          target=text.index("function M36MobileDialogueFixed")
-          start=text.rfind("<script",0,target)
-          close=text.index("</script>",target)
-          gt=text.index(">",start)
-          Path("/tmp/m36-main.js").write_text(text[gt+1:close],encoding="utf-8")
-          print("FILE_SIZE",p.stat().st_size)
+          assert s.count("</head>")==1
+          s=s.replace("</head>",style+"</head>",1)
+          p.write_text(s,encoding="utf-8")
+          print("M36_GAUGE_PATCH_APPLIED")
           PY
-
-          node --check /tmp/m36-main.js
-          git diff --check
-          git diff --name-only
-          echo "M36_GAUGE_STATIC_PASS"
-
-      - name: Commit patch and clean helper files
-        shell: bash
-        run: |
-          set -euo pipefail
+      - run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          rm -f __m36_gauge_trigger.txt
-          git rm -f .github/workflows/m36-pr-base-gauge-runner.yml 2>/dev/null || true
           git add Wayward_MOD_v3.36.html
           git diff --cached --check
           git commit -m "fix(mobile): keep pleasure gauges above choice scroll"
-          git push origin "${{ github.event.pull_request.head.ref }}"
+          git push
