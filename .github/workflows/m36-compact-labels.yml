@@ -12,25 +12,33 @@ jobs:
         with:
           ref: mobile-migration-v1
           fetch-depth: 1
-      - name: Inspect compact UI
+      - name: Apply compact layout
+        run: python3 .github/m36_compact_labels_patch.py
+      - name: Validate
         run: |
+          set -euo pipefail
+          git diff --check
+          grep -q 'label:"부탁"' Wayward_MOD_v3.36.html
+          grep -q 'label:"접대"' Wayward_MOD_v3.36.html
+          grep -q 'label:"골드"' Wayward_MOD_v3.36.html
+          grep -q 'label:"호기심"' Wayward_MOD_v3.36.html
+          ! grep -q 'grid-template-columns:repeat(2,minmax(0,1fr))' Wayward_MOD_v3.36.html
           python3 - <<'PY'
           from pathlib import Path
           s=Path("Wayward_MOD_v3.36.html").read_text(encoding="utf-8")
-          for key in ['label:"부탁"','label:"접대"','label:"골드"','label:"호기심"']:
-              assert key in s, key
           i=s.find(".m36-responsive-reasons{")
           assert i >= 0
-          print(s[i:i+1200])
-          assert "display:flex!important" in s[i:i+1200]
-          print("CURRENT_COMPACT_UI_OK")
+          snippet=s[i:i+1200]
+          assert "display:flex!important" in snippet
+          print(snippet)
+          print("COMPACT_LAYOUT_VALIDATION_PASS")
           PY
-          git diff --check
       - name: Remove temporary tooling
         run: |
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add Wayward_MOD_v3.36.html
           git rm -f             .github/m36_compact_labels_patch.py             .github/m36_responsive_layout_patch.py             .github/workflows/m36-compact-labels.yml             .github/workflows/m36-responsive-layout.yml             .github/workflows/m36-responsive-ui.yml
-          git commit -m "chore: remove temporary responsive UI tooling"
+          git commit -m "fix(mobile): compact controls and remove temporary tooling"
           git push origin mobile-migration-v1
