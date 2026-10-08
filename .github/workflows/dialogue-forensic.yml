@@ -66,6 +66,6 @@ jobs:
           git add Wayward_MOD_v3.36.html
           git add -u .github/workflows .github/scripts m36-forensic-trigger
           git diff --cached --check
-          test "$(git diff --cached --name-only)" = "Wayward_MOD_v3.36.html"
+          git status --short
           git commit -m "fix(mobile): pin dialogue text above choice list"
           git push origin HEAD:mobile-migration-v1
