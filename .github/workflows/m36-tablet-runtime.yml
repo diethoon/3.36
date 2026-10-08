@@ -1,0 +1,43 @@
+name: m36 tablet runtime discovery
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  capture:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install Playwright
+        run: |
+          npm init -y
+          npm install playwright
+          npx playwright install --with-deps chromium
+      - name: Discover tablet UI
+        run: |
+          cat > capture.mjs <<'EOF'
+          import { chromium } from 'playwright';
+          import fs from 'fs';
+          const url='https://static-3-36.onrender.com';
+          const browser=await chromium.launch({headless:true});
+          const page=await browser.newPage({viewport:{width:1280,height:800},deviceScaleFactor:1});
+          await page.goto(url,{waitUntil:'networkidle',timeout:120000});
+          await page.waitForTimeout(3000);
+          fs.mkdirSync('shots',{recursive:true});
+          await page.screenshot({path:'shots/tablet-initial.png',fullPage:false});
+          const body=(await page.locator('body').innerText()).slice(0,12000);
+          fs.writeFileSync('shots/body.txt',body);
+          console.log('BODY_START');
+          console.log(body);
+          console.log('BODY_END');
+          const texts=await page.locator('button').allTextContents();
+          fs.writeFileSync('shots/buttons.txt',texts.join('\n'));
+          console.log('BUTTONS_START');
+          console.log(texts.join('\n'));
+          console.log('BUTTONS_END');
+          await browser.close();
+          EOF
+          node capture.mjs
+      - uses: actions/upload-artifact@v4
+        with:
+          name: m36-tablet-discovery
+          path: shots/
