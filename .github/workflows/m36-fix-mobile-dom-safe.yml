@@ -1,0 +1,244 @@
+name: m36-fix-mobile-dom-safe
+on:
+  push:
+    branches: [mobile-migration-v1]
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: mobile-migration-v1
+
+      - name: Patch DOM-safe disabled choices
+        shell: bash
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+          import subprocess
+
+          p = Path("Wayward_MOD_v3.36.html")
+          s = p.read_text(encoding="utf-8")
+          marker = '<script id="m36-mobile-next-ui-script">'
+          start = s.find(marker)
+          if start < 0:
+              raise SystemExit("mobile script marker not found")
+          body_start = start + len(marker)
+          body_end = s.find("</script>", body_start)
+          if body_end < 0:
+              raise SystemExit("mobile script end not found")
+
+          style_marker = '<style id="m36-mobile-next-ui-v1">'
+          ss = s.find(style_marker)
+          if ss < 0:
+              raise SystemExit("mobile style marker not found")
+          style_start = ss + len(style_marker)
+          style_end = s.find("</style>", style_start)
+          if style_end < 0:
+              raise SystemExit("mobile style end not found")
+
+          new_css = r'''
+          .m36-mobile-disabled-choice{
+            position:relative!important;
+            display:grid!important;
+            grid-template-columns:minmax(0,1fr) auto!important;
+            align-items:center!important;
+            gap:.5rem!important;
+            width:100%!important;
+            min-width:0!important;
+            min-height:1.9rem!important;
+            padding:.32rem .5rem!important;
+            text-align:left!important;
+            font-size:0!important;
+            line-height:1.2!important;
+            opacity:.58!important;
+            overflow:hidden!important;
+            white-space:nowrap!important;
+          }
+          .m36-mobile-disabled-choice > *{
+            display:none!important;
+          }
+          .m36-mobile-disabled-choice::before{
+            content:attr(data-m36-disabled-choice-label);
+            display:block!important;
+            min-width:0!important;
+            overflow:hidden!important;
+            text-overflow:ellipsis!important;
+            white-space:nowrap!important;
+            font-size:.74rem!important;
+            line-height:1.2!important;
+            color:inherit!important;
+          }
+          .m36-mobile-disabled-choice::after{
+            content:attr(data-m36-disabled-choice-status);
+            display:block!important;
+            flex-shrink:0!important;
+            white-space:nowrap!important;
+            font-size:.68rem!important;
+            line-height:1.2!important;
+            color:rgb(168 162 158)!important;
+            text-align:right!important;
+          }
+          @media(min-width:1024px){
+            .m36-mobile-disabled-choice{
+              display:flex!important;
+              grid-template-columns:none!important;
+              min-height:0!important;
+              padding:inherit!important;
+              font-size:inherit!important;
+              opacity:inherit!important;
+              white-space:normal!important;
+            }
+            .m36-mobile-disabled-choice::before,
+            .m36-mobile-disabled-choice::after{
+              content:none!important;
+            }
+            .m36-mobile-disabled-choice > *{
+              display:revert!important;
+            }
+          }'''
+
+          s = s[:style_start] + new_css + s[style_end:]
+
+          new_js = r'''(()=>{
+            const mq=window.matchMedia("(max-width:1023px)");
+            const root=()=>document.querySelector(".mobile-layout");
+            const norm=v=>String(v||"").replace(/s+/g," ").trim();
+            const META=/(?:무료|d+s*골드|d+s*(?:분|시간)|오후s*d+시|·|•|완료|종료|마감|끝났|시간 부족|사용 불가|이용 불가|영업 전)/;
+
+            function cleanLabel(v){
+              let x=norm(v);
+              x=x.replace(/s*[·•]s*.*/,"");
+              x=x.replace(/s*(?:무료|d+s*골드).*/,"");
+              x=x.replace(/s*d+s*(?:분|시간).*/,"");
+              x=x.replace(/s*오후s*d+시.*/,"");
+              x=x.replace(/(?:완료|종료|마감|끝났|시간 부족|사용 불가|이용 불가|영업 전).*/,"");
+              return norm(x);
+            }
+
+            function choiceLabel(btn){
+              const candidates=[...btn.querySelectorAll("span,strong,b")].map(el=>norm(el.textContent)).filter(Boolean);
+              for(const text of candidates){
+                const cleaned=cleanLabel(text);
+                if(cleaned && cleaned.length<=60 && !META.test(cleaned)) return cleaned;
+              }
+              return cleanLabel(btn.textContent)||"선택지";
+            }
+
+            function choiceStatus(text){
+              const x=norm(text);
+              if(/완료/.test(x)) return "완료";
+              if(/오후s*5시|영업s*(?:전|시간)/.test(x)) return "영업 전";
+              if(/늦|시간이 부족|시간s*없|너무 늦/.test(x)) return "시간 부족";
+              if(/종료|마감|끝났/.test(x)) return "종료";
+              if(/없습니다|없어요|방 안에/.test(x)) return "이용 불가";
+              return "사용 불가";
+            }
+
+            function clearButton(btn){
+              btn.classList.remove("m36-mobile-disabled-choice");
+              btn.removeAttribute("data-m36-disabled-choice-label");
+              btn.removeAttribute("data-m36-disabled-choice-status");
+            }
+
+            function renderDisabled(){
+              const r=root();
+              if(!r) return;
+              if(!mq.matches){
+                r.querySelectorAll("button.m36-mobile-disabled-choice").forEach(clearButton);
+                return;
+              }
+              r.querySelectorAll("button:disabled").forEach(btn=>{
+                btn.classList.add("m36-mobile-disabled-choice");
+                btn.setAttribute("data-m36-disabled-choice-label",choiceLabel(btn));
+                btn.setAttribute("data-m36-disabled-choice-status",choiceStatus(btn.textContent));
+              });
+              r.querySelectorAll("button.m36-mobile-disabled-choice:not(:disabled)").forEach(clearButton);
+            }
+
+            function bindCategories(){
+              const r=root();
+              if(!r) return;
+              r.querySelectorAll("h4").forEach(h=>{
+                const title=norm(h.textContent).replace(/^[▸▾]s*/,"");
+                const isOutside=title==="외출";
+                const isVillage=title.startsWith("마을 둘러보기");
+                if(!(isOutside||isVillage)) return;
+                const list=h.nextElementSibling;
+                if(!list) return;
+                if(!mq.matches){
+                  h.style.cursor="";
+                  h.style.userSelect="";
+                  h.onclick=null;
+                  list.style.display="";
+                  const arrow=h.querySelector(".m36-category-arrow");
+                  if(arrow) arrow.remove();
+                  h.dataset.m36CategoryBound="";
+                  return;
+                }
+                if(h.dataset.m36CategoryBound==="1") return;
+                h.dataset.m36CategoryBound="1";
+                h.style.cursor="pointer";
+                h.style.userSelect="none";
+                const arrow=document.createElement("span");
+                arrow.className="m36-category-arrow";
+                arrow.textContent=" ▸";
+                h.appendChild(arrow);
+                list.style.display="none";
+                h.onclick=()=>{
+                  const open=list.style.display!=="none";
+                  list.style.display=open?"none":"";
+                  arrow.textContent=open?" ▸":" ▾";
+                };
+              });
+            }
+
+            let ticking=false;
+            function sync(){
+              if(ticking) return;
+              ticking=true;
+              queueMicrotask(()=>{
+                ticking=false;
+                renderDisabled();
+                bindCategories();
+              });
+            }
+
+            const observer=new MutationObserver(sync);
+            observer.observe(document.body,{childList:true,subtree:true,attributes:true,attributeFilter:["disabled"]});
+            mq.addEventListener?.("change",sync);
+            sync();
+          })();'''
+
+          s = s[:body_start] + new_js + s[body_end:]
+          p.write_text(s, encoding="utf-8")
+
+          js_path=Path("/tmp/m36-mobile-next-ui.js")
+          js_path.write_text(new_js,encoding="utf-8")
+          subprocess.run(["node","--check",str(js_path)],check=True)
+          if "replaceWith" in new_js:
+              raise SystemExit("unsafe replaceWith remains")
+          if "button:disabled" not in new_js or "m36-mobile-disabled-choice" not in new_js:
+              raise SystemExit("disabled-choice patch missing")
+          print("node --check: PASS")
+          print("DOM replacement: NONE")
+          PY
+
+      - name: Diff check
+        run: git diff --check
+
+      - name: Commit patch and remove temporary forensic workflows
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add Wayward_MOD_v3.36.html
+          git commit -m "fix(mobile): avoid React DOM replacement during navigation"
+          
+          rm -f             .github/workflows/m36-fix-mobile-dom-safe.yml             .github/workflows/m36-movement-forensics.yml             .github/workflows/m36-movement-targets.yml             .github/workflows/m36-movement-action-trace.yml             .github/workflows/m36-movement-handler-definitions.yml             .github/workflows/m36-movement-bw-trace.yml             .github/workflows/m36-shared-return-helper-scan.yml
+          
+          git add -u .github/workflows
+          git commit -m "chore: remove temporary movement forensic workflows"
+          git push origin HEAD:mobile-migration-v1
