@@ -1,0 +1,812 @@
+### M331ActionStatus count=6
+
+OFFSET 11158508
+  let action=m331SexLabel(sex.type);
+    if(sex.finish?.scene==="clean_with_mouth")action=wL.find(c=>c.id==="cmd_clean_with_mouth")?.label??action;
+    main=row(action,"당신",sex.finish?"완료 · 결과 확인":"",m332SexDirection(sex.finish?.scene==="clean_with_mouth"?"clean_with_mouth":sex.type));
+    if(waiting && surface==="panel") {
+      secondary=main;main=row(null,event.customerName??name(event.customerId),"완료 · 결과 확인");
+    }
+  } else if (waiting && (presentation || !patron || patron.afterglow)) {
+    const same=patron?.customerId===event.customerId;
+    main=row(same?m331PatronLabel(patron):m331ResultLabel(presentation?.scene),event.customerName??name(event.customerId),"완료 · 결과 확인",same?m332PatronDirection(patron):"mutual");
+    // A selected successor is paused behind acknowledgement, not a new ongoing action.
+    participants.length=0;
+  } else if (patron) {
+    main=row(m331PatronLabel(patron),patron.customerName??name(patron.customerId),patron.afterglow?"여운":"",m332PatronDirection(patron));
+    if(waiting) {
+      const result=row(null,event.customerName??name(event.customerId),"완료 · 결과 확인");
+      if(surface==="panel"){secondary=main;main=result;}
+      else secondary=result;
+    }
+    if(patron.afterglow)participants.length=0;
+  } else if(event?.type==="wife_conversation") {
+    main=row("대화","당신");
+  } else if(event?.type==="flirt"&&event.customerId) {
+    main=row("추파",event.customerName??name(event.customerId));
+  }
+  if(!main || (!main.action&&!main.phase) || !main.partner)return null;
+  return {main,secondary,participants,watchers:[...new Set(watchers)]};
+}
+function M331ActionStatus({state,surface="portrait",proximity=false}) {
+  const model=m331ActionStatus(state,surface,proximity);if(!model)return null;
+  const renderRow=(entry,secondary=false)=>u.jsxs("div",{
+    className:"flex flex-wrap items-baseline gap-x-1.5 gap-y-0.5 min-w-0",
+    children:[u.jsx("span",{className:"font-semibold",style:{maxWidth:"100%",overflowWrap:"anywhere",color:entry.phase?"#fbbf24":Ye(state)?"#f9a8d4":"#c4b5fd"},children:"["+[entry.phase,entry.action].filter(Boolean).join(" · ")+"]"}),
+      u.jsx("span",{className:secondary?"text-stone-400":"text-stone-200",style:{overflowWrap:"anywhere"},children:m332PartnerText(entry)})]
+  });
+  return u.jsxs("div",{"data-m331-action-status":surface,className:"text-xs leading-snug space-y-1 min-w-0",style:surface==="panel"?{borderLeft:"2px solid #8b5cf6",padding:"6px 8px",marginBottom:"8px",background:"rgba(139,92,246,.08)",borderRadius:"4px"}:undefined,
+    children:[renderRow(model.main),model.secondary&&renderRow(model.secondary,true),
+      model.participants.length>0&&u.jsx("div",{className:"text-[10px] text-rose-300",style:{overflowWrap:"anywhere"},children:"함께 있는 사람: "+model.participants.map(p=>p.name+" ("+p.role+")").join(", ")}),
+      model.watchers.length>0&&u.jsx("div",{className:"text-[10px] text-violet-300/80",style:{overflowWrap:"anywhere"},children:"지켜보는 사람: "+model.watchers.join(", ")})]
+  });
+}
+
+function M36MobileDialogueFixed({event:e,wifeName:t}){if(!e||["confrontation","outfit_reaction","back_room_interrupt"].includes(e.type))return null;const o=e.type==="wife_conversation",n=e.type==="sex_scene",r=e.type==="patron_interaction"&&e.customerName?e.customerName+" & "+t:o||n?t:"⚠ 돌발 상황";return u.jsxs("div",{className:"m36-mobile-dialogue-fixed",children:[u.jsx("div",{className:"m36-mobile-dialogue-label",children:o?"[대화] "+t+" <> 당신":"[이벤트] "+r}),u.jsx("div",{className:"m36-mobile-dialogue-box",children:u.jsx("p",{className:"text-sm text-stone-200 leading-relaxed whitespace-pre-wrap break-words",children:e.text})})]})}
+
+function HD(){Rt(x=>x.mod32Hotkeys);var ie,X,le;const e=re(ee=>ee.dispatch),t=re(ee=>ee.state),o=g(t),{phase:n,supplies:s,readyFood:r,customers:a,customersServedToday:i,cust
+
+OFFSET 11168075
+t]:void 0;return ct?`${Ae} (${ct})`:Ae}).filter(we=>!!we),_e=ue.map(we=>{var Ae;return(Ae=a.find(it=>it.id===we))==null?void 0:Ae.name}).filter(we=>!!we),We=K?[d.customerName,...Re,..._e].join(", "):d.customerName,wt=U||ee?o.name:K?`${We} & ${o.name}`:oe?"⚠ 돌발 상황":F?(ye||ve?"⚠ ":"")+(((le=d.alert)==null?void 0:le.title)??"경고"):"상황";let _t;if(K&&N){const we=et(t),Ae=b3e[we]??we,it=y3e[N.stage]??N.stage,ct=w3e[vb(o.stats.mood)],xo=N.stage!=="chatting"&&N.ticksAtStage<3;_t=`${Ae} · ${it}${xo?" (새로움)":""} · ${ct}`}let Wt=0,xe,Fe="text-stone-500";if(K&&N){Wt=nl(o);const we=md(o);we&&we.intensity>20&&(xe=rF(we.emotion,we.intensity),xe&&(Fe=hp(we.emotion)))}const $t=K&&Wt>=IO,It=ee?d.category:void 0,je=!!(It!=null&&It.startsWith("dare"))&&((d==null?void 0:d.choices)??[]).some(we=>{var Ae,it;return(((it=(Ae=rd(we.id))==null?void 0:Ae.reasons)==null?void 0:it.length)??0)>0}),nt={chat:"대화",clothing:"옷차림",touch:"접촉",sex:"성관계",relationship:"우리 사이",dare:"그녀를 더 부추기기",react:"반응"},dt=we=>{e(U?{type:"scene_action",actionId:we.id}:K?{type:"patron_interaction_choice",choiceId:we.id}:ee?{type:"wife_topic",topicId:we.id,...we.targetCustomerId?{targetCustomerId:we.targetCustomerId}:{}}:{type:"resolve_event",choiceId:we.id})};return u.jsxs("div",{children:[u.jsxs("h3",{className:"text-sm font-bold text-amber-400 uppercase tracking-wider mb-1 m36-mobile-dialogue-source-title",children:[wt,It&&u.jsxs("span",{className:"text-stone-500 normal-case font-normal ml-2",children:["› ",u.jsx("span",{className:"text-pink-300",children:nt[It]??ko14Conversation(It)})]})]}),(U||K||ee||d.type==="flirt")&&u.jsx(M331ActionStatus,{state:t,surface:"panel",proximity:V}),_t&&u.jsx("div",{className:"text-xs text-violet-300/80 mb-2",children:_t}),d.question&&u.jsx(fDe,{question:d.question,onPick:dt}),(It==null?void 0:It.startsWith("dare"))&&u.jsx(p3e,{current:w.demeanor??"ask",onPick:we=>e({type:"set_demeanor",demeanor:we})}),je&&u.jsx(_3e,{current:w.dareReason,onPick:we=>e({type:"set_dare_reason",dareReason:we})}),U&&I&&u.jsxs("div",{className:"mb-3 space-y-1.5",children:[u.jsx(t_,{label:"당신",value:I.playerPleasure,color:"bg-blue-500"}),u.jsx(t_,{label:"그녀",value:I.elenaMoaning,color:"bg-pink-500"})]}),K&&(N==null?void 0:N.patronPleasure)!=null&&u.jsxs("div",{className:"mb-3 space-y-1.5",children:[u.jsx(t_,{label:"그 사내",value:N.patronPleasure,color:"bg-violet-500"}),u.jsx(t_,{label:"그녀",value:N.elenaPleasure??0,color:"bg-pink-500"})]}),K&&N&&($t?u.jsxs("div",{className:"mb-3 flex items-start gap-1.5 rounded border-l-2 border-red-900/70 bg-red-950/40 px-2 py-1.5 text-xs font-medium text-red-400",children:[u.jsx("span",{children:"⚠"}),u.jsx("span",{children:"그녀는 멈추길 바라고 있습니다 — 개입하거나 그녀를 떼어놓으세요."})]}):u.jsxs("div",{className:`mb-3 text-xs ${Fe}`,children:["그녀의 상태: ",xe??"안정적"]})),K&&N&&u.jsxs("div",{className:"mb-3 text-xs text-amber-400 space-y-1",children:[u.jsxs("div",{children:["수입: ",N.goldEarned??0,"골드"]}),Re.length>0&&u.jsxs("div",{className:"text-rose-300",children:["함께 있는 사람: ",Re.join(", ")]}),_e.length>0&&u.jsxs("div",{className:"text-violet-300/80",children:["지켜보는 사람: ",_e.join(", ")]})]}),u.jsx("div",{className:`p-3 rounded-lg border-2 ${Be} bg-stone-800 mb-3 m36-mobile-dialogue-source-body`,children:u.jsx("p",{className:"text-sm text-stone-200 leading-relaxed",children:d.text})}),    u.jsxs("div",{className:"grid grid-cols-1 gap-2",children:[m326CompletionChoices(d,I,(we,Ae)=>{const it=we.id==="back",ct=we.targetCustomerId?`${we.id}:${we.targetCustomerId}`:we.id||String(Ae);return we.disabled?u.jsxs("div",{"aria-disabled":!0,className:"text-left p-3 rounded-lg border border-stone-800 bg-stone-900/60 opacity-50 cursor-not-allowed",children:[u.jsx("div",{className:"font-medium text-sm text-stone-500",children:we.label}),u.jsx("div",{className:"text-xs text-stone-600
+
+OFFSET 11172123
+ssName:it?"text-left px-3 py-1.5 rounded border border-stone-700 bg-stone-900 hover:bg-stone-800 transition-colors":`text-left p-3 rounded-lg border ${fe} bg-stone-800 hover:bg-stone-700 transition-colors`,children:[u.jsxs("div",{className:it?"text-xs text-stone-500":`font-medium text-sm ${De}`,children:[it?"← ":"",m313Acknowledgement(t)?.id===we.id&&u.jsx(vm,{hotkey:"confirm"}),we.label]}),we.description&&!it&&u.jsx("div",{className:"text-xs text-stone-400 mt-0.5",children:we.description})]},ct)}),ee&&u.jsx("button",{onClick:()=>e({type:"resolve_event",choiceId:"cancel"}),className:"text-left p-2 rounded-lg border border-stone-700 bg-stone-800 hover:bg-stone-700 transition-colors",children:u.jsx("div",{className:"text-sm text-stone-500",children:"취소"})})]})]})}if(b)return u.jsx(pDe,{});if(W&&(n==="service"||n==="last_call"||n==="closed"))return u.jsxs("div",{children:[u.jsx("h3",{className:"text-sm font-bold text-red-400 uppercase tracking-wider mb-3",children:"그녀가 의식을 잃었습니다"}),u.jsx("div",{className:"p-3 rounded-lg border-2 border-red-900 bg-red-950/40 mb-3",children:u.jsxs("p",{className:"text-sm text-stone-200 leading-relaxed",children:[o.name,"은(는) 의식을 잃었습니다. 오늘 영업을 마칠 때입니다."]})}),u.jsx("div",{className:"grid grid-cols-1 gap-2",children:u.jsx(Xe,{label:"그녀를 침대로 안아 옮기기",time:Bo.carry_to_bed,description:"가게 문을 닫고 그녀를 위층으로 데려갑니다",onClick:()=>e({type:"carry_to_bed"}),primary:!0})})]});const O=o.currentTask==="passed_out"&&o.passedOutAcknowledged&&(n==="service"||n==="last_call"||n==="closed");return u.jsxs("div",{children:[u.jsx(m3e,{phase:n,roomEmpty:a.length===0}),u.jsx(M331ActionStatus,{state:t,surface:"panel",proximity:V}),O&&u.jsxs("div",{className:"mb-3 p-2 rounded-lg border border-red-900 bg-red-950/30",children:[u.jsxs("p",{className:"text-xs text-red-300 mb-2",children:[o.name,"은(는) 여전히 카운터에 쓰러져 있습니다."]}),u.jsxs("div",{className:"flex gap-1.5",children:[u.jsx("button",{onClick:()=>e({type:"carry_to_bed"}),className:"flex-1 text-xs px-2 py-1.5 rounded border border-red-800 bg-stone-900 hover:bg-stone-800 text-red-200",children:"그녀를 안고 위층으로 데려가기"}),u.jsx("button",{onClick:()=>e({type:"rouse_her"}),className:"flex-1 text-xs px-2 py-1.5 rounded border border-stone-700 bg-stone-900 hover:bg-stone-800 text-stone-300",children:"그녀를 깨워보기"})]})]}),u.jsx("div",{className:"grid grid-cols-1 gap-2",children:u.jsx(o3e,{dispatch:e,phase:n,playerLoc:E,wifeLoc:R,wife:o,customers:a,supplies:s,readyFood:r,tavernCleanliness:T,slot:y,playerEnergy:B,player:w,locations:k,tavern:x,outreachDone:D,activePatronInteraction:N,collectorCrewUnlocked:t.collectorCrewUnlocked})}),n==="bedroom"&&(()=>{const ee=E===R&&(E==="bedroom"||E==="elena_room"),U=R==="elena_room";if(!ee||N)return u.jsxs(u.Fragment,{children:[u.jsx("div",{className:"p-3 rounded-lg border border-amber-700/60 bg-stone-900/60 text-sm text-stone-300 mb-3",children:N?`${o.name}은(는) 아직 ${N.customerName}과(와) 함께 있습니다. 상황이 끝나길 기다리거나 그녀에게 가세요.`:E!=="bedroom"?`당신은 아직 ${gs(E)}에 있습니다. 잠자리에 들려면 침실로 올라가세요.`:U?`${o.name}은(는) 자기 방으로 들어갔습니다. 방문은 닫혀 있습니다.`:ws(t)?`${o.name}은(는) 침실에 없습니다. ${gs(R)}에서 자고 있습니다.`:`${o.name}은(는) 침실에 없습니다. ${gs(R)}에 있습니다.`}),u.jsx(el,{dispatch:e,description:"상황이 진정되길 기다립니다."}),E==="bedroom"&&!N&&u.jsxs("div",{className:"mt-3",children:[u.jsx(j1,{}),u.jsx(N1,{}),U&&u.jsx(Xe,{label:"그녀의 방문 두드리기",description:"그녀가 당신을 들여보내 줄지 확인합니다.",onClick:()=>e({type:"knock_on_door"})}),u.jsx(Xe,{label:"잠자기",description:`${o.name}은(는) 아직 올라오지 않았습니다. 먼저 잠자리에 드세요. 그녀도 알아서 침실로 올 것입니다.`,onClick:()=>e({type:"sleep"})})]}),E!=="bedroom"&&u.jsx("div",{className:"mt-3",children:u.jsx(Xe,{label:"위층으로 가기",description:"침실로 걸어갑니다.",onClick:()=>e({type:"go_to_bedroom"})})})]});const oe=ws(t);return u.jsxs(u.Fragment,{children:[oe?u.jsx(Xe,{label:"그녀 깨우기",description:`${o.name}은(는) 당신 곁에서 자고 있습니다.`,onClick:(
+
+OFFSET 11213671
+`,title:"나쁨으로 표시하고 다시 생성 (새 시드로 캐시 이미지 교체)",children:u.jsxs("svg",{xmlns:"http://www.w3.org/2000/svg",width:"14",height:"14",viewBox:"0 0 24 24",fill:"none",stroke:"currentColor",strokeWidth:"2",strokeLinecap:"round",strokeLinejoin:"round",children:[u.jsx("path",{d:"M17 14V2"}),u.jsx("path",{d:"M9 18.12 10 14H4.17a2 2 0 0 1-1.92-2.56l2.33-8A2 2 0 0 1 6.5 2H17v12l-5 8a2 2 0 0 1-2-2v-1.88Z"})]})}),u.jsx("button",{onClick:fe,className:"bg-black/50 hover:bg-amber-700/80 text-white/70 hover:text-white rounded p-1.5 transition-colors",title:"현재 상태의 다른 이미지 추가(현재 이미지는 유지하며, 화살표로 선택)",children:u.jsxs("svg",{xmlns:"http://www.w3.org/2000/svg",width:"14",height:"14",viewBox:"0 0 24 24",fill:"none",stroke:"currentColor",strokeWidth:"2",strokeLinecap:"round",strokeLinejoin:"round",children:[u.jsx("line",{x1:"12",y1:"5",x2:"12",y2:"19"}),u.jsx("line",{x1:"5",y1:"12",x2:"19",y2:"12"})]})})]})]})]}),C&&u.jsx(D3e,{onCancel:()=>H(!1),onSubmit:je=>{H(!1),Be(je)}}),B&&q&&u.jsx(M3e,{bundle:q,onClose:()=>D(!1)})]}),(()=>{const je=l?h.find(it=>it.id===l.customerId):void 0,nt=je?d==null?void 0:d.find(it=>it.name===je.name):void 0,dt=je?Tb(je,t,nt):null,we=!Ge?.completionPending&&l&&!i&&je&&dt?mV(je,t,dt,nt):null,Ae=Ge?.completionPending?null:pV({wife:t,interaction:l,sexScene:i,rel:dt});return u.jsxs("div",{className:"border-t border-stone-700 bg-stone-800/80 grid grid-cols-[minmax(0,1fr)_auto] items-stretch overflow-hidden",children:[u.jsxs("div",{className:"px-3 py-1.5 min-w-0 flex flex-col justify-center gap-0.5",children:[m331ActionStatus(m312State,"portrait",Rt.getState().proximityMode)?u.jsx(M331ActionStatus,{state:m312State,surface:"portrait",proximity:Rt.getState().proximityMode}):u.jsx("span",{className:`text-xs leading-tight ${Wt}`,children:xe}),we&&u.jsx("span",{className:"text-[10px] italic text-stone-400 leading-tight",children:we})]}),Ae&&u.jsx("div",{className:"px-2.5 py-1.5 flex items-center justify-center bg-rose-950/40 text-rose-300 text-[10px] leading-tight whitespace-nowrap",children:Ae.replace(/^(?:Interest:|관심도:)\s*/,"")})]})})(),W&&y&&u.jsx(fF,{src:y,alt:`${t.name} - ${u.koLabel("task",t.currentTask)}`,onClose:()=>V(!1)})]})}const q3e=["cooking","serving"],V3e={cooking:"그녀가 만든 음식의 맛과 태울 확률입니다. 요리할 때마다 향상됩니다.",serving:"그녀의 접객 실력입니다. 흘리는 일이 줄고, 손님이 더 머무르며 추가로 주문하고 팁을 줍니다. 주문을 응대할 때마다 향상됩니다."};function z3e({state:e}){const t=g(e).id??ja,o=Wa(e,t);return u.jsxs("div",{className:"mt-4",children:[u.jsx("div",{className:"text-xs uppercase tracking-wider text-stone-500 mb-2",children:"그녀가 익힌 기술"}),q3e.map(n=>{const s=o[n],r=t5(e,t,n);return u.jsxs("div",{className:"mb-3",children:[u.jsxs("div",{className:"flex justify-between text-xs mb-0.5",children:[u.jsxs("span",{className:"text-stone-300 font-medium",children:[z6[n],": ",n5(s)]}),u.jsxs("span",{className:"text-stone-500",children:[Math.round(s),r?" · 실력이 줄어드는 중":""]})]}),u.jsx("div",{className:"w-full h-2 bg-stone-700 rounded-full overflow-hidden",children:u.jsx("div",{className:`h-full ${r?"bg-amber-700":"bg-emerald-600"} rounded-full transition-all`,style:{width:`${s}%`}})}),u.jsx("div",{className:"text-[0.65rem] text-stone-500 mt-0.5",children:V3e[n]})]},n)})]})}function K3e(e){return Math.max(0,Math.min(100,50+e/Yl*50))}function J3e(e){return e==null?void 0:e.name}function Q3e(e){const t=J3e(e.topPatron);if(e.drift<=0)return t&&e.topAttach>0?`영향을 줄 만큼 깊은 유대가 없습니다. ${t}과(와) 가장 가깝지만 아직 충분하지 않습니다.`:"다른 남자와 맺은 유대가 없습니다.";const o=[];e.desireHold>0&&o.push(`욕망 ${e.desireHold.toFixed(0)}`),e.trustHold>0&&o.push(`신뢰 ${e.trustHold.toFixed(0)}`),e.resentDrag>0&&o.push(`원망 −${e.resentDrag.toFixed(0)}`);const n=o.length>0?o.join(" · "):"없음",s=e.frame!==1?` · 두 사람의 관계가 그 ${e.frame.toFixed(2)}배로 느껴짐`:"",r=e.bondWeight<1?` (아직 ${Math.round(e.bondWeight*100)}%만 반영됨)`:"";return`${t??"손님 한 명"}에게 향한 마
+
+OFFSET 11939882
+s/$x version labels"
+  ],
+  "preserved": [
+    "Existing trait labels and0/1/2 editing states",
+    "Explicit removal and undiscovery of edited owned traits",
+    "Native fade conditions, counts, exclusivity, temporary traits and save schemas",
+    "All3.29 scene fixes and3.28 Enter/image fixes"
+  ],
+  "source": "analysis330/build_v330.cjs",
+  "handoff": "Wayward_MOD_v3.30_Handoff.txt",
+  "limits": [
+    "Previously erased discovery history cannot be inferred or restored",
+    "No new controls to separately clear unowned discovery history",
+    "No live browser validation"
+  ]
+}
+END_WAYWARD_MOD_PARENT_3_30_MAP -->
+<!-- WAYWARD_MOD_PARENT_3_30_EXTENSION_GUIDE
+v3.30: latentTraits is current ownership; noticedLatentTraits also retains native faded traits. Keep historical discoveries for entries that stay unowned during bulk edits; do not infer ownership from discovery. Preserve explicit owned-to-unowned and owned-to-undiscovered edits. Discover-all is a union. Native fade, temporary item semantics, labels and save schema remain unchanged.
+END_WAYWARD_MOD_PARENT_3_30_EXTENSION_GUIDE -->
+
+<!-- WAYWARD_MOD_PARENT_3_31_MAP
+{
+  "version": "3.31",
+  "parent": "Wayward_MOD_v3.30.html",
+  "parentSHA256": "c8bdec7d583b38886df1e2b285ce89cc3bab48a161d7451ea861c313d3463a0d",
+  "stableBaseline": "3.25 user designated",
+  "status": "UI_TRIAL_USER_ACCEPTANCE_PENDING",
+  "intent": "Display current action and partner from conversation/flirting onward; distinguish actual anal/riding slots and pending results; rename cheat trait tab at user request.",
+  "hooks": [
+    "Pure m331ActionStatus and M331ActionStatus",
+    "HD event/ongoing panel",
+    "rI portrait footer"
+  ],
+  "preserved": [
+    "Existing3.25/native translated terms and all narration",
+    "Scene focus/timing/progress and3.29 fixes",
+    "3.30 discovered-trait-history fixes",
+    "State58/sibling modData1; no new save fields"
+  ],
+  "source": "analysis331/build_v331.cjs",
+  "handoff": "Wayward_MOD_v3.31_Handoff.txt",
+  "limits": [
+    "Multi-participant support result has no stored previous slot; do not invent its action",
+    "Handoff result may not retain former riding position; use actual result category",
+    "Independent review and live UI/media verification pending"
+  ]
+}
+END_WAYWARD_MOD_PARENT_3_31_MAP -->
+<!-- WAYWARD_MOD_PARENT_3_31_EXTENSION_GUIDE
+v3.31: action labels are pure derived UI data. Read patron stage plus primarySlot, player scene type, pending acknowledgement and existing3.29 presentation. Do not infer acts from narration or image names, mutate simulation for display, add save fields or soften existing terms. Keep proximity visibility. The trait tab rename is explicitly authorized.
+END_WAYWARD_MOD_PARENT_3_31_EXTENSION_GUIDE -->
+
+<!-- WAYWARD_MOD_PARENT_3_32_MAP
+{
+  "version": "3.32",
+  "parent": "Wayward_MOD_v3.31.html",
+  "parentSHA256": "b7ff25a647db1db7ccef827321c2756bfef2127d0d39092c1f19c5f2ab16b114",
+  "stableBaseline": "3.25 user designated",
+  "status": "UI_FEEDBACK_FIX_INDEPENDENT_REVIEW_REQUIRED",
+  "intent": "FHD whole-house scrolling, meaningful native action/recipient labels, compact timestamp-specific log badges.",
+  "hooks": [
+    "s3 root scroll",
+    "m331PatronLabel native intimate->fingering and lateralAct",
+    "m331ActionStatus/M331ActionStatus directions",
+    "BW/Jl/hS optional per-log context snapshots",
+    "Spouse start/ongoing/finish/stopped/cleanup log metadata only",
+    "mDe badges and action-aware grouping"
+  ],
+  "saveContract": "Optional log-entry mod332Action metadata only; state58/modData1 unchanged; older log groupKey fallback has no inferred position.",
+  "preserved": [
+    "All original narration/dictionaries/definitions/balance",
+    "Native scene focus and simulation",
+    "3.30 trait fixes and3.31 trait tab name"
+  ],
+  "sourc
+
+OFFSET 11941554
+"
+  ],
+  "preserved": [
+    "Existing3.25/native translated terms and all narration",
+    "Scene focus/timing/progress and3.29 fixes",
+    "3.30 discovered-trait-history fixes",
+    "State58/sibling modData1; no new save fields"
+  ],
+  "source": "analysis331/build_v331.cjs",
+  "handoff": "Wayward_MOD_v3.31_Handoff.txt",
+  "limits": [
+    "Multi-participant support result has no stored previous slot; do not invent its action",
+    "Handoff result may not retain former riding position; use actual result category",
+    "Independent review and live UI/media verification pending"
+  ]
+}
+END_WAYWARD_MOD_PARENT_3_31_MAP -->
+<!-- WAYWARD_MOD_PARENT_3_31_EXTENSION_GUIDE
+v3.31: action labels are pure derived UI data. Read patron stage plus primarySlot, player scene type, pending acknowledgement and existing3.29 presentation. Do not infer acts from narration or image names, mutate simulation for display, add save fields or soften existing terms. Keep proximity visibility. The trait tab rename is explicitly authorized.
+END_WAYWARD_MOD_PARENT_3_31_EXTENSION_GUIDE -->
+
+<!-- WAYWARD_MOD_PARENT_3_32_MAP
+{
+  "version": "3.32",
+  "parent": "Wayward_MOD_v3.31.html",
+  "parentSHA256": "b7ff25a647db1db7ccef827321c2756bfef2127d0d39092c1f19c5f2ab16b114",
+  "stableBaseline": "3.25 user designated",
+  "status": "UI_FEEDBACK_FIX_INDEPENDENT_REVIEW_REQUIRED",
+  "intent": "FHD whole-house scrolling, meaningful native action/recipient labels, compact timestamp-specific log badges.",
+  "hooks": [
+    "s3 root scroll",
+    "m331PatronLabel native intimate->fingering and lateralAct",
+    "m331ActionStatus/M331ActionStatus directions",
+    "BW/Jl/hS optional per-log context snapshots",
+    "Spouse start/ongoing/finish/stopped/cleanup log metadata only",
+    "mDe badges and action-aware grouping"
+  ],
+  "saveContract": "Optional log-entry mod332Action metadata only; state58/modData1 unchanged; older log groupKey fallback has no inferred position.",
+  "preserved": [
+    "All original narration/dictionaries/definitions/balance",
+    "Native scene focus and simulation",
+    "3.30 trait fixes and3.31 trait tab name"
+  ],
+  "source": "analysis332/build_v332.cjs",
+  "handoff": "Wayward_MOD_v3.32_Handoff.txt",
+  "limits": [
+    "Original unstructured logs have only stage metadata or none",
+    "Browser FHD/font/media validation pending"
+  ]
+}
+END_WAYWARD_MOD_PARENT_3_32_MAP -->
+<!-- WAYWARD_MOD_PARENT_3_32_EXTENSION_GUIDE
+v3.32: derive current action from native stage mapping n4/intimate=fingering and lateralAct. Historical badges read each log entry own optional mod332Action or native interaction groupKey, never current scene or prose. Log context records slot/lateral/phase without affecting RNG. Native save schema58 and modData1 remain; unknown optional metadata must be ignored safely. Entire house panel scrolls with intrinsic room list height.
+END_WAYWARD_MOD_PARENT_3_32_EXTENSION_GUIDE -->
+
+<!-- WAYWARD_MOD_PARENT_3_33_MAP
+{
+  "version": "3.33",
+  "parent": "Wayward_MOD_v3.32.html",
+  "parentSHA256": "35f0b7b724353534c51d100ab3009fc7b71aebba4acae12c45859b9484a604a3",
+  "stableBaseline": "3.25 user designated",
+  "status": "USER_FEEDBACK_FIX_INDEPENDENT_REVIEW_REQUIRED",
+  "intent": "Correct native rubbing/thigh-job label, reorder grandma staff name, close legacy trait guard bypass and block invalid draft choices.",
+  "hooks": [
+    "m331PatronLabel native n4 mapping",
+    "m331ResultLabel shared native result fallback",
+    "m332PatronDirection mapped action focus",
+    "Six staff-name declarations",
+    "M36Traits draft buttons and m36BaseAction shared guard"
+  ],
+  "saveContract": "Same state58/modData1/format1 and optional3.32 log metadata; no load-time trait deletion.",
+  "preserved": [
+    "Original action definitions/narration/translation dictionaries",
+    "Nat
+
+### playerPleasure count=19
+
+OFFSET 9795541
+Slots)??{}).includes("mouth"):!1}function Zde(e,t,o,n){const s=Vt(e),r=cw(s,e.slot)>0,a=pP(o,n).filter(d=>d.playerAvailable).filter(d=>{if(N$(e,d.id).length>0)return!1;const m=zi(d.id);if(!m)return!0;const p=Le(e,m,{kind:"player_intimate",characterId:t.characterId});return p.outcome==="eager"||p.outcome==="hesitant"});if(a.length===0)return;const i=d=>{const m=al[d]??[];return m.length?m.reduce((p,y)=>p+Js(s.affinities,y),0)/m.length:0},l=a.map(d=>Math.exp(i(d.id))*(r?1+d.stimulation:1));let h=Math.random()*l.reduce((d,m)=>d+m,0);for(let d=0;d<a.length;d++)if(h-=l[d],h<=0)return a[d];return a[a.length-1]}function eue(e){const t=es(e);return(t==null?void 0:t.category)==="oral"&&t.stimulation<=0?"mouth":(t==null?void 0:t.category)==="manual"&&t.stimulation<=0?"hand":"body"}const tue=["당신은 얼마나 좋은지, 그녀가 당신을 어떻게 느끼게 하는지 말해 줍니다. {w}이(가) 흐느끼듯 신음합니다. \"계속 말해 줘…\"","당신은 원하는 것을 정확히 속삭입니다. {w}의 눈빛이 짙어지고, 그녀가 입술을 깨뭅니다.","당신은 그녀의 귓가에 음란한 말을 속삭입니다. {w}은(는) 몸을 떨며 더 가까이 밀착합니다."],oue=["당신은 그녀를 끌어당겨 깊게 입을 맞춥니다. 그녀가 당신의 입안으로 신음을 흘려 넣습니다.","당신은 그녀의 입술을 덮칩니다. 그녀는 마치 그것을 갈망했다는 듯 화답해 옵니다.","당신은 느리고도 깊게 입을 맞춥니다. 그녀는 당신의 턱에 손을 얹은 채 그 입맞춤에 녹아내립니다."];function nue(e,t,o,n){const s=es(t.type),r=(s==null?void 0:s.pleasureRate.actor)??(t.type==="sex"||t.type==="sex_rough"||t.type==="anal"?13:10),a=(s==null?void 0:s.pleasureRate.elena)??8,i=Qde(e,t.type),l=(h,d)=>{const m=d.map(b=>mo(h,b)),p=ud(e,m);return p?{text:d[p.pick.index].replace(/\{w\}/g,n),state:p.state}:{text:"",state:e}};switch(o){case"keep_going":{const h=xS(t.elenaMoaning),d=SS(Vt(e).exposure),m=`keep_going:${h}:${d}`,p=t.lastPaceKey===m,y={playerPleasure:Math.round(r),elenaMoaning:a*i,elenaRate:a};if(p)return{result:{...y,text:"",paceKey:m},state:e};const b=dy(t.ticksElapsed),w=Lde(t.type,h,d,n,t.ticksElapsed),{text:k,state:x}=l(`sexscene:${t.type}:keep_going:${h}:${d}:${b}`,w);return{result:{...y,text:k||TS[t.type].ongoing(t.ticksElapsed),paceKey:m},state:x}}case"go_faster":case"go_slower":{const h=xS(t.elenaMoaning),d=SS(Vt(e).exposure),m=`${o}:${h}:${d}`,p=t.lastPaceKey===m,y=o==="go_faster",b={playerPleasure:Math.round(r*(y?1.5:.5)),elenaMoaning:a*(y?.5:1.5)*i,elenaRate:a*(y?.5:1.5)};if(p)return{result:{...b,text:"",paceKey:m},state:e};const w=dy(t.ticksElapsed),k=Hde(t.type,o,h,d,n,t.ticksElapsed),{text:x,state:T}=l(`sexscene:${t.type}:${o}:${h}:${d}:${w}`,k);return{result:{...b,text:x||TS[t.type].ongoing(t.ticksElapsed),paceKey:m},state:T}}case"talk_dirty":{const{text:h,state:d}=l("sexscene:talk_dirty",tue);return{result:{playerPleasure:5,elenaMoaning:8*i,elenaRate:8,text:h},state:d}}case"kiss_her":{const{text:h,state:d}=l("sexscene:kiss_her",oue);return{result:{playerPleasure:3,elenaMoaning:10*i,elenaRate:10,text:h},state:d}}default:return{result:{playerPleasure:Math.round(r*.8),elenaMoaning:a*.8*i,elenaRate:a*.8,text:""},state:e}}}function $u(e){return e[Math.floor(Math.random()*e.length)]}function m320NativeSue(e,t,o){var T,I;const n=Vt(e),s=L(n),r=s.confidence,a=n.stats.arousal,i=t.elenaMoaning,l=n.latentTraits??[],h=N=>l.includes(N),d=Rd(s);if(i<35&&a<50)return null;let m=(a-45)*.5+(i-40)*.4+(r-40)*.3*Math.min(1,s.openness/50)+(s.openness-45)*.25;if(h("latent_dominant")&&(m+=14),h("wants_to_be_corrupted")&&(m+=8),h("likes_cheating")&&(m+=6),h("latent_exhibitionist")&&(m+=5),h("latent_submissive")&&(m-=10),h("true_prude")&&(m-=14),m=z(m,0,100),Math.random()*100>=m)return i>=50?{text:$u([`${o}이(가) 분명 의도하지 않았던 소리를 내고는, 없던 일로 하려 하지도 않습니다.`,"그녀의 골반이 저절로 당신에게 맞춰 움직입니다. 의식하고 하는 움직임이 아닙니다.",`${o}의 숨이 멎습니다. 입술을 꾹 다물지만, 또 다른 소리가 결국 새어 나옵니다.`])}:null;const p=es(t.type),y=p?Zde(e,t,p.id,d):void 0,b=!m319AutoLocked(e,t)&&(!p||t.ticksElapsed>=(t.chosenBy==="him"?p.duration.max:p.duration.min)),w=h("latent_submissive")||(((T=n.affinities)==null?void 0:T.dominance)??0)<-.3;if(y&&b&&!w&&m>=55&&r>=40)ret
+
+OFFSET 9796008
+))*(r?1+d.stimulation:1));let h=Math.random()*l.reduce((d,m)=>d+m,0);for(let d=0;d<a.length;d++)if(h-=l[d],h<=0)return a[d];return a[a.length-1]}function eue(e){const t=es(e);return(t==null?void 0:t.category)==="oral"&&t.stimulation<=0?"mouth":(t==null?void 0:t.category)==="manual"&&t.stimulation<=0?"hand":"body"}const tue=["당신은 얼마나 좋은지, 그녀가 당신을 어떻게 느끼게 하는지 말해 줍니다. {w}이(가) 흐느끼듯 신음합니다. \"계속 말해 줘…\"","당신은 원하는 것을 정확히 속삭입니다. {w}의 눈빛이 짙어지고, 그녀가 입술을 깨뭅니다.","당신은 그녀의 귓가에 음란한 말을 속삭입니다. {w}은(는) 몸을 떨며 더 가까이 밀착합니다."],oue=["당신은 그녀를 끌어당겨 깊게 입을 맞춥니다. 그녀가 당신의 입안으로 신음을 흘려 넣습니다.","당신은 그녀의 입술을 덮칩니다. 그녀는 마치 그것을 갈망했다는 듯 화답해 옵니다.","당신은 느리고도 깊게 입을 맞춥니다. 그녀는 당신의 턱에 손을 얹은 채 그 입맞춤에 녹아내립니다."];function nue(e,t,o,n){const s=es(t.type),r=(s==null?void 0:s.pleasureRate.actor)??(t.type==="sex"||t.type==="sex_rough"||t.type==="anal"?13:10),a=(s==null?void 0:s.pleasureRate.elena)??8,i=Qde(e,t.type),l=(h,d)=>{const m=d.map(b=>mo(h,b)),p=ud(e,m);return p?{text:d[p.pick.index].replace(/\{w\}/g,n),state:p.state}:{text:"",state:e}};switch(o){case"keep_going":{const h=xS(t.elenaMoaning),d=SS(Vt(e).exposure),m=`keep_going:${h}:${d}`,p=t.lastPaceKey===m,y={playerPleasure:Math.round(r),elenaMoaning:a*i,elenaRate:a};if(p)return{result:{...y,text:"",paceKey:m},state:e};const b=dy(t.ticksElapsed),w=Lde(t.type,h,d,n,t.ticksElapsed),{text:k,state:x}=l(`sexscene:${t.type}:keep_going:${h}:${d}:${b}`,w);return{result:{...y,text:k||TS[t.type].ongoing(t.ticksElapsed),paceKey:m},state:x}}case"go_faster":case"go_slower":{const h=xS(t.elenaMoaning),d=SS(Vt(e).exposure),m=`${o}:${h}:${d}`,p=t.lastPaceKey===m,y=o==="go_faster",b={playerPleasure:Math.round(r*(y?1.5:.5)),elenaMoaning:a*(y?.5:1.5)*i,elenaRate:a*(y?.5:1.5)};if(p)return{result:{...b,text:"",paceKey:m},state:e};const w=dy(t.ticksElapsed),k=Hde(t.type,o,h,d,n,t.ticksElapsed),{text:x,state:T}=l(`sexscene:${t.type}:${o}:${h}:${d}:${w}`,k);return{result:{...b,text:x||TS[t.type].ongoing(t.ticksElapsed),paceKey:m},state:T}}case"talk_dirty":{const{text:h,state:d}=l("sexscene:talk_dirty",tue);return{result:{playerPleasure:5,elenaMoaning:8*i,elenaRate:8,text:h},state:d}}case"kiss_her":{const{text:h,state:d}=l("sexscene:kiss_her",oue);return{result:{playerPleasure:3,elenaMoaning:10*i,elenaRate:10,text:h},state:d}}default:return{result:{playerPleasure:Math.round(r*.8),elenaMoaning:a*.8*i,elenaRate:a*.8,text:""},state:e}}}function $u(e){return e[Math.floor(Math.random()*e.length)]}function m320NativeSue(e,t,o){var T,I;const n=Vt(e),s=L(n),r=s.confidence,a=n.stats.arousal,i=t.elenaMoaning,l=n.latentTraits??[],h=N=>l.includes(N),d=Rd(s);if(i<35&&a<50)return null;let m=(a-45)*.5+(i-40)*.4+(r-40)*.3*Math.min(1,s.openness/50)+(s.openness-45)*.25;if(h("latent_dominant")&&(m+=14),h("wants_to_be_corrupted")&&(m+=8),h("likes_cheating")&&(m+=6),h("latent_exhibitionist")&&(m+=5),h("latent_submissive")&&(m-=10),h("true_prude")&&(m-=14),m=z(m,0,100),Math.random()*100>=m)return i>=50?{text:$u([`${o}이(가) 분명 의도하지 않았던 소리를 내고는, 없던 일로 하려 하지도 않습니다.`,"그녀의 골반이 저절로 당신에게 맞춰 움직입니다. 의식하고 하는 움직임이 아닙니다.",`${o}의 숨이 멎습니다. 입술을 꾹 다물지만, 또 다른 소리가 결국 새어 나옵니다.`])}:null;const p=es(t.type),y=p?Zde(e,t,p.id,d):void 0,b=!m319AutoLocked(e,t)&&(!p||t.ticksElapsed>=(t.chosenBy==="him"?p.duration.max:p.duration.min)),w=h("latent_submissive")||(((T=n.affinities)==null?void 0:T.dominance)??0)<-.3;if(y&&b&&!w&&m>=55&&r>=40)return{takesPosition:y.id,text:$u([`${o}은(는) 당신의 가슴에 손을 댑니다. "내 차례야." 대답을 기다리지 않고 직접 당신을 움직여 ${y.name} 자세를 취합니다.`,`${o}은(는) 주도권을 잡고 자신이 원하는 대로 두 사람을 움직여 ${y.name} 자세를 취합니다. 그녀가 정한 것입니다.`,`"이렇게." ${o}이(가) 말할 때는 이미 당신을 원하는 위치로 옮기고 있습니다. ${y.name}.`])};const k=((I=n.affinities)==null?void 0:I.dominance)??0,x=y6(n.outfit,n.exposure);if(x.length>0){const N=h("latent_dominant")||k>.4,E=i>=80&&a>=80;if(N&&m>=45||E)return{selfUndress:x[Math.floor(Math.random()*x.length)].id
+
+OFFSET 9796447
+ 그녀가 입술을 깨뭅니다.","당신은 그녀의 귓가에 음란한 말을 속삭입니다. {w}은(는) 몸을 떨며 더 가까이 밀착합니다."],oue=["당신은 그녀를 끌어당겨 깊게 입을 맞춥니다. 그녀가 당신의 입안으로 신음을 흘려 넣습니다.","당신은 그녀의 입술을 덮칩니다. 그녀는 마치 그것을 갈망했다는 듯 화답해 옵니다.","당신은 느리고도 깊게 입을 맞춥니다. 그녀는 당신의 턱에 손을 얹은 채 그 입맞춤에 녹아내립니다."];function nue(e,t,o,n){const s=es(t.type),r=(s==null?void 0:s.pleasureRate.actor)??(t.type==="sex"||t.type==="sex_rough"||t.type==="anal"?13:10),a=(s==null?void 0:s.pleasureRate.elena)??8,i=Qde(e,t.type),l=(h,d)=>{const m=d.map(b=>mo(h,b)),p=ud(e,m);return p?{text:d[p.pick.index].replace(/\{w\}/g,n),state:p.state}:{text:"",state:e}};switch(o){case"keep_going":{const h=xS(t.elenaMoaning),d=SS(Vt(e).exposure),m=`keep_going:${h}:${d}`,p=t.lastPaceKey===m,y={playerPleasure:Math.round(r),elenaMoaning:a*i,elenaRate:a};if(p)return{result:{...y,text:"",paceKey:m},state:e};const b=dy(t.ticksElapsed),w=Lde(t.type,h,d,n,t.ticksElapsed),{text:k,state:x}=l(`sexscene:${t.type}:keep_going:${h}:${d}:${b}`,w);return{result:{...y,text:k||TS[t.type].ongoing(t.ticksElapsed),paceKey:m},state:x}}case"go_faster":case"go_slower":{const h=xS(t.elenaMoaning),d=SS(Vt(e).exposure),m=`${o}:${h}:${d}`,p=t.lastPaceKey===m,y=o==="go_faster",b={playerPleasure:Math.round(r*(y?1.5:.5)),elenaMoaning:a*(y?.5:1.5)*i,elenaRate:a*(y?.5:1.5)};if(p)return{result:{...b,text:"",paceKey:m},state:e};const w=dy(t.ticksElapsed),k=Hde(t.type,o,h,d,n,t.ticksElapsed),{text:x,state:T}=l(`sexscene:${t.type}:${o}:${h}:${d}:${w}`,k);return{result:{...b,text:x||TS[t.type].ongoing(t.ticksElapsed),paceKey:m},state:T}}case"talk_dirty":{const{text:h,state:d}=l("sexscene:talk_dirty",tue);return{result:{playerPleasure:5,elenaMoaning:8*i,elenaRate:8,text:h},state:d}}case"kiss_her":{const{text:h,state:d}=l("sexscene:kiss_her",oue);return{result:{playerPleasure:3,elenaMoaning:10*i,elenaRate:10,text:h},state:d}}default:return{result:{playerPleasure:Math.round(r*.8),elenaMoaning:a*.8*i,elenaRate:a*.8,text:""},state:e}}}function $u(e){return e[Math.floor(Math.random()*e.length)]}function m320NativeSue(e,t,o){var T,I;const n=Vt(e),s=L(n),r=s.confidence,a=n.stats.arousal,i=t.elenaMoaning,l=n.latentTraits??[],h=N=>l.includes(N),d=Rd(s);if(i<35&&a<50)return null;let m=(a-45)*.5+(i-40)*.4+(r-40)*.3*Math.min(1,s.openness/50)+(s.openness-45)*.25;if(h("latent_dominant")&&(m+=14),h("wants_to_be_corrupted")&&(m+=8),h("likes_cheating")&&(m+=6),h("latent_exhibitionist")&&(m+=5),h("latent_submissive")&&(m-=10),h("true_prude")&&(m-=14),m=z(m,0,100),Math.random()*100>=m)return i>=50?{text:$u([`${o}이(가) 분명 의도하지 않았던 소리를 내고는, 없던 일로 하려 하지도 않습니다.`,"그녀의 골반이 저절로 당신에게 맞춰 움직입니다. 의식하고 하는 움직임이 아닙니다.",`${o}의 숨이 멎습니다. 입술을 꾹 다물지만, 또 다른 소리가 결국 새어 나옵니다.`])}:null;const p=es(t.type),y=p?Zde(e,t,p.id,d):void 0,b=!m319AutoLocked(e,t)&&(!p||t.ticksElapsed>=(t.chosenBy==="him"?p.duration.max:p.duration.min)),w=h("latent_submissive")||(((T=n.affinities)==null?void 0:T.dominance)??0)<-.3;if(y&&b&&!w&&m>=55&&r>=40)return{takesPosition:y.id,text:$u([`${o}은(는) 당신의 가슴에 손을 댑니다. "내 차례야." 대답을 기다리지 않고 직접 당신을 움직여 ${y.name} 자세를 취합니다.`,`${o}은(는) 주도권을 잡고 자신이 원하는 대로 두 사람을 움직여 ${y.name} 자세를 취합니다. 그녀가 정한 것입니다.`,`"이렇게." ${o}이(가) 말할 때는 이미 당신을 원하는 위치로 옮기고 있습니다. ${y.name}.`])};const k=((I=n.affinities)==null?void 0:I.dominance)??0,x=y6(n.outfit,n.exposure);if(x.length>0){const N=h("latent_dominant")||k>.4,E=i>=80&&a>=80;if(N&&m>=45||E)return{selfUndress:x[Math.floor(Math.random()*x.length)].id,text:$u([`${o}은(는) 당신을 기다리지 않고 등 뒤로 손을 뻗어 직접 벗습니다.`,`${o}은(는) 기다리지 않고 직접 벗으며 당신의 표정을 살핍니다.`,`${o}이(가) 조급하게 자신의 옷을 잡아당깁니다. "이렇게."`])}}return m>=45?{text:$u([`${o}이(가) 당신과 눈을 맞춥니다. "더 세게." 부탁이 아닙니다.`,`"멈추지 마." ${o}은(는) 숨죽여 말합니다. 그녀의 손톱이 당신의 등에 파고듭니다. "바로 거기—절대로 멈추지 마."`,`${o}은(는) 당신의 골반을 붙잡고 말없이 끈질기게 앞으로 움직이도록 재촉합니다.`])}:y&&b&&(w||Math.random()<.5)?{text:`${o}이(가) 가만있지 못하고 몸을 움직입니다. "우리… 뭘 좀 해볼까?" 당신을 흘끗 보며 중얼거립니다.`,pendingPositionReque
+
+OFFSET 9796590
+덮칩니다. 그녀는 마치 그것을 갈망했다는 듯 화답해 옵니다.","당신은 느리고도 깊게 입을 맞춥니다. 그녀는 당신의 턱에 손을 얹은 채 그 입맞춤에 녹아내립니다."];function nue(e,t,o,n){const s=es(t.type),r=(s==null?void 0:s.pleasureRate.actor)??(t.type==="sex"||t.type==="sex_rough"||t.type==="anal"?13:10),a=(s==null?void 0:s.pleasureRate.elena)??8,i=Qde(e,t.type),l=(h,d)=>{const m=d.map(b=>mo(h,b)),p=ud(e,m);return p?{text:d[p.pick.index].replace(/\{w\}/g,n),state:p.state}:{text:"",state:e}};switch(o){case"keep_going":{const h=xS(t.elenaMoaning),d=SS(Vt(e).exposure),m=`keep_going:${h}:${d}`,p=t.lastPaceKey===m,y={playerPleasure:Math.round(r),elenaMoaning:a*i,elenaRate:a};if(p)return{result:{...y,text:"",paceKey:m},state:e};const b=dy(t.ticksElapsed),w=Lde(t.type,h,d,n,t.ticksElapsed),{text:k,state:x}=l(`sexscene:${t.type}:keep_going:${h}:${d}:${b}`,w);return{result:{...y,text:k||TS[t.type].ongoing(t.ticksElapsed),paceKey:m},state:x}}case"go_faster":case"go_slower":{const h=xS(t.elenaMoaning),d=SS(Vt(e).exposure),m=`${o}:${h}:${d}`,p=t.lastPaceKey===m,y=o==="go_faster",b={playerPleasure:Math.round(r*(y?1.5:.5)),elenaMoaning:a*(y?.5:1.5)*i,elenaRate:a*(y?.5:1.5)};if(p)return{result:{...b,text:"",paceKey:m},state:e};const w=dy(t.ticksElapsed),k=Hde(t.type,o,h,d,n,t.ticksElapsed),{text:x,state:T}=l(`sexscene:${t.type}:${o}:${h}:${d}:${w}`,k);return{result:{...b,text:x||TS[t.type].ongoing(t.ticksElapsed),paceKey:m},state:T}}case"talk_dirty":{const{text:h,state:d}=l("sexscene:talk_dirty",tue);return{result:{playerPleasure:5,elenaMoaning:8*i,elenaRate:8,text:h},state:d}}case"kiss_her":{const{text:h,state:d}=l("sexscene:kiss_her",oue);return{result:{playerPleasure:3,elenaMoaning:10*i,elenaRate:10,text:h},state:d}}default:return{result:{playerPleasure:Math.round(r*.8),elenaMoaning:a*.8*i,elenaRate:a*.8,text:""},state:e}}}function $u(e){return e[Math.floor(Math.random()*e.length)]}function m320NativeSue(e,t,o){var T,I;const n=Vt(e),s=L(n),r=s.confidence,a=n.stats.arousal,i=t.elenaMoaning,l=n.latentTraits??[],h=N=>l.includes(N),d=Rd(s);if(i<35&&a<50)return null;let m=(a-45)*.5+(i-40)*.4+(r-40)*.3*Math.min(1,s.openness/50)+(s.openness-45)*.25;if(h("latent_dominant")&&(m+=14),h("wants_to_be_corrupted")&&(m+=8),h("likes_cheating")&&(m+=6),h("latent_exhibitionist")&&(m+=5),h("latent_submissive")&&(m-=10),h("true_prude")&&(m-=14),m=z(m,0,100),Math.random()*100>=m)return i>=50?{text:$u([`${o}이(가) 분명 의도하지 않았던 소리를 내고는, 없던 일로 하려 하지도 않습니다.`,"그녀의 골반이 저절로 당신에게 맞춰 움직입니다. 의식하고 하는 움직임이 아닙니다.",`${o}의 숨이 멎습니다. 입술을 꾹 다물지만, 또 다른 소리가 결국 새어 나옵니다.`])}:null;const p=es(t.type),y=p?Zde(e,t,p.id,d):void 0,b=!m319AutoLocked(e,t)&&(!p||t.ticksElapsed>=(t.chosenBy==="him"?p.duration.max:p.duration.min)),w=h("latent_submissive")||(((T=n.affinities)==null?void 0:T.dominance)??0)<-.3;if(y&&b&&!w&&m>=55&&r>=40)return{takesPosition:y.id,text:$u([`${o}은(는) 당신의 가슴에 손을 댑니다. "내 차례야." 대답을 기다리지 않고 직접 당신을 움직여 ${y.name} 자세를 취합니다.`,`${o}은(는) 주도권을 잡고 자신이 원하는 대로 두 사람을 움직여 ${y.name} 자세를 취합니다. 그녀가 정한 것입니다.`,`"이렇게." ${o}이(가) 말할 때는 이미 당신을 원하는 위치로 옮기고 있습니다. ${y.name}.`])};const k=((I=n.affinities)==null?void 0:I.dominance)??0,x=y6(n.outfit,n.exposure);if(x.length>0){const N=h("latent_dominant")||k>.4,E=i>=80&&a>=80;if(N&&m>=45||E)return{selfUndress:x[Math.floor(Math.random()*x.length)].id,text:$u([`${o}은(는) 당신을 기다리지 않고 등 뒤로 손을 뻗어 직접 벗습니다.`,`${o}은(는) 기다리지 않고 직접 벗으며 당신의 표정을 살핍니다.`,`${o}이(가) 조급하게 자신의 옷을 잡아당깁니다. "이렇게."`])}}return m>=45?{text:$u([`${o}이(가) 당신과 눈을 맞춥니다. "더 세게." 부탁이 아닙니다.`,`"멈추지 마." ${o}은(는) 숨죽여 말합니다. 그녀의 손톱이 당신의 등에 파고듭니다. "바로 거기—절대로 멈추지 마."`,`${o}은(는) 당신의 골반을 붙잡고 말없이 끈질기게 앞으로 움직이도록 재촉합니다.`])}:y&&b&&(w||Math.random()<.5)?{text:`${o}이(가) 가만있지 못하고 몸을 움직입니다. "우리… 뭘 좀 해볼까?" 당신을 흘끗 보며 중얼거립니다.`,pendingPositionRequest:y.id}:{text:$u([`"더 세게... 제발." ${o}이(가) 당신의 귀에 대고 속삭입니다.`,`${o}은(는) 몸을 휘며 당신에게 밀착합니다. 입술 사이로 참지 못한 작은 소리가 새어 나옵니다.`,"그녀는 거친 숨을 내쉬며 매달리듯 당신을 
+
+OFFSET 9796678
+다."];function nue(e,t,o,n){const s=es(t.type),r=(s==null?void 0:s.pleasureRate.actor)??(t.type==="sex"||t.type==="sex_rough"||t.type==="anal"?13:10),a=(s==null?void 0:s.pleasureRate.elena)??8,i=Qde(e,t.type),l=(h,d)=>{const m=d.map(b=>mo(h,b)),p=ud(e,m);return p?{text:d[p.pick.index].replace(/\{w\}/g,n),state:p.state}:{text:"",state:e}};switch(o){case"keep_going":{const h=xS(t.elenaMoaning),d=SS(Vt(e).exposure),m=`keep_going:${h}:${d}`,p=t.lastPaceKey===m,y={playerPleasure:Math.round(r),elenaMoaning:a*i,elenaRate:a};if(p)return{result:{...y,text:"",paceKey:m},state:e};const b=dy(t.ticksElapsed),w=Lde(t.type,h,d,n,t.ticksElapsed),{text:k,state:x}=l(`sexscene:${t.type}:keep_going:${h}:${d}:${b}`,w);return{result:{...y,text:k||TS[t.type].ongoing(t.ticksElapsed),paceKey:m},state:x}}case"go_faster":case"go_slower":{const h=xS(t.elenaMoaning),d=SS(Vt(e).exposure),m=`${o}:${h}:${d}`,p=t.lastPaceKey===m,y=o==="go_faster",b={playerPleasure:Math.round(r*(y?1.5:.5)),elenaMoaning:a*(y?.5:1.5)*i,elenaRate:a*(y?.5:1.5)};if(p)return{result:{...b,text:"",paceKey:m},state:e};const w=dy(t.ticksElapsed),k=Hde(t.type,o,h,d,n,t.ticksElapsed),{text:x,state:T}=l(`sexscene:${t.type}:${o}:${h}:${d}:${w}`,k);return{result:{...b,text:x||TS[t.type].ongoing(t.ticksElapsed),paceKey:m},state:T}}case"talk_dirty":{const{text:h,state:d}=l("sexscene:talk_dirty",tue);return{result:{playerPleasure:5,elenaMoaning:8*i,elenaRate:8,text:h},state:d}}case"kiss_her":{const{text:h,state:d}=l("sexscene:kiss_her",oue);return{result:{playerPleasure:3,elenaMoaning:10*i,elenaRate:10,text:h},state:d}}default:return{result:{playerPleasure:Math.round(r*.8),elenaMoaning:a*.8*i,elenaRate:a*.8,text:""},state:e}}}function $u(e){return e[Math.floor(Math.random()*e.length)]}function m320NativeSue(e,t,o){var T,I;const n=Vt(e),s=L(n),r=s.confidence,a=n.stats.arousal,i=t.elenaMoaning,l=n.latentTraits??[],h=N=>l.includes(N),d=Rd(s);if(i<35&&a<50)return null;let m=(a-45)*.5+(i-40)*.4+(r-40)*.3*Math.min(1,s.openness/50)+(s.openness-45)*.25;if(h("latent_dominant")&&(m+=14),h("wants_to_be_corrupted")&&(m+=8),h("likes_cheating")&&(m+=6),h("latent_exhibitionist")&&(m+=5),h("latent_submissive")&&(m-=10),h("true_prude")&&(m-=14),m=z(m,0,100),Math.random()*100>=m)return i>=50?{text:$u([`${o}이(가) 분명 의도하지 않았던 소리를 내고는, 없던 일로 하려 하지도 않습니다.`,"그녀의 골반이 저절로 당신에게 맞춰 움직입니다. 의식하고 하는 움직임이 아닙니다.",`${o}의 숨이 멎습니다. 입술을 꾹 다물지만, 또 다른 소리가 결국 새어 나옵니다.`])}:null;const p=es(t.type),y=p?Zde(e,t,p.id,d):void 0,b=!m319AutoLocked(e,t)&&(!p||t.ticksElapsed>=(t.chosenBy==="him"?p.duration.max:p.duration.min)),w=h("latent_submissive")||(((T=n.affinities)==null?void 0:T.dominance)??0)<-.3;if(y&&b&&!w&&m>=55&&r>=40)return{takesPosition:y.id,text:$u([`${o}은(는) 당신의 가슴에 손을 댑니다. "내 차례야." 대답을 기다리지 않고 직접 당신을 움직여 ${y.name} 자세를 취합니다.`,`${o}은(는) 주도권을 잡고 자신이 원하는 대로 두 사람을 움직여 ${y.name} 자세를 취합니다. 그녀가 정한 것입니다.`,`"이렇게." ${o}이(가) 말할 때는 이미 당신을 원하는 위치로 옮기고 있습니다. ${y.name}.`])};const k=((I=n.affinities)==null?void 0:I.dominance)??0,x=y6(n.outfit,n.exposure);if(x.length>0){const N=h("latent_dominant")||k>.4,E=i>=80&&a>=80;if(N&&m>=45||E)return{selfUndress:x[Math.floor(Math.random()*x.length)].id,text:$u([`${o}은(는) 당신을 기다리지 않고 등 뒤로 손을 뻗어 직접 벗습니다.`,`${o}은(는) 기다리지 않고 직접 벗으며 당신의 표정을 살핍니다.`,`${o}이(가) 조급하게 자신의 옷을 잡아당깁니다. "이렇게."`])}}return m>=45?{text:$u([`${o}이(가) 당신과 눈을 맞춥니다. "더 세게." 부탁이 아닙니다.`,`"멈추지 마." ${o}은(는) 숨죽여 말합니다. 그녀의 손톱이 당신의 등에 파고듭니다. "바로 거기—절대로 멈추지 마."`,`${o}은(는) 당신의 골반을 붙잡고 말없이 끈질기게 앞으로 움직이도록 재촉합니다.`])}:y&&b&&(w||Math.random()<.5)?{text:`${o}이(가) 가만있지 못하고 몸을 움직입니다. "우리… 뭘 좀 해볼까?" 당신을 흘끗 보며 중얼거립니다.`,pendingPositionRequest:y.id}:{text:$u([`"더 세게... 제발." ${o}이(가) 당신의 귀에 대고 속삭입니다.`,`${o}은(는) 몸을 휘며 당신에게 밀착합니다. 입술 사이로 참지 못한 작은 소리가 새어 나옵니다.`,"그녀는 거친 숨을 내쉬며 매달리듯 당신을 더 가까이 끌어당깁니다."])}}function rue(e,t,o,n,s){var l,h,d;const r=[{id:"keep_going",label:"계속해
+
+OFFSET 9800521
+,label:"더 빠르게",description:"속도를 올리기"},{id:"go_slower",label:"더 천천히",description:"애를 태우며 천천히 즐기기"},{id:"talk_dirty",label:"음란한 말 하기",description:"그녀가 주는 느낌을 말해주기"}];if(s){const m=be(s);if(m!=null){const y=((h=(l=s.locations)==null?void 0:l[m])==null?void 0:h.occupants)??[],b=new Set(((d=Y(s))==null?void 0:d.joinedPatronIds)??[]);for(const w of s.customers)w.status==="gone"||w.status==="leaving"||y.includes(w.id)&&((w.mistreatmentTonight??0)<=0&&!b.has(w.id)||r.push({id:`throw_out:${w.id}`,label:`${w.name} 내쫓기`,description:"절정에 이르기 전에 멈추고 그 사내를 상대합니다."}))}const p=Vt(s);if(r.push(...Ude(p.outfit,p.exposure)),vw(e.type)!=="intimate"&&be(s)!=="bedroom"&&s.phase!=="bedroom"){const y=B$(s).slice(0,3);for(const b of y)r.push({id:`invite_join:${b.id}`,label:`${b.name} 손짓해 부르기`,description:"그를 불러 함께하자고 초대합니다."})}}const a=Xde(s);(e.type==="sex"||e.type==="sex_rough"||e.type==="anal")&&!a&&r.push({id:"kiss_her",label:"그녀에게 키스하기",description:"그녀를 바짝 끌어당기기"});const i=es(e.type);if(i){const m=m327ManualTransitions(i.id,n),p=new Set;for(const y of m){if(!y.playerAvailable)continue;const b=s?N$(s,y.id):[];if(b.length>0){b.forEach(k=>p.add(k));continue}const w=y.id===o;r.push({id:`switch_to_${y.id}`,label:w?`${y.name} (그녀가 원함)`:`${y.name}(으)로 바꾸기`,description:y.description})}s&&r.push(...sle(s,p))}return r.push(...m318FinishOptions(s,e)),t?r.push({id:"stop",label:"멈추기",description:"몸을 떼어내기"}):r.push({id:"stop",label:"그만두고 일로 돌아가기",description:"응대할 손님이 있습니다"}),m319AutoChoices(r,s,e)}function Rl(e){var p,y;const t=Ye(e),o=e.phase==="bedroom",n=Vt(e).name,s=Rd(L(Vt(e))),r=vh(e.player,e.slot)?t.playerPleasure>=85?"절정 직전입니다.":t.playerPleasure>=70?"절정에 가까워지고 있습니다.":t.playerPleasure>=40?"쾌감이 꾸준히 차오릅니다.":"당신은 그 감각에 서서히 빠져듭니다.":"다시 절정에 이르기는 어렵습니다. 아직은요.",a=t.elenaMoaning>=70?`${n}은(는) 쾌감에 빠져 큰 소리로 신음합니다.`:t.elenaMoaning>=40?`${n}은(는) 거칠게 숨을 쉬며 분명히 즐기고 있습니다.`:`${n}은(는) 조용히 집중하고 있습니다.`;let i="";if(!o){const b=e.customers.filter(w=>!w.isResident&&(w.status==="arrived"||w.status==="greeted"));b.length>=2?i=" 손님 여러 명이 응대를 기다립니다.":b.length===1&&(i=` ${b[0].name}이(가) 응대를 기다립니다.`)}let l="";if(!o){const b=be(e);if(b!=null){const w=((y=(p=e.locations)==null?void 0:p[b])==null?void 0:y.occupants)??[],k=e.customers.filter(x=>w.includes(x.id)&&x.status!=="gone"&&x.status!=="leaving").map(x=>x.name);k.length===1?l=` ${k[0]}이(가) 지켜보고 있습니다.`:k.length===2?l=` ${k[0]}, ${k[1]}이(가) 지켜보고 있습니다.`:k.length>=3&&(l=` ${k[0]}, ${k[1]} 외에 ${k.length-2}명${k.length-2===1?"":""}이 지켜보고 있습니다.`)}}const h=t.ticksElapsed,d=h===0?"":` (${h}분)`,m=`${r} ${a}${l}${i}${d}`;return{type:"sex_scene",customerId:"",customerName:n,text:m,choices:rue(t,o,t.pendingPositionRequest,s,e),question:tle(e)}}function m319NativeBf(e,t,o){const n=es(t),s=o??e.primaryCharacterId,r={characterId:s,type:t,ticksElapsed:0,playerPleasure:15,elenaMoaning:((n==null?void 0:n.stimulation)??0)<=0?0:n!=null&&n.elenaReceiving?20:10,startedAtSlot:e.slot},a=Fm(t);let i=P({...e,activeScene:{...e.activeScene,sex:r}},m=>({...m,sceneOverride:a}));if(i=Fde(i,t),s===i.primaryCharacterId){const m=be(i);Ce(i,pe)!==m&&(i=Bt(i,pe,m))}const l=TS[t],h=SS(Vt(i).exposure),d=Bde(t,h,l.start);return i={...i,log:[...i.log,{slot:i.slot,text:d,mod332Action:m332SexLogContext(i,t)}]},i={...i,pendingEvent:Rl(i)},i}function nR(e,t,o,n){var i;const s={...e,activeScene:{...e.activeScene,sex:void 0}},r=Bf(s,o,t.characterId),a=(i=r.activeScene)==null?void 0:i.sex;return a?{...r,activeScene:{...r.activeScene,sex:{...a,playerPleasure:Math.max(a.playerPleasure,Math.round(t.playerPleasure*.8)),elenaMoaning:Math.max(a.elenaMoaning,Math.round(t.elenaMoaning*.8)),ticksElapsed:0,chosenBy:n}}}:r}function aue(e,t,o){const n=es(t.type);if(!n)return null;const s=Rd(L(Vt(e))),r=e.phase==="service"?{kind:"player_service",mood:"pressured"}:{kind:"player_intimate"};for(c
+
+OFFSET 9800554
+리기"},{id:"go_slower",label:"더 천천히",description:"애를 태우며 천천히 즐기기"},{id:"talk_dirty",label:"음란한 말 하기",description:"그녀가 주는 느낌을 말해주기"}];if(s){const m=be(s);if(m!=null){const y=((h=(l=s.locations)==null?void 0:l[m])==null?void 0:h.occupants)??[],b=new Set(((d=Y(s))==null?void 0:d.joinedPatronIds)??[]);for(const w of s.customers)w.status==="gone"||w.status==="leaving"||y.includes(w.id)&&((w.mistreatmentTonight??0)<=0&&!b.has(w.id)||r.push({id:`throw_out:${w.id}`,label:`${w.name} 내쫓기`,description:"절정에 이르기 전에 멈추고 그 사내를 상대합니다."}))}const p=Vt(s);if(r.push(...Ude(p.outfit,p.exposure)),vw(e.type)!=="intimate"&&be(s)!=="bedroom"&&s.phase!=="bedroom"){const y=B$(s).slice(0,3);for(const b of y)r.push({id:`invite_join:${b.id}`,label:`${b.name} 손짓해 부르기`,description:"그를 불러 함께하자고 초대합니다."})}}const a=Xde(s);(e.type==="sex"||e.type==="sex_rough"||e.type==="anal")&&!a&&r.push({id:"kiss_her",label:"그녀에게 키스하기",description:"그녀를 바짝 끌어당기기"});const i=es(e.type);if(i){const m=m327ManualTransitions(i.id,n),p=new Set;for(const y of m){if(!y.playerAvailable)continue;const b=s?N$(s,y.id):[];if(b.length>0){b.forEach(k=>p.add(k));continue}const w=y.id===o;r.push({id:`switch_to_${y.id}`,label:w?`${y.name} (그녀가 원함)`:`${y.name}(으)로 바꾸기`,description:y.description})}s&&r.push(...sle(s,p))}return r.push(...m318FinishOptions(s,e)),t?r.push({id:"stop",label:"멈추기",description:"몸을 떼어내기"}):r.push({id:"stop",label:"그만두고 일로 돌아가기",description:"응대할 손님이 있습니다"}),m319AutoChoices(r,s,e)}function Rl(e){var p,y;const t=Ye(e),o=e.phase==="bedroom",n=Vt(e).name,s=Rd(L(Vt(e))),r=vh(e.player,e.slot)?t.playerPleasure>=85?"절정 직전입니다.":t.playerPleasure>=70?"절정에 가까워지고 있습니다.":t.playerPleasure>=40?"쾌감이 꾸준히 차오릅니다.":"당신은 그 감각에 서서히 빠져듭니다.":"다시 절정에 이르기는 어렵습니다. 아직은요.",a=t.elenaMoaning>=70?`${n}은(는) 쾌감에 빠져 큰 소리로 신음합니다.`:t.elenaMoaning>=40?`${n}은(는) 거칠게 숨을 쉬며 분명히 즐기고 있습니다.`:`${n}은(는) 조용히 집중하고 있습니다.`;let i="";if(!o){const b=e.customers.filter(w=>!w.isResident&&(w.status==="arrived"||w.status==="greeted"));b.length>=2?i=" 손님 여러 명이 응대를 기다립니다.":b.length===1&&(i=` ${b[0].name}이(가) 응대를 기다립니다.`)}let l="";if(!o){const b=be(e);if(b!=null){const w=((y=(p=e.locations)==null?void 0:p[b])==null?void 0:y.occupants)??[],k=e.customers.filter(x=>w.includes(x.id)&&x.status!=="gone"&&x.status!=="leaving").map(x=>x.name);k.length===1?l=` ${k[0]}이(가) 지켜보고 있습니다.`:k.length===2?l=` ${k[0]}, ${k[1]}이(가) 지켜보고 있습니다.`:k.length>=3&&(l=` ${k[0]}, ${k[1]} 외에 ${k.length-2}명${k.length-2===1?"":""}이 지켜보고 있습니다.`)}}const h=t.ticksElapsed,d=h===0?"":` (${h}분)`,m=`${r} ${a}${l}${i}${d}`;return{type:"sex_scene",customerId:"",customerName:n,text:m,choices:rue(t,o,t.pendingPositionRequest,s,e),question:tle(e)}}function m319NativeBf(e,t,o){const n=es(t),s=o??e.primaryCharacterId,r={characterId:s,type:t,ticksElapsed:0,playerPleasure:15,elenaMoaning:((n==null?void 0:n.stimulation)??0)<=0?0:n!=null&&n.elenaReceiving?20:10,startedAtSlot:e.slot},a=Fm(t);let i=P({...e,activeScene:{...e.activeScene,sex:r}},m=>({...m,sceneOverride:a}));if(i=Fde(i,t),s===i.primaryCharacterId){const m=be(i);Ce(i,pe)!==m&&(i=Bt(i,pe,m))}const l=TS[t],h=SS(Vt(i).exposure),d=Bde(t,h,l.start);return i={...i,log:[...i.log,{slot:i.slot,text:d,mod332Action:m332SexLogContext(i,t)}]},i={...i,pendingEvent:Rl(i)},i}function nR(e,t,o,n){var i;const s={...e,activeScene:{...e.activeScene,sex:void 0}},r=Bf(s,o,t.characterId),a=(i=r.activeScene)==null?void 0:i.sex;return a?{...r,activeScene:{...r.activeScene,sex:{...a,playerPleasure:Math.max(a.playerPleasure,Math.round(t.playerPleasure*.8)),elenaMoaning:Math.max(a.elenaMoaning,Math.round(t.elenaMoaning*.8)),ticksElapsed:0,chosenBy:n}}}:r}function aue(e,t,o){const n=es(t.type);if(!n)return null;const s=Rd(L(Vt(e))),r=e.phase==="service"?{kind:"player_service",mood:"pressured"}:{kind:"player_intimate"};for(const a of pP(n.id,s)){if(!a.playe
+
+OFFSET 9800593
+ription:"애를 태우며 천천히 즐기기"},{id:"talk_dirty",label:"음란한 말 하기",description:"그녀가 주는 느낌을 말해주기"}];if(s){const m=be(s);if(m!=null){const y=((h=(l=s.locations)==null?void 0:l[m])==null?void 0:h.occupants)??[],b=new Set(((d=Y(s))==null?void 0:d.joinedPatronIds)??[]);for(const w of s.customers)w.status==="gone"||w.status==="leaving"||y.includes(w.id)&&((w.mistreatmentTonight??0)<=0&&!b.has(w.id)||r.push({id:`throw_out:${w.id}`,label:`${w.name} 내쫓기`,description:"절정에 이르기 전에 멈추고 그 사내를 상대합니다."}))}const p=Vt(s);if(r.push(...Ude(p.outfit,p.exposure)),vw(e.type)!=="intimate"&&be(s)!=="bedroom"&&s.phase!=="bedroom"){const y=B$(s).slice(0,3);for(const b of y)r.push({id:`invite_join:${b.id}`,label:`${b.name} 손짓해 부르기`,description:"그를 불러 함께하자고 초대합니다."})}}const a=Xde(s);(e.type==="sex"||e.type==="sex_rough"||e.type==="anal")&&!a&&r.push({id:"kiss_her",label:"그녀에게 키스하기",description:"그녀를 바짝 끌어당기기"});const i=es(e.type);if(i){const m=m327ManualTransitions(i.id,n),p=new Set;for(const y of m){if(!y.playerAvailable)continue;const b=s?N$(s,y.id):[];if(b.length>0){b.forEach(k=>p.add(k));continue}const w=y.id===o;r.push({id:`switch_to_${y.id}`,label:w?`${y.name} (그녀가 원함)`:`${y.name}(으)로 바꾸기`,description:y.description})}s&&r.push(...sle(s,p))}return r.push(...m318FinishOptions(s,e)),t?r.push({id:"stop",label:"멈추기",description:"몸을 떼어내기"}):r.push({id:"stop",label:"그만두고 일로 돌아가기",description:"응대할 손님이 있습니다"}),m319AutoChoices(r,s,e)}function Rl(e){var p,y;const t=Ye(e),o=e.phase==="bedroom",n=Vt(e).name,s=Rd(L(Vt(e))),r=vh(e.player,e.slot)?t.playerPleasure>=85?"절정 직전입니다.":t.playerPleasure>=70?"절정에 가까워지고 있습니다.":t.playerPleasure>=40?"쾌감이 꾸준히 차오릅니다.":"당신은 그 감각에 서서히 빠져듭니다.":"다시 절정에 이르기는 어렵습니다. 아직은요.",a=t.elenaMoaning>=70?`${n}은(는) 쾌감에 빠져 큰 소리로 신음합니다.`:t.elenaMoaning>=40?`${n}은(는) 거칠게 숨을 쉬며 분명히 즐기고 있습니다.`:`${n}은(는) 조용히 집중하고 있습니다.`;let i="";if(!o){const b=e.customers.filter(w=>!w.isResident&&(w.status==="arrived"||w.status==="greeted"));b.length>=2?i=" 손님 여러 명이 응대를 기다립니다.":b.length===1&&(i=` ${b[0].name}이(가) 응대를 기다립니다.`)}let l="";if(!o){const b=be(e);if(b!=null){const w=((y=(p=e.locations)==null?void 0:p[b])==null?void 0:y.occupants)??[],k=e.customers.filter(x=>w.includes(x.id)&&x.status!=="gone"&&x.status!=="leaving").map(x=>x.name);k.length===1?l=` ${k[0]}이(가) 지켜보고 있습니다.`:k.length===2?l=` ${k[0]}, ${k[1]}이(가) 지켜보고 있습니다.`:k.length>=3&&(l=` ${k[0]}, ${k[1]} 외에 ${k.length-2}명${k.length-2===1?"":""}이 지켜보고 있습니다.`)}}const h=t.ticksElapsed,d=h===0?"":` (${h}분)`,m=`${r} ${a}${l}${i}${d}`;return{type:"sex_scene",customerId:"",customerName:n,text:m,choices:rue(t,o,t.pendingPositionRequest,s,e),question:tle(e)}}function m319NativeBf(e,t,o){const n=es(t),s=o??e.primaryCharacterId,r={characterId:s,type:t,ticksElapsed:0,playerPleasure:15,elenaMoaning:((n==null?void 0:n.stimulation)??0)<=0?0:n!=null&&n.elenaReceiving?20:10,startedAtSlot:e.slot},a=Fm(t);let i=P({...e,activeScene:{...e.activeScene,sex:r}},m=>({...m,sceneOverride:a}));if(i=Fde(i,t),s===i.primaryCharacterId){const m=be(i);Ce(i,pe)!==m&&(i=Bt(i,pe,m))}const l=TS[t],h=SS(Vt(i).exposure),d=Bde(t,h,l.start);return i={...i,log:[...i.log,{slot:i.slot,text:d,mod332Action:m332SexLogContext(i,t)}]},i={...i,pendingEvent:Rl(i)},i}function nR(e,t,o,n){var i;const s={...e,activeScene:{...e.activeScene,sex:void 0}},r=Bf(s,o,t.characterId),a=(i=r.activeScene)==null?void 0:i.sex;return a?{...r,activeScene:{...r.activeScene,sex:{...a,playerPleasure:Math.max(a.playerPleasure,Math.round(t.playerPleasure*.8)),elenaMoaning:Math.max(a.elenaMoaning,Math.round(t.elenaMoaning*.8)),ticksElapsed:0,chosenBy:n}}}:r}function aue(e,t,o){const n=es(t.type);if(!n)return null;const s=Rd(L(Vt(e))),r=e.phase==="service"?{kind:"player_service",mood:"pressured"}:{kind:"player_intimate"};for(const a of pP(n.id,s)){if(!a.playerAvailable||a.id===o)continue;const i=z
+
+### elenaMoaning count=31
+
+OFFSET 9176040
+tion Tb(e,t,o){const n=(o==null?void 0:o.visitCount)??0,s=(o==null?void 0:o.chemistry)??e.chemistry??50,r=(e.kindnessTonight??0)+((o==null?void 0:o.kindnessCount)??0),a=(e.mistreatmentTonight??0)+((o==null?void 0:o.mistreatmentCount)??0),i=Math.min(50,n*9),l=(s-50)*.5,h=Math.min(25,r*4)-Math.min(25,a*5),d=Math.max(0,Math.min(100,25+i+l+h)),m=gf(fd(o,e),"overall");let p;return n===0&&d<40||d<35?p="stranger":d<55?p="acquaintance":d<72?p="regular":d<88?p="familiar":p="intimate",{closeness:d,feeling:m,band:p}}function mV(e,t,o,n){const s=e.name,r=[],a=(n==null?void 0:n.visitCount)??0;a===0&&o.band==="stranger"?r.push("낯선 손님"):a===0?r.push("첫 방문"):r.push(`${fV(a+1)} 방문`);const i=e.mistreatmentTonight??0,l=e.kindnessTonight??0,h=(n==null?void 0:n.mistreatmentCount)??0,d=(n==null?void 0:n.kindnessCount)??0;return i>0?r.push(i===1?"오늘 밤 그녀를 함부로 대함":`오늘 밤 그녀를 ${i}번 함부로 대함`):l>0?r.push(l===1?"오늘 밤 친절하게 대함":"오늘 밤 여러 번 친절하게 대함"):h>0?r.push(h===1?"전에 그녀를 함부로 대한 적 있음":`전에 ${h}번 함부로 대함`):d>=3&&r.push("그동안 그녀에게 친절하게 대해 옴"),`${s} — ${r.join(". ")}.`}function fV(e){const t=e%100;if(t>=11&&t<=13)return`${e}번째`;switch(e%10){case 1:return`${e}번째`;case 2:return`${e}번째`;case 3:return`${e}번째`;default:return`${e}번째`}}function pd(e,t){var n;if(!t)return 0;const o=(n=e.patronRecords)==null?void 0:n.find(s=>s.name===t.name);return(o==null?void 0:o.kindnessCount)??t.kindnessTonight??0}function pV(e){const{wife:t,interaction:o,sexScene:n,rel:s}=e;if(!o&&!n)return null;const a=(t.latentTraits??[]).includes("latent_masochist")?o4:1,i=s&&s.feeling<0?-s.feeling:0,l=s&&s.feeling>0?s.feeling:0;let h;if(n)h=n.elenaMoaning;else if(o&&o.elenaPleasure!=null&&o.elenaPleasure>0){const m=Math.min(40,i*.45)*a;h=Math.max(0,Math.round(o.elenaPleasure-m))}else if(o){const m=t.stats.arousal,p=o.elenaComfort,y=l*.2-i*.45*a;h=Math.round(m*.5+p*.3+y),h=Math.max(0,Math.min(100,h))}else return null;let d;return h<15?d="마음을 닫음":h<30?d="내키지 않음":h<45?d="따라 주는 중":h<60?d="마음을 여는 중":h<75?d="즐기는 중":h<90?d="적극적":d="푹 빠져 있음",`관심도: ${d}`}const gV=15;function fs(e,t){return!e||e.coercedSinceSlot==null?!1:t-e.coercedSinceSlot<=gV}const ne=["chatting","flirting","light_touch","bold_touch","groping","intimate","handjob_patron","blowjob_patron","rubbing_patron","sex_patron"],so={chatting:null,flirting:"kiss_chaste",light_touch:"kiss_chaste",bold_touch:"touch_over_clothes",groping:"touch_skin",intimate:"manual_receiving",handjob_patron:"manual_giving",blowjob_patron:"oral_giving",rubbing_patron:"genital_rubbing",sex_patron:"sex_vaginal"},n4={bold_touch:"bold_touch",groping:"groping",intimate:"fingering",handjob_patron:"handjob",blowjob_patron:"blowjob",rubbing_patron:"thigh_job",sex_patron:"sex"};function H_(e){for(let t=ne.length-1;t>=0;t--)if(so[ne[t]]===e)return ne[t];return null}function nh(e,t){switch(t){case"watching":return null;case"breasts":return"touch_skin";case"hand":return"manual_giving";case"mouth":return"oral_giving";case"behind":return"touch_skin";case"rubbing":return"genital_rubbing";case"inside":return"sex_vaginal";case"inside_anal":return"sex_anal";case"astride":return"sex_vaginal"}}function _V(e){switch(e){case"hand":return"handjob";case"mouth":return"blowjob";case"breasts":return"breast_worship";case"behind":return"groping";case"rubbing":return"thigh_job";case"inside":return"sex";case"astride":return"riding";case"inside_anal":return"anal";case"watching":return}}function Kr(e){return e==="rubbing"||e==="inside"||e==="inside_anal"?"behind":e==="astride"?"beneath":e}const $b={mouth:1,hand:2,breasts:1,behind:1,beneath:1,watching:999};function z1(e){var n;const t={mouth:0,hand:0,breasts:0,behind:0,beneath:0,watching:0},o=Wo(e);o&&(t[Kr(o)]+=1);for(const s of e.joinedPatronIds??[]){const r=(n=e.joinedPatronSlots)==null?void 0:n[s];r&&(t[Kr(r)]+=1)}return t}function Cx(e,t,o){const n=
+
+OFFSET 9763281
+.kind!=="husband_led")return{state:e,outcome:"refuse"};const a=r.stage,i={...r.joinedPatronSlots??{}},l=eH(r,a,i,Om(g(s)).baredBelow),h=Math.max(0,s.slot-t.arrivedAtSlot);let d="refuse";for(const m of l){const p=nh(a,m);let y;if(p?y=Le(s,p,{kind:"patron_request",comfortWithPatron:Vc(s,t),isReturning:zt(s,t.name),activeCustomerId:t.id,midAct:iw(a,m,Object.values(i)),crowdJoinerWatchSlots:h,husbandPresent:!0,husbandEncouraged:o==="player_invite",selfInitiated:o==="wife_invite"?n:void 0}).outcome:y="hesitant",y==="eager"||y==="hesitant")return s=ede(s,r,t.id,m),y==="hesitant"&&(s=JH(s,t.id)),{state:s,outcome:y};y==="offended"&&(d="offended")}return{state:s,outcome:d}}function ede(e,t,o,n){var d;const s=e.customers.find(m=>m.id===o);if(!s)return e;const r={...t.joinedPatronSlots??{},[o]:n},a=(d=t.crowdPatronIds)!=null&&d.includes(o)?t.crowdPatronIds:[...t.crowdPatronIds??[],o],i=[...t.joinedPatronIds??[],o],l=g(e).name,h=tH(t.stage,n,s.name,l,`그녀의 ${Ut(e)}`,Om(g(e)));return j(_s(e,{...t,crowdPatronIds:a,joinedPatronIds:i,joinedPatronSlots:r}),h)}function tde(e){return ZP[e]!=null}function ode(e){const t=Ye(e);if(!t||!Jce(e))return e;let o=e,n=Y(o);if(n&&n.kind!=="husband_led")return o;if(n)o=s6(o);else{const s=vw(t.type);if(!tde(s)||B$(o).length===0)return o;o=n6(o)}return o=iS(o),o=lS(o),o=ele(o),o=hS(o),o=EP(o),o=sde(o),o=nde(o),o}function nde(e){const t=Y(e),o=Ye(e);if(!t||t.kind!=="husband_led"||!o)return e;const n=Math.min(1.6,(t.joinedPatronIds??[]).reduce((r,a)=>{var i;return r+.4*zP((i=t.joinedPatronSlots)==null?void 0:i[a])},0));if(n<=0)return e;const s=Math.min(100,o.elenaMoaning+n);return s===o.elenaMoaning?e:{...e,activeScene:{...e.activeScene,sex:{...o,elenaMoaning:s}}}}const QE=20;function sde(e){var w,k;const t=Y(e),o=Ye(e);if(!t||t.kind!=="husband_led"||!o)return e;const n=t.lastWifeInviteSlot??-QE;if(e.slot-n<QE)return e;const s=g(e),r=s.latentTraits??[],a=s.stats.arousal;if(a<70)return e;const i=((w=s.affinities)==null?void 0:w.exhibition)??0,l=L(s).openness??0;let h=0;if(h+=Math.max(0,(a-70)/30)*.1,h+=Math.max(0,(l-55)/45)*.1,h+=Math.max(0,i)*.06,r.includes("latent_exhibitionist")&&(h+=.1),r.includes("public_thrill_seeker")&&(h+=.12),(((k=s.intoxication)==null?void 0:k.level)??0)>50&&(h+=.05),r.includes("true_prude")&&(h=0),h<=0||Math.random()>Math.min(.3,h))return e;const d=B$(e);if(d.length===0)return e;const m=[...d].sort((x,T)=>(T.charm??0)-(x.charm??0))[0];let p=_s(e,{...t,lastWifeInviteSlot:e.slot});const y=rde(s.name,m.name,e.slot,Ut(e));return p=j(p,y),a6(p,m,"wife_invite",Math.min(K1,h*100)).state}function rde(e,t,o,n){const s=[`${e}이(가) ${t}과(와) 눈을 맞춥니다. 자신의 ${n} 어깨 너머로 손가락을 까딱해 부릅니다. "보고만 있지 마요."`,`${e}은(는) 멈추지 않고 ${t}에게 손을 뻗습니다. "당신. 이리 와요."`,`${e}은(는) ${t}과(와) 시선을 맞춘 채 고개를 기울여 끼어들라는 뜻을 전합니다. 한마디도 하지 않습니다. 그럴 필요가 없습니다.`];return s[o%s.length]}const Ev=3,Y$=7;function xd(e,t){var o,n;return(((n=(o=e.tavern)==null?void 0:o.renterHistory)==null?void 0:n[t.name])??0)+1}function xw(e){var n;const t=(n=e.tavern)==null?void 0:n.tonightRenter;if(!(t!=null&&t.customerId))return null;const o=e.customers.find(s=>s.id===t.customerId);return o?{renter:t,customer:o}:null}const ade=.35,ide=.15,lde=.9;function hde(e,t){var l;const o=e.patronRecords.find(h=>h.name===t.name),n=xd(e,t),s=ide*Math.min(Y$-1,n-1),r=o?.3*Math.max(0,zr(o))/100:0,a=o?.4*yh(o):0,i=.5+.5*Math.max(0,Math.min(100,((l=e.tavern)==null?void 0:l.quality)??50))/100;return Math.max(0,Math.min(lde,ade+s+r+a))*i}function cde(e,t){return Math.random()<hde(e,t)}function dde(e,t){return t<=1?`${e.name}이(가) 하룻밤 더 묵겠다며 카운터에 ${e.rentPaid}골드를 올려놓습니다.`:`${e.name}이(가) ${mde(t+1)} 밤도 묵겠다며 카운터에 ${e.rentPaid}골드를 올려놓습니다.`}function ude(e,t){return Qt(e,"room_rent",t.rentPaid)}function mde(e){const t=e%100;if(t>=11&&t<=13)return`${e}번째`;switch(e%10){case 1:return`${e}번째`;c
+
+OFFSET 9763310
+state:e,outcome:"refuse"};const a=r.stage,i={...r.joinedPatronSlots??{}},l=eH(r,a,i,Om(g(s)).baredBelow),h=Math.max(0,s.slot-t.arrivedAtSlot);let d="refuse";for(const m of l){const p=nh(a,m);let y;if(p?y=Le(s,p,{kind:"patron_request",comfortWithPatron:Vc(s,t),isReturning:zt(s,t.name),activeCustomerId:t.id,midAct:iw(a,m,Object.values(i)),crowdJoinerWatchSlots:h,husbandPresent:!0,husbandEncouraged:o==="player_invite",selfInitiated:o==="wife_invite"?n:void 0}).outcome:y="hesitant",y==="eager"||y==="hesitant")return s=ede(s,r,t.id,m),y==="hesitant"&&(s=JH(s,t.id)),{state:s,outcome:y};y==="offended"&&(d="offended")}return{state:s,outcome:d}}function ede(e,t,o,n){var d;const s=e.customers.find(m=>m.id===o);if(!s)return e;const r={...t.joinedPatronSlots??{},[o]:n},a=(d=t.crowdPatronIds)!=null&&d.includes(o)?t.crowdPatronIds:[...t.crowdPatronIds??[],o],i=[...t.joinedPatronIds??[],o],l=g(e).name,h=tH(t.stage,n,s.name,l,`그녀의 ${Ut(e)}`,Om(g(e)));return j(_s(e,{...t,crowdPatronIds:a,joinedPatronIds:i,joinedPatronSlots:r}),h)}function tde(e){return ZP[e]!=null}function ode(e){const t=Ye(e);if(!t||!Jce(e))return e;let o=e,n=Y(o);if(n&&n.kind!=="husband_led")return o;if(n)o=s6(o);else{const s=vw(t.type);if(!tde(s)||B$(o).length===0)return o;o=n6(o)}return o=iS(o),o=lS(o),o=ele(o),o=hS(o),o=EP(o),o=sde(o),o=nde(o),o}function nde(e){const t=Y(e),o=Ye(e);if(!t||t.kind!=="husband_led"||!o)return e;const n=Math.min(1.6,(t.joinedPatronIds??[]).reduce((r,a)=>{var i;return r+.4*zP((i=t.joinedPatronSlots)==null?void 0:i[a])},0));if(n<=0)return e;const s=Math.min(100,o.elenaMoaning+n);return s===o.elenaMoaning?e:{...e,activeScene:{...e.activeScene,sex:{...o,elenaMoaning:s}}}}const QE=20;function sde(e){var w,k;const t=Y(e),o=Ye(e);if(!t||t.kind!=="husband_led"||!o)return e;const n=t.lastWifeInviteSlot??-QE;if(e.slot-n<QE)return e;const s=g(e),r=s.latentTraits??[],a=s.stats.arousal;if(a<70)return e;const i=((w=s.affinities)==null?void 0:w.exhibition)??0,l=L(s).openness??0;let h=0;if(h+=Math.max(0,(a-70)/30)*.1,h+=Math.max(0,(l-55)/45)*.1,h+=Math.max(0,i)*.06,r.includes("latent_exhibitionist")&&(h+=.1),r.includes("public_thrill_seeker")&&(h+=.12),(((k=s.intoxication)==null?void 0:k.level)??0)>50&&(h+=.05),r.includes("true_prude")&&(h=0),h<=0||Math.random()>Math.min(.3,h))return e;const d=B$(e);if(d.length===0)return e;const m=[...d].sort((x,T)=>(T.charm??0)-(x.charm??0))[0];let p=_s(e,{...t,lastWifeInviteSlot:e.slot});const y=rde(s.name,m.name,e.slot,Ut(e));return p=j(p,y),a6(p,m,"wife_invite",Math.min(K1,h*100)).state}function rde(e,t,o,n){const s=[`${e}이(가) ${t}과(와) 눈을 맞춥니다. 자신의 ${n} 어깨 너머로 손가락을 까딱해 부릅니다. "보고만 있지 마요."`,`${e}은(는) 멈추지 않고 ${t}에게 손을 뻗습니다. "당신. 이리 와요."`,`${e}은(는) ${t}과(와) 시선을 맞춘 채 고개를 기울여 끼어들라는 뜻을 전합니다. 한마디도 하지 않습니다. 그럴 필요가 없습니다.`];return s[o%s.length]}const Ev=3,Y$=7;function xd(e,t){var o,n;return(((n=(o=e.tavern)==null?void 0:o.renterHistory)==null?void 0:n[t.name])??0)+1}function xw(e){var n;const t=(n=e.tavern)==null?void 0:n.tonightRenter;if(!(t!=null&&t.customerId))return null;const o=e.customers.find(s=>s.id===t.customerId);return o?{renter:t,customer:o}:null}const ade=.35,ide=.15,lde=.9;function hde(e,t){var l;const o=e.patronRecords.find(h=>h.name===t.name),n=xd(e,t),s=ide*Math.min(Y$-1,n-1),r=o?.3*Math.max(0,zr(o))/100:0,a=o?.4*yh(o):0,i=.5+.5*Math.max(0,Math.min(100,((l=e.tavern)==null?void 0:l.quality)??50))/100;return Math.max(0,Math.min(lde,ade+s+r+a))*i}function cde(e,t){return Math.random()<hde(e,t)}function dde(e,t){return t<=1?`${e.name}이(가) 하룻밤 더 묵겠다며 카운터에 ${e.rentPaid}골드를 올려놓습니다.`:`${e.name}이(가) ${mde(t+1)} 밤도 묵겠다며 카운터에 ${e.rentPaid}골드를 올려놓습니다.`}function ude(e,t){return Qt(e,"room_rent",t.rentPaid)}function mde(e){const t=e%100;if(t>=11&&t<=13)return`${e}번째`;switch(e%10){case 1:return`${e}번째`;case 2:return`${e}번째`;case 3:r
+
+OFFSET 9763371
+nSlots??{}},l=eH(r,a,i,Om(g(s)).baredBelow),h=Math.max(0,s.slot-t.arrivedAtSlot);let d="refuse";for(const m of l){const p=nh(a,m);let y;if(p?y=Le(s,p,{kind:"patron_request",comfortWithPatron:Vc(s,t),isReturning:zt(s,t.name),activeCustomerId:t.id,midAct:iw(a,m,Object.values(i)),crowdJoinerWatchSlots:h,husbandPresent:!0,husbandEncouraged:o==="player_invite",selfInitiated:o==="wife_invite"?n:void 0}).outcome:y="hesitant",y==="eager"||y==="hesitant")return s=ede(s,r,t.id,m),y==="hesitant"&&(s=JH(s,t.id)),{state:s,outcome:y};y==="offended"&&(d="offended")}return{state:s,outcome:d}}function ede(e,t,o,n){var d;const s=e.customers.find(m=>m.id===o);if(!s)return e;const r={...t.joinedPatronSlots??{},[o]:n},a=(d=t.crowdPatronIds)!=null&&d.includes(o)?t.crowdPatronIds:[...t.crowdPatronIds??[],o],i=[...t.joinedPatronIds??[],o],l=g(e).name,h=tH(t.stage,n,s.name,l,`그녀의 ${Ut(e)}`,Om(g(e)));return j(_s(e,{...t,crowdPatronIds:a,joinedPatronIds:i,joinedPatronSlots:r}),h)}function tde(e){return ZP[e]!=null}function ode(e){const t=Ye(e);if(!t||!Jce(e))return e;let o=e,n=Y(o);if(n&&n.kind!=="husband_led")return o;if(n)o=s6(o);else{const s=vw(t.type);if(!tde(s)||B$(o).length===0)return o;o=n6(o)}return o=iS(o),o=lS(o),o=ele(o),o=hS(o),o=EP(o),o=sde(o),o=nde(o),o}function nde(e){const t=Y(e),o=Ye(e);if(!t||t.kind!=="husband_led"||!o)return e;const n=Math.min(1.6,(t.joinedPatronIds??[]).reduce((r,a)=>{var i;return r+.4*zP((i=t.joinedPatronSlots)==null?void 0:i[a])},0));if(n<=0)return e;const s=Math.min(100,o.elenaMoaning+n);return s===o.elenaMoaning?e:{...e,activeScene:{...e.activeScene,sex:{...o,elenaMoaning:s}}}}const QE=20;function sde(e){var w,k;const t=Y(e),o=Ye(e);if(!t||t.kind!=="husband_led"||!o)return e;const n=t.lastWifeInviteSlot??-QE;if(e.slot-n<QE)return e;const s=g(e),r=s.latentTraits??[],a=s.stats.arousal;if(a<70)return e;const i=((w=s.affinities)==null?void 0:w.exhibition)??0,l=L(s).openness??0;let h=0;if(h+=Math.max(0,(a-70)/30)*.1,h+=Math.max(0,(l-55)/45)*.1,h+=Math.max(0,i)*.06,r.includes("latent_exhibitionist")&&(h+=.1),r.includes("public_thrill_seeker")&&(h+=.12),(((k=s.intoxication)==null?void 0:k.level)??0)>50&&(h+=.05),r.includes("true_prude")&&(h=0),h<=0||Math.random()>Math.min(.3,h))return e;const d=B$(e);if(d.length===0)return e;const m=[...d].sort((x,T)=>(T.charm??0)-(x.charm??0))[0];let p=_s(e,{...t,lastWifeInviteSlot:e.slot});const y=rde(s.name,m.name,e.slot,Ut(e));return p=j(p,y),a6(p,m,"wife_invite",Math.min(K1,h*100)).state}function rde(e,t,o,n){const s=[`${e}이(가) ${t}과(와) 눈을 맞춥니다. 자신의 ${n} 어깨 너머로 손가락을 까딱해 부릅니다. "보고만 있지 마요."`,`${e}은(는) 멈추지 않고 ${t}에게 손을 뻗습니다. "당신. 이리 와요."`,`${e}은(는) ${t}과(와) 시선을 맞춘 채 고개를 기울여 끼어들라는 뜻을 전합니다. 한마디도 하지 않습니다. 그럴 필요가 없습니다.`];return s[o%s.length]}const Ev=3,Y$=7;function xd(e,t){var o,n;return(((n=(o=e.tavern)==null?void 0:o.renterHistory)==null?void 0:n[t.name])??0)+1}function xw(e){var n;const t=(n=e.tavern)==null?void 0:n.tonightRenter;if(!(t!=null&&t.customerId))return null;const o=e.customers.find(s=>s.id===t.customerId);return o?{renter:t,customer:o}:null}const ade=.35,ide=.15,lde=.9;function hde(e,t){var l;const o=e.patronRecords.find(h=>h.name===t.name),n=xd(e,t),s=ide*Math.min(Y$-1,n-1),r=o?.3*Math.max(0,zr(o))/100:0,a=o?.4*yh(o):0,i=.5+.5*Math.max(0,Math.min(100,((l=e.tavern)==null?void 0:l.quality)??50))/100;return Math.max(0,Math.min(lde,ade+s+r+a))*i}function cde(e,t){return Math.random()<hde(e,t)}function dde(e,t){return t<=1?`${e.name}이(가) 하룻밤 더 묵겠다며 카운터에 ${e.rentPaid}골드를 올려놓습니다.`:`${e.name}이(가) ${mde(t+1)} 밤도 묵겠다며 카운터에 ${e.rentPaid}골드를 올려놓습니다.`}function ude(e,t){return Qt(e,"room_rent",t.rentPaid)}function mde(e){const t=e%100;if(t>=11&&t<=13)return`${e}번째`;switch(e%10){case 1:return`${e}번째`;case 2:return`${e}번째`;case 3:return`${e}번째`;default:return`${e}번째`}}const Rv={plate:Ev,his_
+
+OFFSET 9770797
+에게 묻기보다는 통보하는 눈빛을 보냅니다. 그가 잔을 내려놓고 중얼거리며 떠납니다.`],Tde=new Set(["light_touch","bold_touch","groping","undressing","oral_patron","handjob_patron","blowjob_patron","sex_patron"]);function G$(e,t){var k,x;const o=l6(e,t);if(o)return h6(e,o);if(e.phase!=="service"&&e.phase!=="last_call")return j(e,"선술집 영업시간이 아닙니다.");const n=e.customers.find(T=>T.id===t);if(!n||n.status==="gone")return j(e,"해당 손님은 이미 떠났습니다.");const s=((k=Y(e))==null?void 0:k.customerId)===t&&Tde.has(Y(e).stage),r=s?xde:Sde,a=e.slot%r.length,i=r[a](n.name,g(e).name);let l=e;((x=Y(e))==null?void 0:x.customerId)===t&&(l=Mt(l,"player_intervened"));const h=n.tab,d=l.customers.map(T=>T.id===t?{...T,status:"gone"}:T),m=-3,p=-2,y=s?5:-2;l=p4(l,n.name),l={...l,customers:d,tavernReputation:{...l.tavernReputation,notoriety:Math.max(0,l.tavernReputation.notoriety+p)}},l=at(l,{playerStatDeltas:{},wifeStatDeltas:{mood:y},wifeTraitDeltas:{},reputationChange:m});let w=i;return h>0&&(w+=` 이미 받은 ${h}골드는 그대로 유지됩니다.`),l=j(l,w),l=a$(l,"eject"),l}const cy=10;function $de(e){return Math.max(0,e)/cy}function q$(e,t){if(!lt(t.stage)||t.ticksAtStage<=cy)return e;const o=1/cy,n=t.characterId??e.primaryCharacterId,s=vn(e,n);if(!s)return e;const r=xf(t.stage,s)*o;let a=cn(e,n,i=>({...i,stats:{...i.stats,energy:z(i.stats.energy-r,0,100)}}));return a=mT(a,L_(t),n,o),vf(a,t.stage,Wo(t)??void 0,o)}const Ide=new Set(["anal","anal_fingering"]),Nde=new Set(["sex_rough"]);function jde(e,t){if(!Ye(e))return e;const o=Rde(e,t),n=(Ye(e).elenaClimaxCount??0)+1;let s=Sf({...e,log:[...e.log,{slot:e.slot,text:o}],activeScene:{...e.activeScene,sex:{...Ye(e),elenaMoaning:Z4,herOwnHandSince:void 0,elenaClimaxedDuringScene:!0,elenaClimaxCount:n}}},e.primaryCharacterId,{repeatInScene:n>1});const r=al[t]??[],{score:a}=Ha(g(s).affinities,r),i=Ide.has(t),l=Nde.has(t),h=g(s).affinities.anal<-.5,d=Js(g(s).affinities,"submission")<-.5;return a>.5?s=ke(s,"ecstasy",{intensity:Math.min(95,65+Math.round(a*12)),source:`player:${t}:climax`,durationSlots:200}):a>-.4&&(s=ke(s,"elation",{intensity:50+Math.round(a*8),source:`player:${t}:climax`,durationSlots:180})),(i&&h||l&&d||a<-1)&&(s=ke(s,"shame",{intensity:45,source:`player:${t}:she_came_anyway`,durationSlots:240})),g(s).affinities.romantic>.6&&a>0&&(s=ke(s,"tenderness",{intensity:35+Math.round(g(s).affinities.romantic*8),source:`player:${t}:climax_tender`,durationSlots:200})),s}const Ade={sex:["%w이(가) 등을 급격히 젖히며 당신의 등에 손톱을 박습니다. \"아— 아, 세상에—\" 온몸이 당신을 감싸며 조여 듭니다. 그녀는 당신에게 밀착해 떨며 강하게 절정에 이릅니다.","%w의 숨이 막혔다가 터집니다. 뜻하지 않은 소리가 입 밖으로 나옵니다. 골반을 당신에게 움찔거리며 밀착한 채 헐떡이고 떨며 절정을 견딥니다.",`%w이(가) 손마디가 하얘지도록 당신을 꽉 붙잡습니다. "나— 나, 가—" 말을 끝내지 못합니다. 그럴 필요도 없습니다. 당신에게 느껴집니다.`],sex_rough:["%w은(는) 당신 아래에서 온몸을 떨며 베개에 얼굴을 묻고 비명을 지릅니다. 절정이 파도처럼 온몸을 휩씁니다.","%w의 다리가 당신을 단단히 감습니다. 당신의 등을 손톱으로 긁고 벌린 입을 당신의 어깨에 댄 채 강하게 절정에 이릅니다.","%w은(는) 침대 시트에 얼굴을 묻고 떨며 끊임없이 소리를 냅니다. 밀려드는 절정을 멈출 수 없습니다."],riding:["%w은(는) 아래로 강하게 몸을 비비다가 고개를 뒤로 젖힌 채 굳습니다. 허벅지가 떨립니다. \"응— 응—\" 당신 위에서 헐떡이며 절정에 이릅니다.","%w은(는) 골반을 한 번 더 힘껏 내리누르고 굳습니다. 재빨리 당신의 가슴에 손을 짚어 몸을 지탱합니다. 당신 위에 올라탄 채 온몸을 팽팽히 긴장시키며 절정에 이릅니다.","%w은(는) 아플 만큼 입술을 깨물고, 무릎으로 당신의 골반을 조이며 움직입니다. 절정이 온몸을 휩쓸어도 계속 몸을 움직입니다."],fingering:[`%w의 허벅지가 떨리고 당신의 손가락을 감싼 안쪽이 조여 듭니다. "멈추지— 멈추지 마—" 골반을 침대에서 튕기듯 들어 올리며 강하게 절정에 이릅니다.`,"%w은(는) 당신의 손목을 잡아 움직이지 못하게 붙들고 온몸을 떱니다. \"거기— 바로 거기— 아—\"","%w은(는) 몸을 활처럼 젖혀 매트리스에서 등을 띄우며 숨을 터뜨립니다. 절정에 이르며 안쪽이 조여 들 때도 당신의 손가락은 여전히 안에 있습니다."],cunnilingus:["%w의 허벅지가 당신의 머리를 꽉 조입니다. 당신의 입에 몸을 밀착한 채 떨며 절정에 이르고, 손으로 당신의 머리카락을 움켜쥡니다.","%w은(는) 침대에서 몸을 활처럼 젖히며 아래로 비벼 옵니다. 끊어지는 소리로 당신의 이름을 헐떡이며 부르고, 당신의 혀 위에서 절정에 이릅니다.","%w의 골반이 튀어 올라 당신을 다리 사이에 붙들어 둡니다. 그녀는 거칠게 숨을 쉬며 온몸을 떱니다."],face_sitting:["%w은(는) 한 번 더 아래로 몸을 비비고 굳습니다. 당신의 얼굴 위에 올라탄 채 몸을 떨며 절정에 이릅니다. 허벅지에도 떨림이 퍼집니다.","%w의 골반이 움찔거리다가 아래로 힘껏 밀착합니다. 그녀는 침대 머리판을 손으로 짚고 헐떡이며 당신의 입 위에서 절정에 이릅니다."],sixty_nine:["%w은(는) 당신의 
+
+OFFSET 9789112
+.","당신이 손을 다 뻗기도 전에 그녀가 직접 마저 벗깁니다."],lets:["그녀는 당신과 눈을 맞춘 채 가만히 맡깁니다.","그녀는 당신을 막지 않습니다.","그녀는 당신의 손이 움직일 자리를 내주려 몸을 조금 옮깁니다."],hesitates:["그녀는 망설이다가 당신에게 맡깁니다.","그녀는 몸이 굳지만 물러나지는 않습니다.","그녀의 숨이 잠깐 멎습니다. 당신을 막지는 않습니다."]},zde={top:{refuse:["그녀가 당신의 손을 붙잡고 상의를 눌러 잡습니다. \"아직은 안 돼.\"","그녀가 당신의 손을 다시 아래로 밀어냅니다. \"지금은 그냥 둬.\""],offended:["그녀가 당신의 손을 거칠게 쳐냅니다. \"싫어.\"",`그녀가 당신의 손목을 잡아 몸에서 떼어 놓습니다. "하지 마."`]},skirt:{refuse:["그녀가 당신의 손을 막으며 치맛자락을 눌러 잡습니다. \"그건 안 돼.\"","그녀가 몸을 피하고 치맛자락을 반듯하게 폅니다. \"지금은 안 돼.\""],offended:["그녀가 당신을 밀어내고 치맛자락을 확 잡아 내립니다. \"싫어.\"","그녀가 몸을 비틀어 당신의 손을 피합니다. \"그만해.\""]},panties:{refuse:["그녀가 다리를 오므리고 당신의 손을 옆으로 밀어냅니다. \"거긴 안 돼.\"","그녀가 당신의 손목을 붙잡습니다. \"아직은 안 돼.\""],offended:["그녀가 다리를 꼭 모으고 몸을 뺍니다. \"싫어.\"","그녀가 당신의 손을 밀쳐냅니다. \"손 치워.\""]}};function Kde(e,t){return e==="hesitant"?"hesitates":xS(t)==="high"?"helps":"lets"}function oR(e,t,o){const n=o.map(r=>mo(t,r)),s=ud(e,n);return s?{text:o[s.pick.index],state:s.state}:{text:o[0]??"",state:e}}function Jde(e,t){var b,w;const o=z$.find(k=>k.id===t);if(!o)return e;const n=Vt(e),s={...n.exposure,...o.flags},r=Qa(n.outfit,s),i=e.phase==="bedroom"?{kind:"player_intimate",initiated:!0,characterId:i0(e)}:{kind:"player_service",mood:"pressured"},l=r?Le(e,r,i).outcome:"eager";if(l==="refuse"||l==="offended"){const k=zde[o.garment][l],{text:x,state:T}=oR(e,`sexscene:undress:refuse:${o.id}:${l}`,k);return P({...T,log:[...T.log,{slot:T.slot,text:x}]},I=>({...I,lastResponse:x,lastResponseType:l==="offended"?"angry":"refuse",lastResponseSlot:T.slot}))}const h=Kde(l,((w=(b=e.activeScene)==null?void 0:b.sex)==null?void 0:w.elenaMoaning)??0),{text:d,state:m}=oR(e,`sexscene:undress:accept:${o.id}:${h}`,Vde[h]),p=`${o.verb} ${d}`;let y=io(m,{...o.flags,source:"scene"});return y=P({...y,log:[...y.log,{slot:y.slot,text:p}]},k=>({...k,lastResponse:p,lastResponseType:l==="eager"?"eager":"hesitant",lastResponseSlot:y.slot})),y}const TS={grinding:{start:"그녀는 당신에게 몸을 밀착시키며, 천천히 허리를 돌립니다.",ongoing:e=>e<3?"그녀는 당신의 허벅지에 몸을 비비며, 숨을 가쁘게 몰아쉽니다.":"그녀의 골반이 더 빠르게 움직이며 강하게 밀착해 옵니다. 그녀는 입술을 깨뭅니다."},lap_dance:{start:"그녀가 당신의 무릎에 걸터앉아 몸을 맞대고 골반을 돌립니다.",ongoing:e=>e<3?"그녀는 두 손을 당신의 어깨에 얹은 채, 당신의 무릎 위에서 천천히 허리를 흔듭니다.":"그녀가 몸을 더 세게 내리누르며, 당신의 바지에서 불룩 솟은 부분에 몸을 비빕니다."},thigh_job:{start:"그녀가 당신의 자지를 감싸며 두 허벅지를 바짝 조입니다.",ongoing:e=>e<3?"당신은 그녀의 허벅지 사이를 파고듭니다. 미끄럽고 뜨거운 감촉에 미칠 것만 같습니다.":"그녀의 허벅지가 이제 미끈거려, 당신의 자지가 그 사이로 쉽게 미끄러집니다."},handjob:{start:"그녀의 손가락이 당신의 자지를 감싸 쥐고, 천천히 쓰다듬습니다.",ongoing:e=>e<3?"그녀는 반응을 살피려 당신의 얼굴을 바라보며 일정하게 손을 움직입니다.":"그녀의 손이 더 빠르게 움직이고 쥐는 힘도 강해집니다. 어떻게 해야 하는지 잘 알고 있습니다."},fingering:{start:"당신의 손가락이 그녀의 허벅지 사이로 미끄러져 들어갑니다. 그녀가 숨을 들이켭니다.",ongoing:e=>e<3?"당신이 천천히 그녀를 쓰다듬자, 점점 더 젖어 들어가는 것이 느껴집니다.":"이제는 두 손가락입니다. 그녀가 당신의 팔을 붙잡고, 당신의 손을 향해 허리를 흔듭니다."},mutual_touching:{start:"두 사람의 손이 서로를 찾습니다. 당신의 손가락이 그녀의 다리 사이에서 움직이는 동안 그녀는 당신의 것을 쓸어내립니다.",ongoing:e=>e<3?"서로 호흡을 맞추며 같은 박자로 움직입니다.":"당신이 그녀 안에서 손가락을 구부리자 그녀가 당신의 자지를 더 세게 쥡니다."},blowjob:{start:"그녀가 당신을 입에 받아들이고 입술로 단단히 감쌉니다.",ongoing:e=>e<3?"그녀는 고개를 천천히 위아래로 움직이며 혀로 밑부분을 자극합니다.":"그녀는 이제 리듬을 찾았습니다. 움직일 때마다 당신을 더 깊이 받아들입니다."},deepthroat:{start:"그녀가 당신의 성기를 끝까지 받아들이며 목구멍으로 조여 옵니다.",ongoing:e=>e<3?"그녀는 눈물이 핑 돌며 헛구역질을 살짝 하지만, 물러서지 않습니다.":"이제 구역질 반사는 가라앉았고, 움직일 때마다 코가 당신에게 닿습니다."},cunnilingus:{start:"당신은 그녀의 허벅지를 벌리고 그곳에 입술을 파묻습니다.",ongoing:e=>e<3?"혀로 천천히 원을 그립니다. 그녀가 당신의 머리칼을 움켜쥡니다.":"당신이 그녀의 클리토리스를 빨아들이자 그녀는 등을 활처럼 젖혀 침대에서 들어 올리며 허벅지로 당신의 머리를 꽉 조여옵니다."},face_sitting:{start:"그녀가 당신의 얼굴 위로 몸을 내립니다. 숨조차 제대로 쉴 수 없습니다.",ongoing:e=>e<3?"그녀가 한 손으로 당신의 가슴을 짚은 채, 당신의 입에 대고 허리를 문지릅니다.":"그녀는 당신의 양옆에서 허벅지를 파르르 떨며 당신의 얼굴 위에서 더욱 격렬하게 몸을 움직입니다."},sixty_nine:{start:"그녀가 다리를 넘겨 몸을 돌리고 당신을 입에 받아들이면서 자신의 몸을 낮춰 당신의 입 위에 앉습니다.",ongoing:e=>e<3?"그녀가 당신의 자지를 물고 고개를 위아래로 움직이는 동안 당신은 그녀를 핥고 빱니다. 양쪽에 집중하기가 어렵습니다.":"이제 두 사람 모두 신음을 흘립니다. 그 진동에 모든 감각이 더 강렬해집니다."},breast_worship:
+
+OFFSET 9795458
+}function Xde(e){var t;return e?Object.values(((t=Y(e))==null?void 0:t.joinedPatronSlots)??{}).includes("mouth"):!1}function Zde(e,t,o,n){const s=Vt(e),r=cw(s,e.slot)>0,a=pP(o,n).filter(d=>d.playerAvailable).filter(d=>{if(N$(e,d.id).length>0)return!1;const m=zi(d.id);if(!m)return!0;const p=Le(e,m,{kind:"player_intimate",characterId:t.characterId});return p.outcome==="eager"||p.outcome==="hesitant"});if(a.length===0)return;const i=d=>{const m=al[d]??[];return m.length?m.reduce((p,y)=>p+Js(s.affinities,y),0)/m.length:0},l=a.map(d=>Math.exp(i(d.id))*(r?1+d.stimulation:1));let h=Math.random()*l.reduce((d,m)=>d+m,0);for(let d=0;d<a.length;d++)if(h-=l[d],h<=0)return a[d];return a[a.length-1]}function eue(e){const t=es(e);return(t==null?void 0:t.category)==="oral"&&t.stimulation<=0?"mouth":(t==null?void 0:t.category)==="manual"&&t.stimulation<=0?"hand":"body"}const tue=["당신은 얼마나 좋은지, 그녀가 당신을 어떻게 느끼게 하는지 말해 줍니다. {w}이(가) 흐느끼듯 신음합니다. \"계속 말해 줘…\"","당신은 원하는 것을 정확히 속삭입니다. {w}의 눈빛이 짙어지고, 그녀가 입술을 깨뭅니다.","당신은 그녀의 귓가에 음란한 말을 속삭입니다. {w}은(는) 몸을 떨며 더 가까이 밀착합니다."],oue=["당신은 그녀를 끌어당겨 깊게 입을 맞춥니다. 그녀가 당신의 입안으로 신음을 흘려 넣습니다.","당신은 그녀의 입술을 덮칩니다. 그녀는 마치 그것을 갈망했다는 듯 화답해 옵니다.","당신은 느리고도 깊게 입을 맞춥니다. 그녀는 당신의 턱에 손을 얹은 채 그 입맞춤에 녹아내립니다."];function nue(e,t,o,n){const s=es(t.type),r=(s==null?void 0:s.pleasureRate.actor)??(t.type==="sex"||t.type==="sex_rough"||t.type==="anal"?13:10),a=(s==null?void 0:s.pleasureRate.elena)??8,i=Qde(e,t.type),l=(h,d)=>{const m=d.map(b=>mo(h,b)),p=ud(e,m);return p?{text:d[p.pick.index].replace(/\{w\}/g,n),state:p.state}:{text:"",state:e}};switch(o){case"keep_going":{const h=xS(t.elenaMoaning),d=SS(Vt(e).exposure),m=`keep_going:${h}:${d}`,p=t.lastPaceKey===m,y={playerPleasure:Math.round(r),elenaMoaning:a*i,elenaRate:a};if(p)return{result:{...y,text:"",paceKey:m},state:e};const b=dy(t.ticksElapsed),w=Lde(t.type,h,d,n,t.ticksElapsed),{text:k,state:x}=l(`sexscene:${t.type}:keep_going:${h}:${d}:${b}`,w);return{result:{...y,text:k||TS[t.type].ongoing(t.ticksElapsed),paceKey:m},state:x}}case"go_faster":case"go_slower":{const h=xS(t.elenaMoaning),d=SS(Vt(e).exposure),m=`${o}:${h}:${d}`,p=t.lastPaceKey===m,y=o==="go_faster",b={playerPleasure:Math.round(r*(y?1.5:.5)),elenaMoaning:a*(y?.5:1.5)*i,elenaRate:a*(y?.5:1.5)};if(p)return{result:{...b,text:"",paceKey:m},state:e};const w=dy(t.ticksElapsed),k=Hde(t.type,o,h,d,n,t.ticksElapsed),{text:x,state:T}=l(`sexscene:${t.type}:${o}:${h}:${d}:${w}`,k);return{result:{...b,text:x||TS[t.type].ongoing(t.ticksElapsed),paceKey:m},state:T}}case"talk_dirty":{const{text:h,state:d}=l("sexscene:talk_dirty",tue);return{result:{playerPleasure:5,elenaMoaning:8*i,elenaRate:8,text:h},state:d}}case"kiss_her":{const{text:h,state:d}=l("sexscene:kiss_her",oue);return{result:{playerPleasure:3,elenaMoaning:10*i,elenaRate:10,text:h},state:d}}default:return{result:{playerPleasure:Math.round(r*.8),elenaMoaning:a*.8*i,elenaRate:a*.8,text:""},state:e}}}function $u(e){return e[Math.floor(Math.random()*e.length)]}function m320NativeSue(e,t,o){var T,I;const n=Vt(e),s=L(n),r=s.confidence,a=n.stats.arousal,i=t.elenaMoaning,l=n.latentTraits??[],h=N=>l.includes(N),d=Rd(s);if(i<35&&a<50)return null;let m=(a-45)*.5+(i-40)*.4+(r-40)*.3*Math.min(1,s.openness/50)+(s.openness-45)*.25;if(h("latent_dominant")&&(m+=14),h("wants_to_be_corrupted")&&(m+=8),h("likes_cheating")&&(m+=6),h("latent_exhibitionist")&&(m+=5),h("latent_submissive")&&(m-=10),h("true_prude")&&(m-=14),m=z(m,0,100),Math.random()*100>=m)return i>=50?{text:$u([`${o}이(가) 분명 의도하지 않았던 소리를 내고는, 없던 일로 하려 하지도 않습니다.`,"그녀의 골반이 저절로 당신에게 맞춰 움직입니다. 의식하고 하는 움직임이 아닙니다.",`${o}의 숨이 멎습니다. 입술을 꾹 다물지만, 또 다른 소리가 결국 새어 나옵니다.`])}:null;const p=es(t.type),y=p?Zde(e,t,p.id,d):void 0,b=!m319AutoLocked(e,t)&&(!p||t.ticksElapsed>=(t.chosenBy==="him"?p.duration.max:p.duration.min)),w=h("latent_submissive")|
+
+OFFSET 9795570
+:!1}function Zde(e,t,o,n){const s=Vt(e),r=cw(s,e.slot)>0,a=pP(o,n).filter(d=>d.playerAvailable).filter(d=>{if(N$(e,d.id).length>0)return!1;const m=zi(d.id);if(!m)return!0;const p=Le(e,m,{kind:"player_intimate",characterId:t.characterId});return p.outcome==="eager"||p.outcome==="hesitant"});if(a.length===0)return;const i=d=>{const m=al[d]??[];return m.length?m.reduce((p,y)=>p+Js(s.affinities,y),0)/m.length:0},l=a.map(d=>Math.exp(i(d.id))*(r?1+d.stimulation:1));let h=Math.random()*l.reduce((d,m)=>d+m,0);for(let d=0;d<a.length;d++)if(h-=l[d],h<=0)return a[d];return a[a.length-1]}function eue(e){const t=es(e);return(t==null?void 0:t.category)==="oral"&&t.stimulation<=0?"mouth":(t==null?void 0:t.category)==="manual"&&t.stimulation<=0?"hand":"body"}const tue=["당신은 얼마나 좋은지, 그녀가 당신을 어떻게 느끼게 하는지 말해 줍니다. {w}이(가) 흐느끼듯 신음합니다. \"계속 말해 줘…\"","당신은 원하는 것을 정확히 속삭입니다. {w}의 눈빛이 짙어지고, 그녀가 입술을 깨뭅니다.","당신은 그녀의 귓가에 음란한 말을 속삭입니다. {w}은(는) 몸을 떨며 더 가까이 밀착합니다."],oue=["당신은 그녀를 끌어당겨 깊게 입을 맞춥니다. 그녀가 당신의 입안으로 신음을 흘려 넣습니다.","당신은 그녀의 입술을 덮칩니다. 그녀는 마치 그것을 갈망했다는 듯 화답해 옵니다.","당신은 느리고도 깊게 입을 맞춥니다. 그녀는 당신의 턱에 손을 얹은 채 그 입맞춤에 녹아내립니다."];function nue(e,t,o,n){const s=es(t.type),r=(s==null?void 0:s.pleasureRate.actor)??(t.type==="sex"||t.type==="sex_rough"||t.type==="anal"?13:10),a=(s==null?void 0:s.pleasureRate.elena)??8,i=Qde(e,t.type),l=(h,d)=>{const m=d.map(b=>mo(h,b)),p=ud(e,m);return p?{text:d[p.pick.index].replace(/\{w\}/g,n),state:p.state}:{text:"",state:e}};switch(o){case"keep_going":{const h=xS(t.elenaMoaning),d=SS(Vt(e).exposure),m=`keep_going:${h}:${d}`,p=t.lastPaceKey===m,y={playerPleasure:Math.round(r),elenaMoaning:a*i,elenaRate:a};if(p)return{result:{...y,text:"",paceKey:m},state:e};const b=dy(t.ticksElapsed),w=Lde(t.type,h,d,n,t.ticksElapsed),{text:k,state:x}=l(`sexscene:${t.type}:keep_going:${h}:${d}:${b}`,w);return{result:{...y,text:k||TS[t.type].ongoing(t.ticksElapsed),paceKey:m},state:x}}case"go_faster":case"go_slower":{const h=xS(t.elenaMoaning),d=SS(Vt(e).exposure),m=`${o}:${h}:${d}`,p=t.lastPaceKey===m,y=o==="go_faster",b={playerPleasure:Math.round(r*(y?1.5:.5)),elenaMoaning:a*(y?.5:1.5)*i,elenaRate:a*(y?.5:1.5)};if(p)return{result:{...b,text:"",paceKey:m},state:e};const w=dy(t.ticksElapsed),k=Hde(t.type,o,h,d,n,t.ticksElapsed),{text:x,state:T}=l(`sexscene:${t.type}:${o}:${h}:${d}:${w}`,k);return{result:{...b,text:x||TS[t.type].ongoing(t.ticksElapsed),paceKey:m},state:T}}case"talk_dirty":{const{text:h,state:d}=l("sexscene:talk_dirty",tue);return{result:{playerPleasure:5,elenaMoaning:8*i,elenaRate:8,text:h},state:d}}case"kiss_her":{const{text:h,state:d}=l("sexscene:kiss_her",oue);return{result:{playerPleasure:3,elenaMoaning:10*i,elenaRate:10,text:h},state:d}}default:return{result:{playerPleasure:Math.round(r*.8),elenaMoaning:a*.8*i,elenaRate:a*.8,text:""},state:e}}}function $u(e){return e[Math.floor(Math.random()*e.length)]}function m320NativeSue(e,t,o){var T,I;const n=Vt(e),s=L(n),r=s.confidence,a=n.stats.arousal,i=t.elenaMoaning,l=n.latentTraits??[],h=N=>l.includes(N),d=Rd(s);if(i<35&&a<50)return null;let m=(a-45)*.5+(i-40)*.4+(r-40)*.3*Math.min(1,s.openness/50)+(s.openness-45)*.25;if(h("latent_dominant")&&(m+=14),h("wants_to_be_corrupted")&&(m+=8),h("likes_cheating")&&(m+=6),h("latent_exhibitionist")&&(m+=5),h("latent_submissive")&&(m-=10),h("true_prude")&&(m-=14),m=z(m,0,100),Math.random()*100>=m)return i>=50?{text:$u([`${o}이(가) 분명 의도하지 않았던 소리를 내고는, 없던 일로 하려 하지도 않습니다.`,"그녀의 골반이 저절로 당신에게 맞춰 움직입니다. 의식하고 하는 움직임이 아닙니다.",`${o}의 숨이 멎습니다. 입술을 꾹 다물지만, 또 다른 소리가 결국 새어 나옵니다.`])}:null;const p=es(t.type),y=p?Zde(e,t,p.id,d):void 0,b=!m319AutoLocked(e,t)&&(!p||t.ticksElapsed>=(t.chosenBy==="him"?p.duration.max:p.duration.min)),w=h("latent_submissive")||(((T=n.affinities)==null?void 0:T.dominance)??0)<-.3;if(y&&b&&!w&&m>=55&&r>=40)return{takesPosition:y.id,text:$
+
+### m36-mobile-dialogue-fixed count=3
+
+OFFSET 11160227
+if(!model)return null;
+  const renderRow=(entry,secondary=false)=>u.jsxs("div",{
+    className:"flex flex-wrap items-baseline gap-x-1.5 gap-y-0.5 min-w-0",
+    children:[u.jsx("span",{className:"font-semibold",style:{maxWidth:"100%",overflowWrap:"anywhere",color:entry.phase?"#fbbf24":Ye(state)?"#f9a8d4":"#c4b5fd"},children:"["+[entry.phase,entry.action].filter(Boolean).join(" · ")+"]"}),
+      u.jsx("span",{className:secondary?"text-stone-400":"text-stone-200",style:{overflowWrap:"anywhere"},children:m332PartnerText(entry)})]
+  });
+  return u.jsxs("div",{"data-m331-action-status":surface,className:"text-xs leading-snug space-y-1 min-w-0",style:surface==="panel"?{borderLeft:"2px solid #8b5cf6",padding:"6px 8px",marginBottom:"8px",background:"rgba(139,92,246,.08)",borderRadius:"4px"}:undefined,
+    children:[renderRow(model.main),model.secondary&&renderRow(model.secondary,true),
+      model.participants.length>0&&u.jsx("div",{className:"text-[10px] text-rose-300",style:{overflowWrap:"anywhere"},children:"함께 있는 사람: "+model.participants.map(p=>p.name+" ("+p.role+")").join(", ")}),
+      model.watchers.length>0&&u.jsx("div",{className:"text-[10px] text-violet-300/80",style:{overflowWrap:"anywhere"},children:"지켜보는 사람: "+model.watchers.join(", ")})]
+  });
+}
+
+function M36MobileDialogueFixed({event:e,wifeName:t}){if(!e||["confrontation","outfit_reaction","back_room_interrupt"].includes(e.type))return null;const o=e.type==="wife_conversation",n=e.type==="sex_scene",r=e.type==="patron_interaction"&&e.customerName?e.customerName+" & "+t:o||n?t:"⚠ 돌발 상황";return u.jsxs("div",{className:"m36-mobile-dialogue-fixed",children:[u.jsx("div",{className:"m36-mobile-dialogue-label",children:o?"[대화] "+t+" <> 당신":"[이벤트] "+r}),u.jsx("div",{className:"m36-mobile-dialogue-box",children:u.jsx("p",{className:"text-sm text-stone-200 leading-relaxed whitespace-pre-wrap break-words",children:e.text})})]})}
+
+function HD(){Rt(x=>x.mod32Hotkeys);var ie,X,le;const e=re(ee=>ee.dispatch),t=re(ee=>ee.state),o=g(t),{phase:n,supplies:s,readyFood:r,customers:a,customersServedToday:i,customersLostToday:l,goldEarnedToday:h,pendingEvent:d,errandSession:m,awayEvents:p,slot:y,activeShoppingSession:b,player:w,locations:k,tavern:x,tavernCleanliness:T}=t,I=Ye(t),N=Y(t),E=vt(t),R=be(t),B=((ie=w==null?void 0:w.stats)==null?void 0:ie.energy)??100,D=ee=>a8(t,ee),W=o.currentTask==="passed_out"&&!o.passedOutAcknowledged,V=Rt(ee=>ee.proximityMode),J=m==null?void 0:m.interrupted;Z.useEffect(()=>{V&&J&&e({type:"errand_interrupt_continue"})},[V,J,e]);const C=d&&V&&new Set(["flirt","handsy_drunk","compliment","generous_tip","patron_offer","patron_interaction","rude_customer"]).has(d.type)&&d.customerId&&ht(t,d.customerId)!==E,H=Z.useRef(null);if(Z.useEffect(()=>{if(!C||!d){d||(H.current=null);return}if(H.current===d)return;const ee=["let_handle","wait","ignore","dismiss","continue"],U=d.choices.filter(oe=>!oe.disabled),K=U.find(oe=>ee.includes(oe.id))??U.find(oe=>oe.id!=="step_in"&&oe.id!=="intervene"&&oe.id!=="throw_out"&&oe.id!=="encourage")??U[0];K&&(H.current=d,e({type:"resolve_event",choiceId:K.id}))},[C,d,e]),m){const ee=Math.max(0,m.returnAtSlot-y),U=m.reason==="sleep_in";return m.interrupted?u.jsxs("div",{children:[u.jsxs("h3",{className:"text-sm font-bold text-rose-400 uppercase tracking-wider mb-3",children:[A1[m.reason]??"외출 중"," — 무슨 일이 생겼습니다"]}),u.jsx("div",{className:"p-3 rounded-lg border-2 border-rose-600 bg-stone-800 mb-3",children:u.jsx("p",{className:"text-sm text-stone-200 leading-relaxed",children:m.interrupted.text})}),u.jsx("div",{className:"grid grid-cols-1 gap-2",children:u.jsxs("button",{"data-m32-confirm":true,title:"중단 알림 확인"+m32HintSuffix("confirm"),onClick:()=>e({type:"errand_interrupt_continue"}),className:"text-left p-3 rounded-lg border border-rose-700 bg-sto
+
+OFFSET 11870831
+ant}
+.m36-mobile-room-line .m36-mobile-customer-name{font-size:.7rem !important;line-height:1 !important}
+.m36-mobile-room-line > .group > span.m36-mobile-room-response{display:block !important;flex:0 0 100% !important;width:100% !important;min-width:0 !important;margin-left:.55rem !important;overflow:visible !important;text-overflow:clip !important;white-space:nowrap !important;font-size:.58rem !important;line-height:1.05 !important}
+.m36-mobile-room-line > .group > span.flex{flex-shrink:0 !important;white-space:nowrap !important}
+.m34-system-tools{flex-wrap:nowrap !important;align-items:center !important;white-space:nowrap !important}
+.m34-system-tools .m34-header-control{flex:0 0 28px !important;width:28px !important;min-width:28px !important;max-width:28px !important;height:28px !important;min-height:28px !important;max-height:28px !important;padding:0 !important;font-size:15px !important;line-height:1 !important;display:inline-flex !important;align-items:center !important;justify-content:center !important;white-space:nowrap !important}
+}
+
+@media(max-width:1023px){.m36-mobile-facility-only{margin:.2rem 0 0 !important;}.m36-mobile-facility-only>*:not(.m36-facility-upgrade){display:none !important;}.m36-mobile-facility-only>.m36-facility-upgrade{margin-bottom:.2rem !important;}.m36-mobile-facility-only>.m36-facility-upgrade button{min-height:2rem !important;padding:.35rem .45rem !important;}}
+</style>
+<style id="wayward-mobile-dialogue-fixed-v1">
+@media(max-width:1023px){
+  .m36-mobile-dialogue-source-title,
+  .m36-mobile-dialogue-source-body{display:none !important;}
+  .m36-mobile-dialogue-fixed{
+    flex:0 0 auto;
+    position:relative;
+    z-index:30;
+    display:block;
+    margin:0;
+    padding:.3rem .35rem .4rem;
+    background:rgb(28 25 23);
+    border-bottom:1px solid rgba(68,64,60,.78);
+  }
+  .m36-mobile-dialogue-label{
+    margin-bottom:.25rem;
+    color:rgb(245 158 11);
+    font-size:.66rem;
+    font-weight:700;
+    line-height:1.15;
+    letter-spacing:.01em;
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+  }
+  .m36-mobile-dialogue-box{
+    padding:.55rem .65rem;
+    border-width:1px;
+    border-radius:.45rem;
+    background:rgba(41,37,36,.96);
+  }
+}
+@media(min-width:1024px){
+  .m36-mobile-dialogue-fixed{display:none !important;}
+}
+</style>
+</head>
+  <body>
+    <div id="root"></div>
+    <noscript>
+      <p>Wayward를 실행하려면 JavaScript를 활성화해야 합니다.
+        게임 소개, 다운로드 및 콘텐츠 안내: <a href="https://sintention.com/">sintention.com</a>.</p>
+    </noscript>
+
+  <!-- WAYWARD_MOD_PARENT_3_1_MAP
+{
+  "version": "3.1",
+  "status": "FIRST_DRAFT_NOT_STABLE",
+  "parent": "Wayward_MOD_v3.0_stable_baseline.html",
+  "parentSHA256": "9e08c30a0c1cc94a8a835b294827e37881868135869f4d10f0b0e6bab09c79ea",
+  "source": "src/mod31/build.cjs",
+  "save": "v58 original state + modData schema1 sibling; Symbol only in live state; slot/day/JSON/autosave/undo",
+  "hooks": [
+    "N3e",
+    "MMe",
+    "tPe",
+    "_c",
+    "$1",
+    "ip",
+    "m0",
+    "tRe",
+    "Cl",
+    "oEe",
+    "lp",
+    "X6",
+    "Z6",
+    "hpe",
+    "Ufe",
+    "Zr",
+    "Kke",
+    "Xke",
+    "OCe",
+    "y1",
+    "_0",
+    "VCe",
+    "UCe",
+    "WCe",
+    "zCe",
+    "GCe",
+    "YCe",
+    "koMergePersistedState30",
+    "re",
+    "s5",
+    "x3e",
+    "RPe",
+    "yPe",
+    "M3e",
+    "rI",
+    "gPe",
+    "MOe",
+    "install-endings"
+  ],
+  "scope": [
+    "guild",
+    "inventory",
+    "staff",
+    "approved endings",
+    "safe editor",
+    "quick hire",
+    "toolbar",
+    "music",
+    "image-settings",
+    "image-prompt-editor"
+  ],
+  "unported": [
+    "old guest customization",
+    "traffic balance",
+    "scene transition changes",
+    "autonomous event",
+    "image auto-variants4to8",
+    "automatic daily hiring"
+  ],
+  "qa": "qa/build31"
+}
+END_WAYWARD_MOD_PARENT_3
+
+OFFSET 11871487
+-tools .m34-header-control{flex:0 0 28px !important;width:28px !important;min-width:28px !important;max-width:28px !important;height:28px !important;min-height:28px !important;max-height:28px !important;padding:0 !important;font-size:15px !important;line-height:1 !important;display:inline-flex !important;align-items:center !important;justify-content:center !important;white-space:nowrap !important}
+}
+
+@media(max-width:1023px){.m36-mobile-facility-only{margin:.2rem 0 0 !important;}.m36-mobile-facility-only>*:not(.m36-facility-upgrade){display:none !important;}.m36-mobile-facility-only>.m36-facility-upgrade{margin-bottom:.2rem !important;}.m36-mobile-facility-only>.m36-facility-upgrade button{min-height:2rem !important;padding:.35rem .45rem !important;}}
+</style>
+<style id="wayward-mobile-dialogue-fixed-v1">
+@media(max-width:1023px){
+  .m36-mobile-dialogue-source-title,
+  .m36-mobile-dialogue-source-body{display:none !important;}
+  .m36-mobile-dialogue-fixed{
+    flex:0 0 auto;
+    position:relative;
+    z-index:30;
+    display:block;
+    margin:0;
+    padding:.3rem .35rem .4rem;
+    background:rgb(28 25 23);
+    border-bottom:1px solid rgba(68,64,60,.78);
+  }
+  .m36-mobile-dialogue-label{
+    margin-bottom:.25rem;
+    color:rgb(245 158 11);
+    font-size:.66rem;
+    font-weight:700;
+    line-height:1.15;
+    letter-spacing:.01em;
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+  }
+  .m36-mobile-dialogue-box{
+    padding:.55rem .65rem;
+    border-width:1px;
+    border-radius:.45rem;
+    background:rgba(41,37,36,.96);
+  }
+}
+@media(min-width:1024px){
+  .m36-mobile-dialogue-fixed{display:none !important;}
+}
+</style>
+</head>
+  <body>
+    <div id="root"></div>
+    <noscript>
+      <p>Wayward를 실행하려면 JavaScript를 활성화해야 합니다.
+        게임 소개, 다운로드 및 콘텐츠 안내: <a href="https://sintention.com/">sintention.com</a>.</p>
+    </noscript>
+
+  <!-- WAYWARD_MOD_PARENT_3_1_MAP
+{
+  "version": "3.1",
+  "status": "FIRST_DRAFT_NOT_STABLE",
+  "parent": "Wayward_MOD_v3.0_stable_baseline.html",
+  "parentSHA256": "9e08c30a0c1cc94a8a835b294827e37881868135869f4d10f0b0e6bab09c79ea",
+  "source": "src/mod31/build.cjs",
+  "save": "v58 original state + modData schema1 sibling; Symbol only in live state; slot/day/JSON/autosave/undo",
+  "hooks": [
+    "N3e",
+    "MMe",
+    "tPe",
+    "_c",
+    "$1",
+    "ip",
+    "m0",
+    "tRe",
+    "Cl",
+    "oEe",
+    "lp",
+    "X6",
+    "Z6",
+    "hpe",
+    "Ufe",
+    "Zr",
+    "Kke",
+    "Xke",
+    "OCe",
+    "y1",
+    "_0",
+    "VCe",
+    "UCe",
+    "WCe",
+    "zCe",
+    "GCe",
+    "YCe",
+    "koMergePersistedState30",
+    "re",
+    "s5",
+    "x3e",
+    "RPe",
+    "yPe",
+    "M3e",
+    "rI",
+    "gPe",
+    "MOe",
+    "install-endings"
+  ],
+  "scope": [
+    "guild",
+    "inventory",
+    "staff",
+    "approved endings",
+    "safe editor",
+    "quick hire",
+    "toolbar",
+    "music",
+    "image-settings",
+    "image-prompt-editor"
+  ],
+  "unported": [
+    "old guest customization",
+    "traffic balance",
+    "scene transition changes",
+    "autonomous event",
+    "image auto-variants4to8",
+    "automatic daily hiring"
+  ],
+  "qa": "qa/build31"
+}
+END_WAYWARD_MOD_PARENT_3_1_MAP -->
+<!-- WAYWARD_MOD_PARENT_3_2_MAP
+{
+  "version": "3.2",
+  "status": "DRAFT_NOT_STABLE",
+  "parent": "Wayward_MOD_v3.1.html",
+  "parentSHA256": "22280db5ef2152d6c5c68562321aea4be738d30a50538bdf34db4f3530def604",
+  "source": "src/mod32/build.cjs",
+  "scope": [
+    "interrupt-confirm Enter",
+    "device shortcut preferences",
+    "matching key hints"
+  ],
+  "hooks": [
+    "APe",
+    "vm",
+    "gF",
+    "Xe",
+    "el",
+    "HD",
+    "M31App"
+  ],
+  "save": "Rt.mod32Hotkeys in tavern-settings only; original schema58 and modData schema1 unchanged",
+  "defaultUnassigned": [
+    "mod",
+    "inventory",
+    "shop",
+    "staff",
+    "music",
+    "im
+
+### mobile-action-scroll count=4
+
+OFFSET 11346302
+전액"})
+      ]}),
+      u.jsxs("div",{className:"mt-1 text-[0.56rem] text-stone-600",children:["상환 후 빚 ",Math.max(0,debt-safeLoan),"골드"]})
+    ]})
+  ]})
+}function AOe(){var E;const e=re(R=>R.state),t=re(R=>R.dispatch),o=Rt(R=>R.proximityMode),n=Rt(R=>R.actionPanelSide)==="left",s=Rt(R=>R.set),[r,a]=Z.useState("story"),i=tF(Rt(R=>R.paneOrder)).filter(R=>jOe.includes(R)),h=e.phase==="prep"&&!Lt(e),d=g(e),m=be(e),p=St(e),y=o&&!p,b=G9(e),w=((E=b==null?void 0:b.crowdPatronIds)==null?void 0:E.map(R=>{var B;return(B=e.customers.find(D=>D.id===R))==null?void 0:B.name}).filter(R=>!!R))??[],k=(R,B=!0)=>u.jsx(eOe,{hideWifeColumn:y,wife:d,wifeLoc:m,slot:e.slot,activePatronInteraction:b,crowdNames:w,dispatch:t,portrait:R,stats:B}),x=k("inline",!1),T=u.jsxs("div",{className:"min-w-0",children:[h&&u.jsx("div",{className:"mb-3 m36-mobile-prep-detail",children:u.jsx(x3e,{})}),u.jsx(mDe,{})]}),I=T,N=u.jsxs("div",{className:`mobile-action-panel w-full max-w-[13rem] desk:w-[16rem] desk:max-w-none shrink-0 flex flex-col min-h-0 ${n?"mobile-action-left":""} ${n?"pl-[env(safe-area-inset-left)]":"pr-[env(safe-area-inset-right)]"}`,children:[u.jsx(M36MobileStoreStatus,{showAllRooms:!0}),b&&!b.playerEngaged&&et(e)===vt(e)&&u.jsx(uOe,{customerName:b.customerName,crowdNames:w,wifeName:d.name,stage:b.stage,primarySlot:b.primarySlot,goldEarned:b.goldEarned??0,dispatch:t}),u.jsx(M36MobileStockStatus,{}),e.phase==="prep"&&u.jsx(x3e,{facilityOnly:!0}),u.jsxs("div",{className:"flex-1 min-h-0 flex flex-col",children:[u.jsx(M36MobileDialogueFixed,{event:e.pendingEvent,wifeName:d.name}),u.jsx("div",{className:"mobile-action-scroll flex-1 min-h-0 overflow-y-auto py-1 text-[0.72rem]",children:u.jsx(HD,{})})]}),u.jsx("button",{onClick:()=>s({actionPanelSide:n?"right":"left"}),title:"행동 버튼을 반대쪽으로 이동","aria-label":n?"행동 버튼을 오른쪽으로 이동":"행동 버튼을 왼쪽으로 이동",className:`shrink-0 flex items-center border-t border-stone-700 text-stone-500 hover:text-stone-200 active:text-stone-100 text-lg leading-none pt-1 pb-[max(0.3rem,env(safe-area-inset-bottom))] px-3 ${n?"justify-end":"justify-start"}`,children:u.jsx("span",{"aria-hidden":!0,children:n?"⇥":"⇤"})})]});return u.jsx(P3e,{children:u.jsxs("div",{className:"flex flex-col min-h-0 flex-1",children:[u.jsx("div",{className:"hidden lg:flex flex-1 min-h-0",children:u.jsx(NOe,{panes:{story:{body:I,className:"px-3 py-3"},house:{body:u.jsx(s3,{stats:!0}),className:"p-2",fill:!0},focus:{body:x},actions:{body:u.jsx(HD,{}),className:"p-2 xl:p-3"}}})}),u.jsxs("div",{className:"mobile-layout lg:hidden flex-1 min-h-0",children:[n&&N,u.jsxs("div",{className:`mobile-main-panel flex-1 min-w-0 flex flex-col min-h-0 ${n?"border-l border-stone-700":"border-r border-stone-700"}`,children:[!y&&u.jsx("div",{className:"shrink-0 border-b border-stone-700",children:u.jsx(rI,{compact:!0})}),,u.jsxs("div",{className:"flex-1 min-h-0 overflow-y-auto p-2 text-[0.78rem]",children:[r==="story"&&u.jsxs(u.Fragment,{children:[u.jsx(qF,{limit:3}),T]}),r==="house"&&u.jsx("div",{className:"h-full",children:u.jsx(s3,{})}),r==="focus"&&u.jsx(LF,{inline:!0,hideStats:!1,forceVisibility:!0})]}),u.jsx("div",{className:"m36-mobile-tabs flex shrink-0 border-t border-stone-700 bg-stone-800/80",children:i.map(R=>u.jsx("button",{onClick:()=>a(R),className:`flex-1 py-1 min-h-[32px] text-[0.6rem] uppercase tracking-widest border-r last:border-r-0 border-stone-700 ${r===R?"text-amber-300 shadow-[inset_0_2px_0_theme(colors.amber.400)]":"text-stone-500"}`,children:(R==="focus"?d.name:u.koLabel("pane",R))},R))})]}),!n&&N]})]})})}const kx=6;function fb({mode:e,onClose:t,onDone:o}){const n=re(O=>O.saveToSlot),s=re(O=>O.loadFromSlot),r=re(O=>O.loadDayAutosave),a=re(O=>O.deleteSlot),i=re(O=>O.exportSaveToFile),l=re(O=>O.importSaveFromJSON),h=re(O=>O.started),d=Z.useRef(null),[m,p]=Z.useState(nu
+
+OFFSET 11856848
+}
+.m33-quick-grid .m36-quick-run strong{color:inherit}
+.m33-quick-grid .m36-quick-card>button:focus-visible{outline-color:currentColor}
+@media(prefers-reduced-motion:reduce){.m33-quick-grid .m36-quick-card{transition:none}}
+
+</style>
+<style id="wayward-mobile-migration-v1">
+/* Studio mobile portrait layout migrated onto the v3.36 UI owners. */
+@media (max-width:1023px) and (orientation:portrait) {
+  .mobile-layout {
+    display:grid !important;
+    grid-template-columns:minmax(0,40%) minmax(0,60%) !important;
+    grid-template-rows:minmax(0,1fr);
+    flex-direction:initial !important;
+  }
+  .mobile-main-panel {
+    grid-column:1 !important;
+    grid-row:1 !important;
+    width:100% !important;
+    min-width:0 !important;
+    min-height:0 !important;
+    border-left:0 !important;
+    border-right:1px solid rgba(120,113,108,.48) !important;
+    overflow:hidden !important;
+  }
+  .mobile-action-panel {
+    grid-column:2 !important;
+    grid-row:1 !important;
+    width:100% !important;
+    max-width:none !important;
+    min-width:0 !important;
+    min-height:0 !important;
+    flex:initial !important;
+    overflow:hidden !important;
+    border-top:0 !important;
+    border-left:0 !important;
+    border-right:0 !important;
+    padding-left:max(.35rem,env(safe-area-inset-left)) !important;
+    padding-right:max(.35rem,env(safe-area-inset-right)) !important;
+    padding-bottom:max(.3rem,env(safe-area-inset-bottom)) !important;
+  }
+  .mobile-main-panel > .shrink-0 {
+    flex:0 0 auto;
+    min-height:0;
+  }
+  .mobile-main-panel > .flex-1 {
+    min-height:0;
+    overflow-y:auto;
+  }
+  .mobile-action-scroll {
+    min-height:0;
+    overflow-y:auto;
+    overflow-x:hidden;
+  }
+}
+@media (max-width:360px) and (orientation:portrait) {
+  .mobile-layout { grid-template-columns:minmax(0,44%) minmax(0,56%) !important; }
+}
+@media (min-width:361px) and (max-width:1023px) and (orientation:portrait) {
+  .mobile-layout { grid-template-columns:minmax(0,40%) minmax(0,60%) !important; }
+}
+@media (max-width:1023px) and (orientation:landscape) {
+  .mobile-layout { display:flex !important; flex-direction:row !important; }
+  .mobile-main-panel { flex:1 1 auto !important; min-width:0 !important; min-height:0 !important; }
+  .mobile-action-panel {
+    flex:0 0 min(37%,17rem) !important;
+    width:min(37%,17rem) !important;
+    max-width:17rem !important;
+    min-width:min(12rem,37vw) !important;
+    min-height:0 !important;
+    overflow:hidden !important;
+  }
+  .mobile-action-scroll { overflow-y:auto !important; overflow-x:hidden !important; }
+}
+@media (max-width:1023px) {
+  .mobile-main-panel > .shrink-0 { padding:.15rem .2rem 0 !important; }
+  .mobile-main-panel > .flex-1 { padding:.05rem .2rem .2rem !important; }
+  .mobile-action-scroll { padding-top:0 !important; padding-bottom:0 !important; }
+}
+</style>
+<style id="wayward-mobile-ui-v2">
+@media (max-width:1023px) {
+  .m36-mobile-status { flex:0 0 auto; padding:.2rem .25rem; border-bottom:1px solid rgba(68,64,60,.72); }
+  .m36-mobile-status-row { display:flex; align-items:baseline; gap:.4rem; min-width:0; line-height:1.15; }
+  .m36-mobile-status-label { flex:0 0 auto; color:rgb(168 162 158); font-size:.66rem; white-space:nowrap; }
+  .m36-mobile-status-value { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:rgb(231 229 228); font-size:.66rem; }
+  .m36-mobile-status-meta { margin-left:auto; color:rgb(120 113 108); font-size:.58rem; white-space:nowrap; }
+  .m36-mobile-nav-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:.3rem; margin-top:.45rem; }
+  .m36-mobile-nav-button { min-height:32px; padding:.25rem .35rem; border:1px solid rgb(68 64 60); border-radius:.3rem; background:rgb(28 25 23); color:rgb(214 211 209); font-size:.68rem; text-align:left; }
+  .m36-mobile
+
+OFFSET 11857717
+n !important;
+  }
+  .mobile-action-panel {
+    grid-column:2 !important;
+    grid-row:1 !important;
+    width:100% !important;
+    max-width:none !important;
+    min-width:0 !important;
+    min-height:0 !important;
+    flex:initial !important;
+    overflow:hidden !important;
+    border-top:0 !important;
+    border-left:0 !important;
+    border-right:0 !important;
+    padding-left:max(.35rem,env(safe-area-inset-left)) !important;
+    padding-right:max(.35rem,env(safe-area-inset-right)) !important;
+    padding-bottom:max(.3rem,env(safe-area-inset-bottom)) !important;
+  }
+  .mobile-main-panel > .shrink-0 {
+    flex:0 0 auto;
+    min-height:0;
+  }
+  .mobile-main-panel > .flex-1 {
+    min-height:0;
+    overflow-y:auto;
+  }
+  .mobile-action-scroll {
+    min-height:0;
+    overflow-y:auto;
+    overflow-x:hidden;
+  }
+}
+@media (max-width:360px) and (orientation:portrait) {
+  .mobile-layout { grid-template-columns:minmax(0,44%) minmax(0,56%) !important; }
+}
+@media (min-width:361px) and (max-width:1023px) and (orientation:portrait) {
+  .mobile-layout { grid-template-columns:minmax(0,40%) minmax(0,60%) !important; }
+}
+@media (max-width:1023px) and (orientation:landscape) {
+  .mobile-layout { display:flex !important; flex-direction:row !important; }
+  .mobile-main-panel { flex:1 1 auto !important; min-width:0 !important; min-height:0 !important; }
+  .mobile-action-panel {
+    flex:0 0 min(37%,17rem) !important;
+    width:min(37%,17rem) !important;
+    max-width:17rem !important;
+    min-width:min(12rem,37vw) !important;
+    min-height:0 !important;
+    overflow:hidden !important;
+  }
+  .mobile-action-scroll { overflow-y:auto !important; overflow-x:hidden !important; }
+}
+@media (max-width:1023px) {
+  .mobile-main-panel > .shrink-0 { padding:.15rem .2rem 0 !important; }
+  .mobile-main-panel > .flex-1 { padding:.05rem .2rem .2rem !important; }
+  .mobile-action-scroll { padding-top:0 !important; padding-bottom:0 !important; }
+}
+</style>
+<style id="wayward-mobile-ui-v2">
+@media (max-width:1023px) {
+  .m36-mobile-status { flex:0 0 auto; padding:.2rem .25rem; border-bottom:1px solid rgba(68,64,60,.72); }
+  .m36-mobile-status-row { display:flex; align-items:baseline; gap:.4rem; min-width:0; line-height:1.15; }
+  .m36-mobile-status-label { flex:0 0 auto; color:rgb(168 162 158); font-size:.66rem; white-space:nowrap; }
+  .m36-mobile-status-value { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:rgb(231 229 228); font-size:.66rem; }
+  .m36-mobile-status-meta { margin-left:auto; color:rgb(120 113 108); font-size:.58rem; white-space:nowrap; }
+  .m36-mobile-nav-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:.3rem; margin-top:.45rem; }
+  .m36-mobile-nav-button { min-height:32px; padding:.25rem .35rem; border:1px solid rgb(68 64 60); border-radius:.3rem; background:rgb(28 25 23); color:rgb(214 211 209); font-size:.68rem; text-align:left; }
+  .m36-mobile-current-activity { flex:0 0 auto; margin:.25rem .25rem .35rem; padding:.35rem .45rem; border:1px solid rgba(120,53,15,.55); border-radius:.3rem; background:rgba(69,26,3,.20); }
+  .m36-mobile-current-activity-title { color:rgb(251 191 36); font-size:.62rem; font-weight:700; }
+  .m36-mobile-current-activity-text { margin-top:.12rem; color:rgb(231 229 228); font-size:.72rem; line-height:1.2; overflow-wrap:anywhere; }
+  .m36-mobile-current-activity-meta { margin-top:.1rem; color:rgb(120 113 108); font-size:.58rem; }
+}
+</style>
+<style id="wayward-mobile-store-status-v1">
+@media(max-width:1023px){
+  .m36-mobile-store-status{margin:.25rem 0 .1rem;padding:.2rem .25rem .3rem;border-top:1px solid rgba(68,64,60,.72)}
+  .m36-mobile-store-status-line{display:flex;align-items:baseline;gap:.35rem;min-width:0;padding:.1rem 0;line-height:1.1}
+  .m36-mobile-store-label{flex
+
+OFFSET 11857979
+n !important;
+    border-top:0 !important;
+    border-left:0 !important;
+    border-right:0 !important;
+    padding-left:max(.35rem,env(safe-area-inset-left)) !important;
+    padding-right:max(.35rem,env(safe-area-inset-right)) !important;
+    padding-bottom:max(.3rem,env(safe-area-inset-bottom)) !important;
+  }
+  .mobile-main-panel > .shrink-0 {
+    flex:0 0 auto;
+    min-height:0;
+  }
+  .mobile-main-panel > .flex-1 {
+    min-height:0;
+    overflow-y:auto;
+  }
+  .mobile-action-scroll {
+    min-height:0;
+    overflow-y:auto;
+    overflow-x:hidden;
+  }
+}
+@media (max-width:360px) and (orientation:portrait) {
+  .mobile-layout { grid-template-columns:minmax(0,44%) minmax(0,56%) !important; }
+}
+@media (min-width:361px) and (max-width:1023px) and (orientation:portrait) {
+  .mobile-layout { grid-template-columns:minmax(0,40%) minmax(0,60%) !important; }
+}
+@media (max-width:1023px) and (orientation:landscape) {
+  .mobile-layout { display:flex !important; flex-direction:row !important; }
+  .mobile-main-panel { flex:1 1 auto !important; min-width:0 !important; min-height:0 !important; }
+  .mobile-action-panel {
+    flex:0 0 min(37%,17rem) !important;
+    width:min(37%,17rem) !important;
+    max-width:17rem !important;
+    min-width:min(12rem,37vw) !important;
+    min-height:0 !important;
+    overflow:hidden !important;
+  }
+  .mobile-action-scroll { overflow-y:auto !important; overflow-x:hidden !important; }
+}
+@media (max-width:1023px) {
+  .mobile-main-panel > .shrink-0 { padding:.15rem .2rem 0 !important; }
+  .mobile-main-panel > .flex-1 { padding:.05rem .2rem .2rem !important; }
+  .mobile-action-scroll { padding-top:0 !important; padding-bottom:0 !important; }
+}
+</style>
+<style id="wayward-mobile-ui-v2">
+@media (max-width:1023px) {
+  .m36-mobile-status { flex:0 0 auto; padding:.2rem .25rem; border-bottom:1px solid rgba(68,64,60,.72); }
+  .m36-mobile-status-row { display:flex; align-items:baseline; gap:.4rem; min-width:0; line-height:1.15; }
+  .m36-mobile-status-label { flex:0 0 auto; color:rgb(168 162 158); font-size:.66rem; white-space:nowrap; }
+  .m36-mobile-status-value { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:rgb(231 229 228); font-size:.66rem; }
+  .m36-mobile-status-meta { margin-left:auto; color:rgb(120 113 108); font-size:.58rem; white-space:nowrap; }
+  .m36-mobile-nav-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:.3rem; margin-top:.45rem; }
+  .m36-mobile-nav-button { min-height:32px; padding:.25rem .35rem; border:1px solid rgb(68 64 60); border-radius:.3rem; background:rgb(28 25 23); color:rgb(214 211 209); font-size:.68rem; text-align:left; }
+  .m36-mobile-current-activity { flex:0 0 auto; margin:.25rem .25rem .35rem; padding:.35rem .45rem; border:1px solid rgba(120,53,15,.55); border-radius:.3rem; background:rgba(69,26,3,.20); }
+  .m36-mobile-current-activity-title { color:rgb(251 191 36); font-size:.62rem; font-weight:700; }
+  .m36-mobile-current-activity-text { margin-top:.12rem; color:rgb(231 229 228); font-size:.72rem; line-height:1.2; overflow-wrap:anywhere; }
+  .m36-mobile-current-activity-meta { margin-top:.1rem; color:rgb(120 113 108); font-size:.58rem; }
+}
+</style>
+<style id="wayward-mobile-store-status-v1">
+@media(max-width:1023px){
+  .m36-mobile-store-status{margin:.25rem 0 .1rem;padding:.2rem .25rem .3rem;border-top:1px solid rgba(68,64,60,.72)}
+  .m36-mobile-store-status-line{display:flex;align-items:baseline;gap:.35rem;min-width:0;padding:.1rem 0;line-height:1.1}
+  .m36-mobile-store-label{flex:0 0 auto;color:rgb(168 162 158);font-size:.62rem;white-space:nowrap}
+  .m36-mobile-store-value{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:rgb(231 229 228);font-size:.64rem}
+  .m36-mobile-store-meta{margin-left:auto;flex:0 0 auto
