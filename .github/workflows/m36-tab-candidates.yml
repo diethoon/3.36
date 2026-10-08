@@ -1,0 +1,27 @@
+name: m36-tab-candidates
+on:
+  push:
+    branches: [mobile-migration-v1]
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          s=Path("Wayward_MOD_v3.36.html").read_text(encoding="utf-8",errors="ignore")
+          for term in ["이야기","가게","엘레나"]:
+            print("\n###",term)
+            count=0
+            for m in re.finditer(term,s):
+              i=m.start(); c=s[max(0,i-700):i+1000]
+              if any(x in c for x in ['onClick','className','button','active','탭','role']):
+                print("@",i,"\n",c)
+                count+=1
+                if count>=15: break
+            print("CANDIDATES",count)
+          PY
