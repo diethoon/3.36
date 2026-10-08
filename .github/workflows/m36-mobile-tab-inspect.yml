@@ -52,6 +52,7 @@ jobs:
           const close=overlay.getByText('✕',{exact:true}).last();
           if(await close.count()) { await close.click({force:true}).catch(()=>{}); await page.keyboard.press('Escape').catch(()=>{}); await page.waitForTimeout(500); }
 
+          await page.screenshot({path:'mobile-tabs-after.png',fullPage:false});
           for(const label of ['전체','관계·감정','금화','성인']){
             const loc=page.getByText(label,{exact:true});
             const n=await loc.count();
@@ -73,6 +74,13 @@ jobs:
               })));
             }
           }
+          const fs=await import('fs');
+          console.log('SCREENSHOT_READY',fs.existsSync('mobile-tabs-after.png'));
           await browser.close();
           EOF
           node inspect.mjs
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: m36-mobile-tabs-after
+          path: mobile-tabs-after.png
