@@ -5391,82 +5391,117 @@ END_WAYWARD_MOD_PARENT_3_25_EXTENSION_GUIDE -->
 }
 @media(min-width:1024px){.m36-mobile-disabled-choice{display:none!important}}
 </style>
-<script id="m36-mobile-next-ui-script">
-(function(){
-  var mq=window.matchMedia("(max-width:1023px)");
-  function statusFor(text){
-    if(/완료/.test(text)) return "완료";
-    if(/오후 5시|영업.*전/.test(text)) return "영업 전";
-    if(/늦|시간이 부족|시간.*없|너무 늦/.test(text)) return "시간 부족";
-    if(/종료|마감|끝났/.test(text)) return "종료";
-    if(/없습니다|없어요|방 안에/.test(text)) return "이용 불가";
+<script id="m36-mobile-next-ui-script">(()=>{
+  const mq=window.matchMedia("(max-width:1023px)");
+  const root=()=>document.querySelector(".mobile-layout");
+  const norm=v=>String(v||"").replace(/\s+/g," ").trim();
+  const META=/(?:\b무료\b|\d+\s*골드|\d+\s*(?:분|시간)|오후\s*\d+시|·|•|완료|종료|마감|끝났|시간 부족|사용 불가|이용 불가|영업 전)/;
+
+  function cleanLabel(v){
+    let x=norm(v);
+    x=x.replace(/\s*[·•]\s*.*/,"");
+    x=x.replace(/\s*(?:무료|\d+\s*골드).*/,"");
+    x=x.replace(/\s*\d+\s*(?:분|시간).*/,"");
+    x=x.replace(/\s*오후\s*\d+시.*/,"");
+    x=x.replace(/(?:완료|종료|마감|끝났|시간 부족|사용 불가|이용 불가|영업 전).*/,"");
+    return norm(x);
+  }
+
+  function choiceLabel(btn){
+    const candidates=[...btn.querySelectorAll("span,strong,b")].map(el=>norm(el.textContent)).filter(Boolean);
+    for(const text of candidates){
+      const cleaned=cleanLabel(text);
+      if(cleaned && cleaned.length<=60 && !META.test(cleaned)) return cleaned;
+    }
+    const fallback=cleanLabel(btn.textContent);
+    return fallback||"선택지";
+  }
+
+  function choiceStatus(text){
+    const x=norm(text);
+    if(/완료/.test(x)) return "완료";
+    if(/오후\s*5시|영업\s*(?:전|시간)/.test(x)) return "영업 전";
+    if(/늦|시간이 부족|시간\s*없|너무 늦/.test(x)) return "시간 부족";
+    if(/종료|마감|끝났/.test(x)) return "종료";
+    if(/없습니다|없어요|방 안에/.test(x)) return "이용 불가";
     return "사용 불가";
   }
-  function updateDisabled(){
-    if(!mq.matches) return;
-    document.querySelectorAll(".mobile-layout button:disabled").forEach(function(btn){
-      if(btn.dataset.m36DisabledReplaced==="1") return;
-      if(btn.closest(".m36-mobile-disabled-choice")) return;
-      var text=(btn.textContent||"").replace(/\s+/g," ").trim();
-      if(!text) return;
-      var row=document.createElement("div");
+
+  function renderDisabled(){
+    const r=root();
+    if(!r||!mq.matches) return;
+    r.querySelectorAll("button:disabled").forEach(btn=>{
+      if(btn.dataset.m36DisabledChoice==="1") return;
+      const row=document.createElement("div");
       row.className="m36-mobile-disabled-choice";
-      row.innerHTML='<span class="m36-choice-label"></span><span class="m36-choice-status"></span>';
-      row.querySelector(".m36-choice-label").textContent=text;
-      row.querySelector(".m36-choice-status").textContent=statusFor(text);
-      btn.dataset.m36DisabledReplaced="1";
+      row.setAttribute("role","status");
+      const left=document.createElement("span");
+      left.className="m36-mobile-disabled-choice-label";
+      left.textContent=choiceLabel(btn);
+      const right=document.createElement("span");
+      right.className="m36-mobile-disabled-choice-status";
+      right.textContent=choiceStatus(btn.textContent);
+      row.append(left,right);
       btn.replaceWith(row);
     });
   }
-  function updateCategories(){
-    if(!mq.matches) return;
-    document.querySelectorAll(".mobile-layout h4").forEach(function(h){
-      var title=(h.textContent||"").trim();
-      if(title!=="외출" && title.indexOf("마을 둘러보기")!==0) return;
-      if(h.dataset.m36CategoryBound==="1") return;
-      var list=h.nextElementSibling;
+
+  function bindCategories(){
+    const r=root();
+    if(!r) return;
+    r.querySelectorAll("h4").forEach(h=>{
+      const title=norm(h.textContent).replace(/^[▸▾]\s*/,"");
+      const isOutside=title==="외출";
+      const isVillage=title.startsWith("마을 둘러보기");
+      if(!(isOutside||isVillage)) return;
+      const list=h.nextElementSibling;
       if(!list) return;
+      if(!mq.matches){
+        h.style.cursor="";
+        h.style.userSelect="";
+        h.onclick=null;
+        list.style.display="";
+        const arrow=h.querySelector(".m36-category-arrow");
+        if(arrow) arrow.remove();
+        return;
+      }
+      if(h.dataset.m36CategoryBound==="1") return;
       h.dataset.m36CategoryBound="1";
       h.style.cursor="pointer";
-      h.style.display="flex";
-      h.style.alignItems="center";
-      h.style.justifyContent="space-between";
-      var arrow=document.createElement("span");
+      h.style.userSelect="none";
+      const arrow=document.createElement("span");
       arrow.className="m36-category-arrow";
-      arrow.textContent="▾";
-      arrow.style.cssText="font-size:.75rem;color:rgb(87 83 78);";
+      arrow.textContent=" ▸";
       h.appendChild(arrow);
-      list.dataset.m36CategoryList="1";
       list.style.display="none";
-      h.addEventListener("click",function(){
-        var open=list.style.display!=="none";
+      h.onclick=()=>{
+        const open=list.style.display!=="none";
         list.style.display=open?"none":"";
-        arrow.textContent=open?"▾":"▴";
-      });
+        arrow.textContent=open?" ▸":" ▾";
+      };
     });
   }
-  function desktopRestore(){
-    if(mq.matches) return;
-    document.querySelectorAll(".mobile-layout h4").forEach(function(h){
-      var title=(h.textContent||"").trim();
-      if(title!=="외출" && title.indexOf("마을 둘러보기")!==0) return;
-      var list=h.nextElementSibling;
-      if(list && list.dataset.m36CategoryList==="1") list.style.display="";
-      var arrow=h.querySelector(".m36-category-arrow");
-      if(arrow) arrow.remove();
-      delete h.dataset.m36CategoryBound;
-      h.style.cursor="";
-      h.style.display="";
-      h.style.alignItems="";
-      h.style.justifyContent="";
+
+  let ticking=false;
+  function sync(){
+    if(ticking) return;
+    ticking=true;
+    queueMicrotask(()=>{
+      ticking=false;
+      if(!mq.matches){
+        document.querySelectorAll(".m36-mobile-disabled-choice").forEach(row=>row.remove());
+      }else{
+        renderDisabled();
+      }
+      bindCategories();
     });
   }
-  function sync(){updateDisabled();updateCategories();desktopRestore();}
-  new MutationObserver(sync).observe(document.body,{childList:true,subtree:true,attributes:true,attributeFilter:["disabled"]});
-  window.addEventListener("resize",sync);
+
+  const observer=new MutationObserver(sync);
+  observer.observe(document.body,{childList:true,subtree:true,attributes:true,attributeFilter:["disabled"]});
+  mq.addEventListener?.("change",sync);
   sync();
-})();
-</script></body>
+})();</script></body>
 </html>
 
 <!-- WAYWARD_MOD_PARENT_3_26_MAP
