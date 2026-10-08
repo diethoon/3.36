@@ -1,0 +1,41 @@
+name: mobile-forensic-choice-probe
+on:
+  push:
+    branches: [mobile-migration-v1]
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Probe exact choice labels and mobile action CSS
+        shell: bash
+        run: |
+          set -euo pipefail
+          f=Wayward_MOD_v3.36.html
+          python - <<'PY'
+          from pathlib import Path
+          s=Path("Wayward_MOD_v3.36.html").read_text(encoding="utf-8")
+          needles=["그녀 깨우기","홀로 내려가기","마법","mobile-action-scroll","mobile-action-panel","function HD","HD="]
+          for n in needles:
+              print("\n=== NEEDLE:", n, "===")
+              pos=0; count=0
+              while True:
+                  i=s.find(n,pos)
+                  if i<0 or count>=6: break
+                  print("OFFSET",i)
+                  a=max(0,i-1800); b=min(len(s),i+2200)
+                  chunk=s[a:b]
+                  lines=chunk.splitlines()
+                  for line in lines:
+                      if any(k in line for k in ["그녀 깨우기","홀로 내려가기","마법","mobile-action","function HD","HD=","className","class:"]):
+                          print(line[:1200])
+                  pos=i+len(n); count+=1
+          print("\n=== ACTION-AREA CSS CANDIDATES ===")
+          for needle in [".mobile-action-panel",".mobile-action-scroll",".mobile-action-scroll button",".mobile-action-panel button"]:
+              pos=0
+              while True:
+                  i=s.find(needle,pos)
+                  if i<0: break
+                  print("OFFSET",i, s[i:i+900].replace("\n"," "))
+                  pos=i+len(needle)
+          PY
