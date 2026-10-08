@@ -1,0 +1,52 @@
+name: m36-movement-targets
+
+on:
+  push:
+    branches: [mobile-migration-v1]
+
+permissions:
+  contents: read
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: mobile-migration-v1
+          fetch-depth: 1
+      - name: Extract exact movement targets
+        shell: bash
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+          import re
+
+          s=Path("Wayward_MOD_v3.36.html").read_text(encoding="utf-8")
+
+          def show(term, last=18, radius=900):
+              ms=list(re.finditer(re.escape(term),s,re.I))
+              print(f"\n===== TERM {term!r} COUNT {len(ms)} =====")
+              for i,m in enumerate(ms[-last:],1):
+                  a=max(0,m.start()-radius); b=min(len(s),m.end()+radius)
+                  print(f"--- {i}/{min(last,len(ms))} POS {m.start()} ---")
+                  print(s[a:b].replace("\n"," ")[:1900])
+
+          for t in ["침실","욕탕","홀","이동","이동하기","방으로","돌아가기"]:
+              show(t)
+
+          pats=[
+            r"type:['\"]([^'\"]*(?:move|room|location|place|bed|bath|hall|taproom|go|travel)[^'\"]*)['\"]",
+            r"['\"]([^'\"]*(?:침실|욕탕|홀)[^'\"]*)['\"]",
+            r"dispatch\(([^)]{0,260}(?:move|room|location|place|bed|bath|hall|taproom|go|travel|침실|욕탕|홀)[^)]{0,260})\)",
+          ]
+          for pat in pats:
+              print("\n===== REGEX",pat,"=====")
+              seen=set()
+              for m in re.finditer(pat,s,re.I):
+                  x=m.group(0)
+                  if x not in seen:
+                      seen.add(x)
+                      print(x[:900])
+                  if len(seen)>=80: break
+          PY
