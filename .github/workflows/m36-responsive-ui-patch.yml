@@ -22,108 +22,73 @@ jobs:
           fetch-depth: 1
 
       - name: Apply targeted responsive spacing
-        shell: bash
         run: |
           python3 - <<'PY'
           from pathlib import Path
-          import re, sys
+          import sys
 
           p = Path("Wayward_MOD_v3.36.html")
           s = p.read_text(encoding="utf-8")
-
           marker = 'id="m36-responsive-ui-20261009"'
           if marker in s:
               print("PATCH_ALREADY_PRESENT")
               raise SystemExit(0)
 
-          p3 = re.search(
-              r'function p3e\\(\\{[^}]*\\}\\)\\{.*?className:"mb-3 flex items-center gap-1\\.5"',
-              s,
-              re.S,
-          )
-          if not p3:
-              print("p3e target not found")
+          p3_start = s.find("function p3e(")
+          p3_end = s.find("function _3e(", p3_start + 1)
+          if p3_start < 0 or p3_end < 0:
+              print("request component anchors not found")
               raise SystemExit(1)
+
           old_p = 'className:"mb-3 flex items-center gap-1.5"'
           new_p = 'className:"m36-responsive-request mb-3 flex items-center gap-1.5"'
-          s = s[:p3.start()] + s[p3.start():].replace(old_p, new_p, 1)
+          p3_block = s[p3_start:p3_end]
+          if p3_block.count(old_p) != 1:
+              print("p3e class anchor count:", p3_block.count(old_p))
+              raise SystemExit(1)
+          s = s[:p3_start] + p3_block.replace(old_p, new_p, 1) + s[p3_end:]
 
-          r3 = re.search(
-              r'function _3e\\(\\{[^}]*\\}\\)\\{.*?className:"mb-3 flex items-center gap-1\\.5 flex-wrap"',
-              s,
-              re.S,
-          )
-          if not r3:
-              print("_3e target not found")
+          r3_start = s.find("function _3e(")
+          if r3_start < 0:
+              print("_3e anchor not found")
               raise SystemExit(1)
           old_r = 'className:"mb-3 flex items-center gap-1.5 flex-wrap"'
           new_r = 'className:"m36-responsive-reasons mb-3 flex items-center gap-1.5 flex-wrap"'
-          s = s[:r3.start()] + s[r3.start():].replace(old_r, new_r, 1)
+          r3_block = s[r3_start:]
+          if old_r not in r3_block:
+              print("_3e class anchor not found")
+              raise SystemExit(1)
+          s = s[:r3_start] + r3_block.replace(old_r, new_r, 1)
 
           css = r'''
 <style id="m36-responsive-ui-20261009">
 @media (max-width: 700px) {
-  .m36-responsive-request {
-    display: flex !important;
-    flex-wrap: wrap !important;
-    align-items: center !important;
-    gap: 4px !important;
-    margin-bottom: 8px !important;
-  }
-  .m36-responsive-request > button {
-    flex: 1 1 auto !important;
-    min-width: 0 !important;
-    white-space: nowrap !important;
-    padding: 7px 9px !important;
-    min-height: 34px !important;
-    line-height: 1.1 !important;
-    font-size: clamp(0.72rem, 3.2vw, 0.84rem) !important;
-  }
-  .m36-responsive-reasons {
-    display: flex !important;
-    flex-wrap: wrap !important;
-    align-items: center !important;
-    gap: 4px !important;
-    margin-bottom: 8px !important;
-  }
-  .m36-responsive-reasons > span {
-    flex: 0 0 auto !important;
-    margin-right: 2px !important;
-    white-space: nowrap !important;
-  }
-  .m36-responsive-reasons > button {
-    flex: 0 1 auto !important;
-    min-width: 0 !important;
-    white-space: nowrap !important;
-    padding: 6px 8px !important;
-    min-height: 32px !important;
-    line-height: 1.1 !important;
-    font-size: clamp(0.68rem, 3vw, 0.8rem) !important;
-  }
+  .m36-responsive-request { display:flex !important; flex-wrap:wrap !important; align-items:center !important; gap:4px !important; margin-bottom:8px !important; }
+  .m36-responsive-request > button { flex:1 1 auto !important; min-width:0 !important; white-space:nowrap !important; padding:7px 9px !important; min-height:34px !important; line-height:1.1 !important; font-size:clamp(0.72rem,3.2vw,0.84rem) !important; }
+  .m36-responsive-reasons { display:flex !important; flex-wrap:wrap !important; align-items:center !important; gap:4px !important; margin-bottom:8px !important; }
+  .m36-responsive-reasons > span { flex:0 0 auto !important; margin-right:2px !important; white-space:nowrap !important; }
+  .m36-responsive-reasons > button { flex:0 1 auto !important; min-width:0 !important; white-space:nowrap !important; padding:6px 8px !important; min-height:32px !important; line-height:1.1 !important; font-size:clamp(0.68rem,3vw,0.8rem) !important; }
 }
 </style>
 '''
           head = s.find("</head>")
           if head < 0:
-              print("</head> not found")
-              raise SystemExit(1)
+              raise SystemExit("</head> not found")
           s = s[:head] + css + "\n" + s[head:]
-
           p.write_text(s, encoding="utf-8")
           print("PATCH_APPLIED")
           PY
 
       - name: Validate
         run: |
+          set -euo pipefail
           git diff --check
           grep -q 'm36-responsive-ui-20261009' Wayward_MOD_v3.36.html
           grep -q 'm36-responsive-request' Wayward_MOD_v3.36.html
           grep -q 'm36-responsive-reasons' Wayward_MOD_v3.36.html
-          git diff --name-only
           echo "STATIC_VALIDATION_PASS"
 
       - name: Commit to mobile branch and remove runner
-        shell: bash
         run: |
           set -euo pipefail
           git config user.name "github-actions[bot]"
