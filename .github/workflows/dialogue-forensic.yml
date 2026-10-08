@@ -15,13 +15,25 @@ jobs:
         with:
           ref: mobile-migration-v1
           fetch-depth: 1
-      - name: Inspect choice renderers
+      - name: Inspect mobile renderer area
         shell: bash
         run: |
           python3 - <<'PY'
           from pathlib import Path
+          import re
           s=Path('Wayward_MOD_v3.36.html').read_text(encoding='utf-8')
-          for pos in [11356951,11359622,11703513,11144701,11147357]:
-            print(f'=== POS {pos} ===')
-            print(s[max(0,pos-6500):min(len(s),pos+9000)].replace('\n',' '))
+          a,b=11250000,11750000
+          sub=s[a:b]
+          print('=== FUNCTION DECLARATIONS ===')
+          for m in re.finditer(r'function\s+[A-Za-z_$][\w$]*\([^)]*\)',sub):
+            print(a+m.start(),m.group(0))
+          print('=== CLASS STRINGS ===')
+          seen=set()
+          for m in re.finditer(r'(?:className|class)[:=](["\'`])([^"\'`]{1,220})\1',sub):
+            c=m.group(2)
+            if 'm36-mobile' in c or 'choice' in c.lower() or 'overflow' in c.lower() or 'sticky' in c.lower():
+              if c not in seen: print(c);seen.add(c)
+          print('=== CHOICES MAP LOCATIONS ===')
+          for term in ['choices.map','event.choices','pendingEvent','renderChoice']:
+            print(term,[(a+m.start()) for m in re.finditer(re.escape(term),sub)][:40])
           PY
