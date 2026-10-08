@@ -90,9 +90,16 @@ jobs:
             await fontSelect.selectOption({label});
             await page.waitForTimeout(700);
 
-            const close=page.getByText('✕',{exact:true}).last();
-            await close.click({force:true});
-            await page.waitForTimeout(800);
+            const overlay=page.locator('div.fixed.inset-0.z-40').last();
+            const close=overlay.getByText('✕',{exact:true}).last();
+            if(await close.count()) {
+              await close.click({force:true});
+              await page.waitForTimeout(500);
+            }
+            if(await page.locator('div.fixed.inset-0.z-40').count()) {
+              await page.keyboard.press('Escape');
+              await page.waitForTimeout(700);
+            }
 
             await page.screenshot({path:file,fullPage:false});
           }
