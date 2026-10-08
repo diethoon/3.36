@@ -7,7 +7,7 @@ permissions:
   contents: write
 jobs:
   patch:
-    if: github.event.pull_request.number == 44 && github.event.pull_request.head.repo.full_name == github.repository
+    if: github.event.pull_request.number == 46 && github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
