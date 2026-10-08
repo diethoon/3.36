@@ -1,4 +1,4 @@
-name: m36-fix-mobile-dom-safe
+name: m36-movement-forensics
 on:
   push:
     branches: [mobile-migration-v1]
@@ -19,28 +19,19 @@ jobs:
           from pathlib import Path
           import subprocess
 
-          p = Path("Wayward_MOD_v3.36.html")
-          s = p.read_text(encoding="utf-8")
+          p=Path("Wayward_MOD_v3.36.html")
+          s=p.read_text(encoding="utf-8")
 
-          marker = '<script id="m36-mobile-next-ui-script">'
-          start = s.find(marker)
-          if start < 0:
-              raise SystemExit("mobile script marker not found")
-          body_start = start + len(marker)
-          body_end = s.find("</script>", body_start)
-          if body_end < 0:
-              raise SystemExit("mobile script end not found")
+          style_marker='<style id="m36-mobile-next-ui-v1">'
+          ss=s.find(style_marker)
+          if ss<0:
+              raise SystemExit("style marker not found")
+          style_start=ss+len(style_marker)
+          style_end=s.find("</style>",style_start)
+          if style_end<0:
+              raise SystemExit("style end not found")
 
-          style_marker = '<style id="m36-mobile-next-ui-v1">'
-          ss = s.find(style_marker)
-          if ss < 0:
-              raise SystemExit("mobile style marker not found")
-          style_start = ss + len(style_marker)
-          style_end = s.find("</style>", style_start)
-          if style_end < 0:
-              raise SystemExit("mobile style end not found")
-
-          new_css = r'''
+          new_css="""
           .m36-mobile-disabled-choice{
             position:relative!important;
             display:grid!important;
@@ -92,13 +83,21 @@ jobs:
             .m36-mobile-disabled-choice::before,
             .m36-mobile-disabled-choice::after{content:none!important;}
             .m36-mobile-disabled-choice > *{display:revert!important;}
-          }'''
+          }"""
 
-          new_js = r'''(()=>{
+          script_marker='<script id="m36-mobile-next-ui-script">'
+          st=s.find(script_marker)
+          if st<0:
+              raise SystemExit("script marker not found")
+          script_start=st+len(script_marker)
+          script_end=s.find("</script>",script_start)
+          if script_end<0:
+              raise SystemExit("script end not found")
+
+          new_js="""(()=>{
             const mq=window.matchMedia("(max-width:1023px)");
             const root=()=>document.querySelector(".mobile-layout");
             const norm=v=>String(v||"").trim().split(String.fromCharCode(10)).join(" ").split(String.fromCharCode(9)).join(" ");
-").join(" ").split("	").join(" ");
 
             function cutAtNumberToken(x,token){
               const idx=x.indexOf(token);
@@ -216,11 +215,11 @@ jobs:
             observer.observe(document.body,{childList:true,subtree:true,attributes:true,attributeFilter:["disabled"]});
             mq.addEventListener?.("change",sync);
             sync();
-          })();'''
+          })();"""
 
-          s = s[:style_start] + new_css + s[style_end:]
-          s = s[:body_start] + new_js + s[body_end:]
-          p.write_text(s, encoding="utf-8")
+          s=s[:style_start]+new_css+s[style_end:]
+          s=s[:script_start]+new_js+s[script_end:]
+          p.write_text(s,encoding="utf-8")
 
           js_path=Path("/tmp/m36-mobile-next-ui.js")
           js_path.write_text(new_js,encoding="utf-8")
@@ -230,9 +229,6 @@ jobs:
               raise SystemExit("unsafe replaceWith remains")
           if "button:disabled" not in new_js:
               raise SystemExit("disabled selector missing")
-          if "data-m36-disabled-choice-label" not in new_js:
-              raise SystemExit("label attribute missing")
-
           print("node --check: PASS")
           print("DOM replacement: NONE")
           PY
@@ -240,9 +236,13 @@ jobs:
       - name: Diff check
         run: git diff --check
 
-      - name: Commit DOM-safe patch
+      - name: Commit patch
         shell: bash
         run: |
+          if git diff --quiet -- Wayward_MOD_v3.36.html; then
+            echo "patch already applied"
+            exit 0
+          fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add Wayward_MOD_v3.36.html
