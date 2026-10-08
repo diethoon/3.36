@@ -1,0 +1,31 @@
+name: inspect prep visibility
+on:
+  push:
+    branches: [tmp/inspect-prep-visibility]
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: tmp/inspect-prep-visibility
+          fetch-depth: 1
+      - run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          b=Path("Wayward_MOD_v3.36.html").read_bytes()
+          terms=[b"function x3e",b"function AOe",b"m36-mobile-prep-detail",b"function M36MobileStockStatus",b"오후 영업 준비",b"영업 전에 가게를 준비하세요"]
+          for term in terms:
+              pos=0
+              hits=[]
+              while True:
+                  p=b.find(term,pos)
+                  if p<0: break
+                  hits.append(p); pos=p+1
+              print("TERM",term.decode("utf-8","ignore"),"COUNT",len(hits))
+              for p in hits[:6]:
+                  print("POS",p)
+                  print(b[max(0,p-2200):min(len(b),p+5000)].decode("utf-8","ignore").replace("\n"," "))
+          PY
