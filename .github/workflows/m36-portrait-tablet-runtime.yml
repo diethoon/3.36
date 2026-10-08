@@ -54,8 +54,20 @@ jobs:
           await page.keyboard.press('Escape');
           await page.waitForTimeout(500);
 
+          const overlays=page.locator('div.fixed.inset-0');
+          const overlayTexts=[];
+          for(const el of await overlays.all()){
+            overlayTexts.push((await el.innerText()).slice(0,2000));
+          }
+          console.log('OVERLAYS',JSON.stringify(overlayTexts));
+          const overlayButtons=await page.locator('div.fixed.inset-0 button').allTextContents();
+          console.log('OVERLAY_BUTTONS',JSON.stringify(overlayButtons));
+          for(const txt of ['동의합니다','확인','닫기','계속','이해하고 동의합니다']){
+            const b=page.getByText(txt,{exact:true}).last();
+            if(await b.count()) { await b.click({force:true}).catch(()=>{}); await page.waitForTimeout(700); }
+          }
           const newGame=page.getByText('새 게임',{exact:true}).first();
-          if(await newGame.count()) { await newGame.click(); await page.waitForTimeout(2500); }
+          if(await newGame.count()) { await newGame.click({force:true}); await page.waitForTimeout(2500); }
 
           const pipa=page.getByText('피파',{exact:true}).first();
           if(await pipa.count()) { await pipa.click(); await page.waitForTimeout(1500); }
