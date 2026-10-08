@@ -14,6 +14,23 @@ jobs:
           fetch-depth: 1
       - name: Apply compact layout
         run: python3 .github/m36_compact_labels_patch.py
+      - name: Clean injected style whitespace
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path("Wayward_MOD_v3.36.html")
+          s=p.read_text(encoding="utf-8")
+          marker=".m36-responsive-reasons{"
+          i=s.find(marker)
+          assert i >= 0
+          a=s.rfind("<style",0,i)
+          b=s.find("</style>",i)
+          assert a >= 0 and b > a
+          block=s[a:b]
+          block="\n".join(line.rstrip() for line in block.splitlines())
+          s=s[:a]+block+s[b:]
+          p.write_text(s,encoding="utf-8")
+          PY
       - name: Validate
         run: |
           set -euo pipefail
@@ -30,7 +47,6 @@ jobs:
           assert i >= 0
           snippet=s[i:i+1200]
           assert "display:flex!important" in snippet
-          print(snippet)
           print("COMPACT_LAYOUT_VALIDATION_PASS")
           PY
       - name: Remove temporary tooling
