@@ -1,0 +1,35 @@
+name: m36-assay-trace
+on:
+  push:
+    branches: [mobile-migration-v1]
+jobs:
+  trace:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Trace purse magic
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          p=Path("Wayward_MOD_v3.36.html")
+          s=p.read_text(encoding="utf-8",errors="ignore")
+          needles=["소지금 파악","주머니 감정","Assay the Purse","assay the purse","purse"]
+          hits=[]
+          for n in needles:
+            pos=0
+            while True:
+              i=s.lower().find(n.lower(),pos)
+              if i<0: break
+              hits.append((n,i,s[max(0,i-3500):min(len(s),i+6500)]))
+              pos=i+1
+              if len(hits)>=12: break
+            if len(hits)>=12: break
+          Path("__purse_trace.txt").write_text("\n\n".join(f"=== {n} @ {i} ===\n{x}" for n,i,x in hits),encoding="utf-8")
+          print("hits",len(hits))
+          PY
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add __purse_trace.txt
+          git commit -m "forensic: record purse trace"
+          git push
