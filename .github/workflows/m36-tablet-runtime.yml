@@ -28,7 +28,13 @@ jobs:
           const agree=page.getByText('이해하고 동의합니다',{exact:true}).first();
           if(await agree.count()) { await agree.click(); await page.waitForTimeout(4000);
           const settings=page.getByText('설정',{exact:true}).first();
-          if(await settings.count()) { await settings.click(); await page.waitForTimeout(1000); } }
+          if(await settings.count()) { await settings.click(); await page.waitForTimeout(1000); }
+          const sizes=await page.getByText(/^(작게|보통|크게|매우 크게)$/).allTextContents();
+          console.log('FONT_SIZE_OPTIONS',sizes.join('|'));
+          const close=page.getByText('✕',{exact:true}).last();
+          if(await close.count()) { await close.click(); await page.waitForTimeout(500); }
+          const newGame=page.getByText('새 게임',{exact:true}).first();
+          if(await newGame.count()) { await newGame.click(); await page.waitForTimeout(3500); } }
           fs.mkdirSync('shots',{recursive:true});
           await page.screenshot({path:'shots/tablet-initial.png',fullPage:false});
           const body=(await page.locator('body').innerText()).slice(0,12000);
