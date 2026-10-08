@@ -1,0 +1,114 @@
+name: temporary mobile button patch
+
+on:
+  push:
+    branches:
+      - mobile-migration-v1
+    paths:
+      - ".github/workflows/mobile-button-patch.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout mobile-migration-v1
+        uses: actions/checkout@v4
+        with:
+          ref: mobile-migration-v1
+          fetch-depth: 2
+
+      - name: Patch mobile action button sizing
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path("Wayward_MOD_v3.36.html")
+          text = path.read_text(encoding="utf-8")
+          original_len = len(text)
+
+          old_xe = 'className:`w-full min-w-0 select-none text-left px-[0.6rem] py-[0.4rem] desk:p-3 min-h-0 desk:min-h-0 flex flex-col justify-center rounded-lg PLACEHOLDER_H disabled:opacity-40 disabled:cursor-not-allowed transition-colors`'
+          new_xe = 'className:`w-full min-w-0 select-none text-left px-[0.6rem] py-[0.6rem] desk:p-3 min-h-[2.5rem] desk:min-h-0 flex flex-col justify-center rounded-lg PLACEHOLDER_H disabled:opacity-40 disabled:cursor-not-allowed transition-colors`'
+
+          old_xe = old_xe.replace("PLACEHOLDER_H", chr(36) + "{h}")
+          new_xe = new_xe.replace("PLACEHOLDER_H", chr(36) + "{h}")
+
+          if text.count(old_xe) != 1:
+              raise SystemExit(f"Xe target count mismatch: {text.count(old_xe)}")
+          text = text.replace(old_xe, new_xe, 1)
+
+          selector = ".m36-mobile-prep-compact > div:nth-child(2) > button{"
+          start = text.find(selector)
+          if start < 0:
+              raise SystemExit("stock button CSS selector not found")
+          end = text.find("}", start)
+          if end < 0:
+              raise SystemExit("stock button CSS closing brace not found")
+
+          old_stock = text[start:end + 1]
+          new_stock = (
+              ".m36-mobile-prep-compact > div:nth-child(2) > button{ "
+              "min-height:2.8rem !important; "
+              "padding:.55rem .65rem !important; "
+              "border:1px solid rgba(217,119,6,.55) !important; "
+              "box-shadow:0 1px 2px rgba(0,0,0,.25) !important; "
+              "}"
+          )
+          text = text[:start] + new_stock + text[end + 1:]
+
+          path.write_text(text, encoding="utf-8")
+
+          print("original length:", original_len)
+          print("new length:", len(text))
+          print("Xe replacement:", text.count(new_xe))
+          print("stock replacement:", text.count(new_stock))
+          print("old Xe remains:", text.count(old_xe))
+          print("old stock CSS remains:", text.count(old_stock))
+          PY
+
+      - name: Static validation
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re, subprocess
+
+          html = Path("Wayward_MOD_v3.36.html").read_text(encoding="utf-8")
+          matches = re.findall(r'<script\\b([^>]*)>(.*?)</script>', html, flags=re.S | re.I)
+          checked = 0
+
+          for i, (attrs, code) in enumerate(matches):
+              if not code.strip() or re.search(r'\\bsrc=', attrs, flags=re.I):
+                  continue
+              target = Path(f"/tmp/wayward-inline-{i}.js")
+              target.write_text(code, encoding="utf-8")
+              result = subprocess.run(
+                  ["node", "--check", str(target)],
+                  text=True,
+                  capture_output=True
+              )
+              if result.returncode != 0:
+                  print(result.stdout)
+                  print(result.stderr)
+                  raise SystemExit(f"node --check failed for inline script {i}")
+              checked += 1
+
+          print("HTML bytes:", len(html.encode("utf-8")))
+          print("inline script blocks checked:", checked)
+          PY
+
+          git diff --check
+          git diff --stat
+          git diff --unified=1 -- Wayward_MOD_v3.36.html | head -80
+
+      - name: Commit patched file
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add Wayward_MOD_v3.36.html
+          git commit -m "fix(mobile): make right-panel action buttons visibly tappable"
+          git push origin HEAD:mobile-migration-v1
