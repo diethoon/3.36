@@ -15,24 +15,13 @@ jobs:
         with:
           ref: mobile-migration-v1
           fetch-depth: 1
-      - name: Focused dialogue choice forensic
+      - name: Inspect choice renderers
         shell: bash
         run: |
           python3 - <<'PY'
           from pathlib import Path
-          import re
           s=Path('Wayward_MOD_v3.36.html').read_text(encoding='utf-8')
-          terms=['pendingEvent','m313Acknowledgement','resolve_event','patron_interaction_choice','choiceId','choice','choices','M36Mobile']
-          for term in terms:
-            hits=[m.start() for m in re.finditer(re.escape(term),s)]
-            print(f'=== {term} COUNT {len(hits)} ===')
-            for i,pos in enumerate(hits[:8]):
-              a=max(0,pos-1800); b=min(len(s),pos+3200)
-              print(f'--- {i+1} pos={pos} ---')
-              print(s[a:b].replace('\n',' '))
-          print('=== FUNCTION DECLARATIONS NEAR CHOICE TERMS ===')
-          for m in re.finditer(r'function\s+[A-Za-z_$][\w$]*\([^)]*\)',s):
-            name=m.group(0)
-            if any(x.lower() in name.lower() for x in ['choice','dialog','event','acknow','conversation']):
-              print(name, 'pos=', m.start())
+          for pos in [11356951,11359622,11703513,11144701,11147357]:
+            print(f'=== POS {pos} ===')
+            print(s[max(0,pos-6500):min(len(s),pos+9000)].replace('\n',' '))
           PY
