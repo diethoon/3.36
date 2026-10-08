@@ -1,0 +1,106 @@
+name: temporary-m36-gauge-runner
+
+on:
+  push:
+    branches:
+      - mobile-migration-v1
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: contains(github.event.head_commit.message, '[m36-gauge]')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout pushed target revision
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Patch pleasure gauges outside choice scroll
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 <<'PY'
+          from pathlib import Path
+          path=Path("Wayward_MOD_v3.36.html")
+          text=path.read_text(encoding="utf-8")
+          old_gauge='''U&&I&&u.jsxs("div",{className:"mb-3 space-y-1.5",children:[u.jsx(t_,{label:"당신",value:I.playerPleasure,color:"bg-blue-500"}),u.jsx(t_,{label:"그녀",value:I.elenaMoaning,color:"bg-pink-500"})]}),K&&(N==null?void 0:N.patronPleasure)!=null&&u.jsxs("div",{className:"mb-3 space-y-1.5",children:[u.jsx(t_,{label:"그 사내",value:N.patronPleasure,color:"bg-violet-500"}),u.jsx(t_,{label:"그녀",value:N.elenaPleasure??0,color:"bg-pink-500"})]}),'''
+          old_dialogue='''function M36MobileDialogueFixed({event:e,wifeName:t}){if(!e||["confrontation","outfit_reaction","back_room_interrupt"].includes(e.type))return null;const o=e.type==="wife_conversation",n=e.type==="sex_scene",r=e.type==="patron_interaction"&&e.customerName?e.customerName+" & "+t:o||n?t:"⚠ 돌발 상황";return u.jsxs("div",{className:"m36-mobile-dialogue-fixed",children:[u.jsx("div",{className:"m36-mobile-dialogue-label",children:o?"[대화] "+t+" <> 당신":"[이벤트] "+r}),u.jsx("div",{className:"m36-mobile-dialogue-box",children:u.jsx("p",{className:"text-sm text-stone-200 leading-relaxed whitespace-pre-wrap break-words",children:e.text})})]})}'''
+          new_dialogue='''function M36MobileDialogueFixed({event:e,wifeName:t}){if(!e||["confrontation","outfit_reaction","back_room_interrupt"].includes(e.type))return null;const o=e.type==="wife_conversation",n=e.type==="sex_scene",r=e.type==="patron_interaction"&&e.customerName?e.customerName+" & "+t:o||n?t:"⚠ 돌발 상황";return u.jsxs("div",{className:"m36-mobile-dialogue-fixed",children:[u.jsx("div",{className:"m36-mobile-dialogue-label",children:o?"[대화] "+t+" <> 당신":"[이벤트] "+r}),u.jsx("div",{className:"m36-mobile-dialogue-box",children:u.jsx("p",{className:"text-sm text-stone-200 leading-relaxed whitespace-pre-wrap break-words",children:e.text})})]})}
+function M36MobilePleasureFixed({state:e}){const t=e.pendingEvent,o=Ye(e),n=Y(e),r=t?.type==="sex_scene",a=t?.type==="patron_interaction";if(!r&&!a)return null;return r&&o?u.jsxs("div",{className:"m36-mobile-pleasure-fixed",children:[u.jsx(t_,{label:"당신",value:o.playerPleasure,color:"bg-blue-500"}),u.jsx(t_,{label:"그녀",value:o.elenaMoaning,color:"bg-pink-500"})]}):a&&n?.patronPleasure!=null?u.jsxs("div",{className:"m36-mobile-pleasure-fixed",children:[u.jsx(t_,{label:"그 사내",value:n.patronPleasure,color:"bg-violet-500"}),u.jsx(t_,{label:"그녀",value:n.elenaPleasure??0,color:"bg-pink-500"})]}):null}'''
+          old_aoe='''u.jsx(M36MobileDialogueFixed,{event:e.pendingEvent,wifeName:d.name}),u.jsx("div",{className:"mobile-action-scroll flex-1 min-h-0 overflow-y-auto py-1 text-[0.72rem]",children:u.jsx(HD,{})})'''
+          new_aoe='''u.jsx(M36MobileDialogueFixed,{event:e.pendingEvent,wifeName:d.name}),u.jsx(M36MobilePleasureFixed,{state:e}),u.jsx("div",{className:"mobile-action-scroll flex-1 min-h-0 overflow-y-auto py-1 text-[0.72rem]",children:u.jsx(HD,{})})'''
+          assert text.count(old_gauge)==1, "gauge anchor drift"
+          assert text.count(old_dialogue)==1, "dialogue anchor drift"
+          assert text.count(old_aoe)==1, "AOe anchor drift"
+          text=text.replace(old_dialogue,new_dialogue,1)
+          text=text.replace(old_gauge,"",1)
+          text=text.replace(old_aoe,new_aoe,1)
+          marker=".m36-mobile-dialogue-box{"
+          assert text.count(marker)==1, "CSS marker drift"
+          css_start=text.index(marker); css_end=text.index("}",css_start)+1
+          css_block=text[css_start:css_end]
+          assert "background:rgba(41,37,36,.96)" in css_block, "dialogue CSS drift"
+          pleasure_css="""\n  .m36-mobile-pleasure-fixed{
+    flex:0 0 auto;
+    position:relative;
+    z-index:29;
+    display:grid;
+    gap:.35rem;
+    padding:.25rem .45rem .4rem;
+    background:rgb(28 25 23);
+    border-bottom:1px solid rgba(68,64,60,.78);
+  }"""
+          text=text[:css_end]+pleasure_css+text[css_end:]
+          assert text.count("function M36MobilePleasureFixed")==1
+          assert text.count("u.jsx(M36MobilePleasureFixed,{state:e})")==1
+          assert text.count("label:" + chr(34) + "당신" + chr(34) + ",value:I.playerPleasure")==0
+          assert text.count("label:" + chr(34) + "그 사내" + chr(34) + ",value:N.patronPleasure")==0
+          path.write_text(text,encoding="utf-8")
+          PY
+
+      - name: Syntax and scope validation
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 <<'PY'
+          from pathlib import Path
+          text=Path("Wayward_MOD_v3.36.html").read_text(encoding="utf-8")
+          pos=text.index("function M36MobileDialogueFixed")
+          start=text.rfind("<script",0,pos)
+          close=text.index("</script>",pos)
+          gt=text.index(">",start)
+          Path("/tmp/m36-containing-script.js").write_text(text[gt+1:close],encoding="utf-8")
+          PY
+          node --check /tmp/m36-containing-script.js
+          git diff --check
+          test "$(git diff --name-only)" = "Wayward_MOD_v3.36.html"
+          echo "GAUGE_PATCH_STATIC_PASS"
+
+      - name: Commit target patch and remove trigger
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          rm -f __m36_gauge_trigger.txt
+          git add Wayward_MOD_v3.36.html
+          git add -u __m36_gauge_trigger.txt
+          git diff --cached --check
+          git commit -m "fix(mobile): keep pleasure gauges outside choice scroll"
+          git push origin HEAD:mobile-migration-v1
+
+      - name: Remove temporary runner from main
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          git switch --create cleanup-main origin/main
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm -f .github/workflows/temporary-m36-gauge-runner.yml
+          git commit -m "chore(ci): remove temporary gauge runner"
+          git push origin HEAD:main
