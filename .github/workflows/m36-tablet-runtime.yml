@@ -1,6 +1,7 @@
 name: m36 tablet runtime discovery
 on:
-  workflow_dispatch:
+  push:
+    branches: [mobile-migration-v1]
 permissions:
   contents: read
 jobs:
