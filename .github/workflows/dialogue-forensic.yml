@@ -1,1 +1,46 @@
-name: Temporary dialogue forensic\non:\n  push:\n    branches: [mobile-migration-v1]\n    paths:\n      - ".github/workflows/dialogue-forensic.yml"\npermissions:\n  contents: read\njobs:\n  inspect:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v4\n        with:\n          ref: mobile-migration-v1\n          fetch-depth: 1\n      - name: Inspect dialogue/event/choice structure\n        shell: bash\n        run: |\n          python3 - <<'PY'\n          from pathlib import Path\n          import re\n          p=Path("Wayward_MOD_v3.36.html")\n          s=p.read_text(encoding="utf-8")\n          print("BYTES", len(s.encode("utf-8")))\n          print("CHARS", len(s))\n          print("LINES", s.count("\\n")+1)\n          terms=[\n            "대화","이벤트","선택지","엘레나","dialogue","event","choice","choices",\n            "overflow-y-auto","overflow-auto","sticky","M36Mobile","interaction"\n          ]\n          for term in terms:\n            hits=[m.start() for m in re.finditer(re.escape(term),s,re.I)]\n            print(f"TERM {term!r} COUNT {len(hits)}")\n            for i,pos in enumerate(hits[:6]):\n              a=max(0,pos-900); b=min(len(s),pos+1400)\n              snippet=s[a:b].replace("\\n"," ")\n              print(f"--- {term!r} #{i+1} pos={pos} ---")\n              print(snippet)\n          pats=[\n            r'className:"[^"]*(?:choice|dialogue|event)[^"]*"'\n          ]\n          for pat in pats:\n            ms=list(re.finditer(pat,s,re.I))\n            print("PATTERN",pat,"COUNT",len(ms))\n            for m in ms[:30]:\n              print(m.group(0))\n          PY\n
+name: Temporary dialogue forensic
+on:
+  push:
+    branches: [mobile-migration-v1]
+    paths:
+      - ".github/workflows/dialogue-forensic.yml"
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: mobile-migration-v1
+          fetch-depth: 1
+      - name: Inspect dialogue/event/choice structure
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          p=Path("Wayward_MOD_v3.36.html")
+          s=p.read_text(encoding="utf-8")
+          print("BYTES", len(s.encode("utf-8")))
+          print("CHARS", len(s))
+          print("LINES", s.count("\n")+1)
+          terms=[
+            "대화","이벤트","선택지","엘레나","dialogue","event","choice","choices",
+            "overflow-y-auto","overflow-auto","sticky","M36Mobile","interaction"
+          ]
+          for term in terms:
+            hits=[m.start() for m in re.finditer(re.escape(term),s,re.I)]
+            print(f"TERM {term!r} COUNT {len(hits)}")
+            for i,pos in enumerate(hits[:6]):
+              a=max(0,pos-900); b=min(len(s),pos+1400)
+              snippet=s[a:b].replace("\n"," ")
+              print(f"--- {term!r} #{i+1} pos={pos} ---")
+              print(snippet)
+          pats=[r'className:"[^"]*(?:choice|dialogue|event)[^"]*"']
+          for pat in pats:
+            ms=list(re.finditer(pat,s,re.I))
+            print("PATTERN",pat,"COUNT",len(ms))
+            for m in ms[:30]:
+              print(m.group(0))
+          PY
