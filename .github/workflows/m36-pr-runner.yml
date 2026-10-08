@@ -1,0 +1,138 @@
+name: m36 temporary PR runner
+
+on:
+  pull_request_target:
+    types: [opened, reopened, synchronize]
+
+permissions:
+  contents: write
+  pull-requests: read
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout target branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+          repository: ${{ github.event.pull_request.head.repo.full_name }}
+          fetch-depth: 1
+
+      - name: Apply targeted responsive patch
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re, sys
+
+          p = Path("Wayward_MOD_v3.36.html")
+          s = p.read_text(encoding="utf-8")
+
+          if 'id="m36-responsive-ui-20261009"' in s:
+              print("Responsive patch already present.")
+              raise SystemExit(0)
+
+          m = re.search(r'function p3e\([^}]+?\{.*?className:"mb-3 flex items-center gap-1\\.5"', s, re.S)
+          if not m:
+              print("p3e target not found")
+              raise SystemExit(1)
+          old_p = 'className:"mb-3 flex items-center gap-1.5"'
+          new_p = 'className:"m36-responsive-request mb-3 flex items-center gap-1.5"'
+          s = s[:m.start()] + s[m.start():].replace(old_p, new_p, 1)
+
+          m2 = re.search(r'function _3e\([^}]+?\{.*?className:"mb-3 flex items-center gap-1\\.5 flex-wrap"', s, re.S)
+          if not m2:
+              print("_3e target not found")
+              raise SystemExit(1)
+          old_r = 'className:"mb-3 flex items-center gap-1.5 flex-wrap"'
+          new_r = 'className:"m36-responsive-reasons mb-3 flex items-center gap-1.5 flex-wrap"'
+          s = s[:m2.start()] + s[m2.start():].replace(old_r, new_r, 1)
+
+          css = r'''
+<style id="m36-responsive-ui-20261009">
+@media (max-width: 700px) {
+  .m36-responsive-request {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    align-items: center !important;
+    gap: 4px !important;
+    margin-bottom: 8px !important;
+  }
+  .m36-responsive-request > button {
+    flex: 1 1 auto !important;
+    min-width: 0 !important;
+    white-space: nowrap !important;
+    padding: 7px 9px !important;
+    min-height: 34px !important;
+    line-height: 1.1 !important;
+    font-size: clamp(0.72rem, 3.2vw, 0.84rem) !important;
+  }
+  .m36-responsive-reasons {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    align-items: center !important;
+    gap: 4px !important;
+    margin-bottom: 8px !important;
+  }
+  .m36-responsive-reasons > span {
+    flex: 0 0 auto !important;
+    margin-right: 2px !important;
+    white-space: nowrap !important;
+  }
+  .m36-responsive-reasons > button {
+    flex: 0 1 auto !important;
+    min-width: 0 !important;
+    white-space: nowrap !important;
+    padding: 6px 8px !important;
+    min-height: 32px !important;
+    line-height: 1.1 !important;
+    font-size: clamp(0.68rem, 3vw, 0.8rem) !important;
+  }
+}
+</style>
+'''
+          i = s.find("</head>")
+          if i < 0:
+              print("</head> not found")
+              raise SystemExit(1)
+          s = s[:i] + css + "\n" + s[i:]
+          p.write_text(s, encoding="utf-8")
+          print("Patch applied.")
+          PY
+
+      - name: Validate
+        run: |
+          git diff --check
+          grep -q 'm36-responsive-ui-20261009' Wayward_MOD_v3.36.html
+          grep -q 'm36-responsive-request' Wayward_MOD_v3.36.html
+          grep -q 'm36-responsive-reasons' Wayward_MOD_v3.36.html
+          echo "Validation: PASS"
+
+      - name: Push patch and remove obsolete branch runner
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add Wayward_MOD_v3.36.html
+          if [ -f ".github/workflows/m36-responsive-ui-patch.yml" ]; then
+            git rm ".github/workflows/m36-responsive-ui-patch.yml"
+          fi
+          git commit -m "fix(mobile): improve responsive control spacing"
+          git push origin HEAD:${{ github.event.pull_request.head.ref }}
+
+      - name: Remove temporary PR runner from main
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git fetch origin main
+          git checkout -B main origin/main
+          if [ -f ".github/workflows/m36-pr-runner.yml" ]; then
+            git rm ".github/workflows/m36-pr-runner.yml"
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git commit -m "chore: remove temporary PR runner"
+            git push origin main
+          fi
