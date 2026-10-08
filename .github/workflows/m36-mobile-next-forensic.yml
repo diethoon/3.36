@@ -1,0 +1,41 @@
+name: m36-mobile-next-forensic
+on:
+  push:
+    branches: [mobile-migration-v1]
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Targeted mobile UI scan
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          s=Path("Wayward_MOD_v3.36.html").read_text(encoding="utf-8",errors="ignore")
+          specs=[
+            ("person-card", ["function _Oe","_Oe({customer","customer:e}","소지금 파악","모바일"]),
+            ("tabs", ["이야기","가게","엘레나","탭","tab"]),
+            ("disabled-choice", ["disabled:","disabled=", "완료됨","시간이 지났","시간 종료","늦음","선택지"]),
+            ("outings", ["외출","마을 둘러보기","둘러보기"]),
+          ]
+          for name, needles in specs:
+            print(f"\\n===== {name} =====")
+            seen=set()
+            count=0
+            for n in needles:
+              pos=0
+              while True:
+                i=s.find(n,pos)
+                if i<0: break
+                key=(i,n)
+                if key not in seen:
+                  seen.add(key); count+=1
+                  print(f"\\n--- {n} @ {i} ---\\n{s[max(0,i-2800):min(len(s),i+5200)]}")
+                pos=i+1
+                if count>=8: break
+              if count>=8: break
+            print(f"\\ncount={count}")
+          PY
