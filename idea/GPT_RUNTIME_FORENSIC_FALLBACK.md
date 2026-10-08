@@ -89,7 +89,67 @@
 
 ## 3. 우회 경로 선택 순서
 
-기본 선택 순서는 다음과 같다.
+### 3-A. 2026-10-08 CURRENT — Render direct runtime을 Actions 장애 시 우선 사용
+
+GitHub Actions가 정상 기동하지 않거나 `jobs=[]`, runner unavailable, connector UNKNOWN 상태가 반복되면 **Actions를 무한 재시도하지 않는다.**
+
+실제 실행 증거가 필요한 경우 다음 순서로 전환한다.
+
+    A. Render exact-commit direct runtime
+            ↓
+    B. Vercel existing project / exact deployment
+            ↓
+    C. Vercel Sandbox isolated runtime
+            ↓
+    D. GitHub Actions CI/forensic fallback
+            ↓
+    E. static/targeted forensic inspection only
+
+Render가 연결되어 있고 실제 shell/service 실행이 가능한 경우, 이것을 **Production-code runtime evidence를 얻는 우선 우회 경로**로 취급한다.
+
+Render 검증의 핵심은 특정 프로젝트명이나 다른 저장소에서 쓰던 환경변수 이름을 복사하는 것이 아니라 다음 원칙을 Wayward에 적용하는 것이다.
+
+    Exact target SHA checkout
+    → 실제 Render runtime/service의 checkout SHA 재확인
+    → 실제 start/harness command를 같은 shell에서 직접 실행
+    → stdout/stderr 원문 보존
+    → process EXITCODE를 정확히 기록
+    → 필요 시 실제 browser/page load + UI interaction 수행
+    → runtime marker와 process exitcode를 별도 판정
+    → Render deploy/service 상태도 별도 기록
+
+중요:
+
+    PORT는 Render가 제공하는 실제 PORT를 사용한다.
+    Wayward에 존재하지 않는 VEIL_PORT 같은 외부 프로젝트 전용 변수는 도입하지 않는다.
+    특정 LLM marker도 Wayward에 실제 존재하지 않으면 복사하지 않는다.
+    필요한 secret은 Render 환경변수/secret manager에만 두고 로그나 evidence에 값 자체를 남기지 않는다.
+
+### 3-B. Actions 장애 전환 규칙
+
+Actions가 다음 상태면 코드 실패로 단정하지 않는다.
+
+    jobs=[]
+    workflow not started
+    runner unavailable
+    logs unavailable
+    connector UNKNOWN
+
+이 경우:
+
+    CI execution infrastructure = UNKNOWN
+
+으로 기록하고 Render direct runtime으로 전환한다.
+
+단, Actions가 실제 job을 실행하고 raw log + exitcode가 확보되면 그 결과는 CI evidence로 사용할 수 있다. CI 결과와 Production Runtime 결과는 서로 대체하지 않는다.
+
+<!--
+LEGACY / OBSOLETE — 2026-10-08
+이전 문서의 Actions-first / Vercel-first 우선순위는 더 이상 기본값이 아니다.
+기존 절차는 역사적 호환성과 fallback 참고용으로만 보존한다.
+-->
+
+기존 우선순위:
 
     A. GitHub Actions exact-head runtime
             ↓
@@ -103,7 +163,48 @@
 
 ---
 
-## 4. GitHub Actions — 기본 runtime 우회
+## 3-C. Render direct runtime 운영 규칙 — Wayward 전용
+
+Render를 사용할 때는 다음을 evidence의 최소 단위로 취급한다.
+
+    requested target SHA
+    runtime checkout SHA
+    runtime command
+    process EXITCODE
+    runtime PASS marker (실제로 존재하는 경우에만)
+    raw stdout
+    raw stderr
+    Render service/deploy state
+
+판정 규칙:
+
+    requested target SHA != runtime checkout SHA
+        → exact-head runtime evidence 불인정
+
+    process EXITCODE != 0
+        → process failure로 기록하되 ROOT CAUSE는 별도 조사
+
+    process EXITCODE == 0
+        → process PASS일 뿐 UI/runtime PASS가 아님
+
+    runtime marker PASS
+        → 해당 marker가 실제 Wayward runtime에서 생성되었을 때만 인정
+
+    Render deploy READY
+        → deployment state일 뿐 application runtime PASS가 아님
+
+secret 값은 환경변수에 주입하되 stdout/stderr/evidence/commit에는 기록하지 않는다.
+
+---
+
+## 4. GitHub Actions — CI/Forensic Fallback (기본 Production Runtime 아님)
+
+<!--
+LEGACY / OBSOLETE — 2026-10-08
+기존 제목의 "기본 runtime 우회" 표현은 폐기한다.
+Actions는 실제 job이 정상 실행될 때의 CI/forensic evidence 경로이며,
+Actions가 죽었을 때는 Render direct runtime으로 전환한다.
+-->
 
 ### 4.1 일반적인 경우
 
@@ -182,7 +283,34 @@ GitHub connector가 workflow dispatch를 직접 제공하지 않거나 실행 �
 
     CI execution infrastructure = UNKNOWN
 
-으로 기록하고 Vercel/Sandbox 또는 정밀 정적 포렌식 경로로 전환한다.
+으로 기록한다.
+
+기본 전환:
+
+    Actions 장애
+    → Render exact-commit direct runtime
+    → 실제 runtime evidence 확보
+    → 필요하면 Vercel/Sandbox로 보조 검증
+
+Actions가 실제로 실행되었다면 다음을 별도로 보존한다.
+
+    1. Harness process EXITCODE
+    2. Runtime PASS marker
+    3. Render/Preview/Deployment service state
+
+**세 값이 모두 같은 의미가 아니다.**
+
+특히 실행 명령은 외부 kill/timeout wrapper가 최종 종료코드를 바꾸는 방식으로 감싸지 않는다. 반드시 같은 shell에서 직접 실행하고:
+
+    set +e
+    <actual command> > evidence/stdout.txt 2> evidence/stderr.txt
+    rc=$?
+    echo "$rc" > evidence/exitcode.txt
+    exit "$rc"
+
+형태로 process exitcode를 보존한다.
+
+0이 기록되었다고 해서 UI/runtime PASS로 단정하지 않는다. 반대로 runtime marker가 없다고 해서 process exitcode만 보고 즉시 code failure로 단정하지 않는다.
 
 ---
 
@@ -474,21 +602,40 @@ PAT를 clone URL이나 command argument에 넣지 않는다.
 
 ---
 
-## 12-B. 대형 단일 HTML 수정 — 외부 Sandbox / Render 우선
+## 12-B. 대형 단일 HTML 수정 — Render direct runtime 우선
 
 19MB급 단일 HTML은 GitHub connector의 fetch_file/context 경로로 통째로 읽지 않는다. **파일 바이트를 직접 다룰 수 있는 외부 실행환경**을 사용한다.
 
-권장 우선순위:
+2026-10-08 현재 실제 runtime 검증 우선순위:
 
-    A. Vercel Sandbox / 동등한 disposable sandbox
+    A. 이미 연결된 Render Web Service / shell / direct runtime
             ↓
-    B. 이미 연결된 Render shell/service 등 외부 실행환경
+    B. 기존 Vercel project / exact deployment
             ↓
-    C. GitHub Actions runner
+    C. Vercel Sandbox / 동등한 disposable sandbox
             ↓
-    D. targeted static forensic only
+    D. GitHub Actions runner
+            ↓
+    E. targeted static forensic only
 
-여기서 Sandbox/Render는 '검증만' 하는 것이 아니라 대형 파일의 materialize / split / patch / validation에도 사용할 수 있다.
+<!--
+LEGACY / OBSOLETE — 2026-10-08
+과거의 "Vercel Sandbox / 동등한 disposable sandbox" 우선순위는
+Actions 장애 대응용 기본값이 아니다.
+Render direct runtime이 가능한 경우 Render를 먼저 사용한다.
+-->
+
+Render는 여기서 단순 배포 상태 확인용이 아니라:
+
+    exact source checkout
+    → split/targeted forensic
+    → patch
+    → node --check / diff --check
+    → 실제 server/process runtime
+    → 실제 page load / UI interaction
+
+까지 수행할 수 있는 외부 실행환경으로 취급한다.
+
 
 ### 12-B-1. Exact source 확보
 
@@ -932,19 +1079,33 @@ CSS 때문에 2열/겹침이 발생하면 React/렌더링 로직까지 불필요
     - node --check
     - git diff --check
 
+    PROCESS:
+    - actual harness/start command
+    - process EXITCODE
+    - raw stdout/stderr
+
     RUNTIME:
+    - exact runtime checkout SHA
     - actual page load
     - target UI interaction
     - actual action dispatch/result
     - browser/runtime console errors
 
+    DEPLOYMENT:
+    - Render service/deploy state
+    - Vercel deployment state (사용한 경우)
+
 다음은 동일하지 않다.
 
     node --check PASS
     !=
+    process EXITCODE 0
+    !=
     page load PASS
     !=
     mobile UI PASS
+    !=
+    Deployment READY
 
 ---
 
@@ -1007,6 +1168,9 @@ MANIFEST에는 최소:
     runtimeHeadSha
     deploymentId
     runtimeEnvironment
+    runtimeCommand
+    processExitCode
+    runtimeMarker
     result
     codeModified
 
@@ -1129,10 +1293,41 @@ Temporary infrastructure가 final production branch에 남아 있으면 작업 �
     3. 왼쪽 가게 탭의 실제 guest action renderer와 대조
     4. 최소 patch 작성
     5. node --check / diff --check
-    6. PR-triggered Actions 또는 기존 Vercel runtime 경로로 실제 검증
-    7. final diff가 HTML 한 파일인지 확인
-    8. temporary workflow 제거
-    9. final HEAD 확인
+    6. Render direct runtime에서 exact commit checkout SHA 재확인
+    7. 같은 shell에서 실제 start/harness command 실행
+    8. stdout/stderr/exitcode + 필요한 실제 page load/UI interaction 확보
+    9. Actions가 정상일 경우 CI evidence를 보조 확인하고, 장애면 반복 재시도하지 않음
+    10. final diff가 HTML 한 파일인지 확인
+    11. temporary workflow / runtime helper 제거
+    12. final HEAD 확인
+
+### 26-A. Actions dead / jobs=[]일 때 실제 전환 절차
+
+    Actions healthy
+        → Actions CI evidence 확보
+        → 필요 시 Render runtime으로 추가 검증
+
+    Actions jobs=[] / runner unavailable / workflow not started
+        → UNKNOWN 판정
+        → 동일 workflow 반복 재시도 중단
+        → Render에서 Exact target SHA checkout
+        → runtime checkout SHA == requested target SHA 확인
+        → 실제 command를 같은 shell에서 직접 실행
+        → stdout/stderr/exitcode 보존
+        → 실제 page load + 필요한 interaction 수행
+        → Render service/deploy state는 별도 기록
+        → 최종 verdict 작성
+
+Render에서도 exact SHA가 확인되지 않으면 runtime evidence를 해당 target의 증거로 채택하지 않는다.
+
+Render runtime을 사용할 때도 다른 프로젝트에서 가져온:
+
+    VEIL_PORT
+    Upstash 전용 변수
+    VEIL PRODUCTION CORE PIPELINE RUNTIME EOF: PASS
+
+등의 명칭을 Wayward에 임의 도입하지 않는다. Wayward에 실제 존재하는 server/harness/marker만 사용한다.
+
 
 문서 자체는 runtime 결과가 아니다. 문서에 적힌 절차를 실제 실행하고 실제 evidence를 확보해야 한다.
 
