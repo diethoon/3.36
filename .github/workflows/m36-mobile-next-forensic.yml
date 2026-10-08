@@ -41,9 +41,9 @@ jobs:
           if s.count(old)!=1: raise SystemExit("room customer render anchor != 1")
           s=s.replace(old,new)
 
-          s2=re.sub(r'(\.m36-mobile-tabs\s*>\s*button\{[^}]*?)font-size:(?:\.52|\.56)rem !important;',r'\1font-size:clamp(.75rem,3.4vw,1rem) !important;',s,flags=re.S)
-          if s2==s: raise SystemExit("mobile tab font-size rule not found")
-          s=s2
+          if ".m36-mobile-tabs > button" not in s: raise SystemExit("mobile tab selector not found")
+          s=s.replace("font-size:.52rem !important;","font-size:clamp(.75rem,3.4vw,1rem) !important;").replace("font-size:.56rem !important;","font-size:clamp(.75rem,3.4vw,1rem) !important;")
+          s=s
 
           xe_pat=r'function Xe\(\{label:e,description:t,time:o,disabled:n,done:s,onClick:r,primary:a,secondary:i,hotkey:l\}\).*?function el\('
           xe=re.search(xe_pat,s,flags=re.S)
