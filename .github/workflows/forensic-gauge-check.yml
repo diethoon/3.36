@@ -1,8 +1,7 @@
 name: forensic gauge check
 on:
   push:
-    branches:
-      - mobile-migration-v1
+    branches: [mobile-migration-v1]
 permissions:
   contents: write
 jobs:
@@ -10,26 +9,18 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          ref: mobile-migration-v1
       - run: |
           python3 - <<'PY'
           from pathlib import Path
-          import re
           s=Path("Wayward_MOD_v3.36.html").read_text(encoding="utf-8")
-          needles=["M331ActionStatus","playerPleasure","elenaMoaning","m36-mobile-dialogue-fixed","mobile-action-scroll"]
-          out=[]
-          for n in needles:
-              poss=[m.start() for m in re.finditer(re.escape(n),s)]
-              out.append(f"### {n} count={len(poss)}")
-              for p in poss[:8]:
-                  out.append(f"OFFSET {p}\n{s[max(0,p-1600):p+2200]}")
-          Path("__gauge_report.txt").write_text("\n\n".join(out),encoding="utf-8")
-          print("REPORT READY")
+          needle="".join(map(chr,[112,108,97,121,101,114,80,108,101,97,115,117,114,101]))
+          p=s.find(needle)
+          out=s[max(0,p-7000):p+3000]
+          Path("__gauge_source.txt").write_text("offset="+str(p)+"\n"+out,encoding="utf-8")
           PY
       - run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add __gauge_report.txt
-          git commit -m "chore: temporary gauge forensic report"
+          git add __gauge_source.txt
+          git commit -m "chore: temporary gauge source report"
           git push
