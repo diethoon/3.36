@@ -3,6 +3,9 @@ on:
   push:
     branches: [mobile-migration-v1]
   workflow_dispatch:
+  pull_request:
+    branches: [main]
+    types: [synchronize]
 jobs:
   probe:
     runs-on: ubuntu-latest
