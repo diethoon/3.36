@@ -1,0 +1,170 @@
+name: m36-fix-disabled-choices
+
+on:
+  push:
+    branches: [mobile-migration-v1]
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: mobile-migration-v1
+
+      - name: Patch mobile disabled choice rows
+        shell: bash
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+          import re
+          import subprocess
+
+          html_path = Path("Wayward_MOD_v3.36.html")
+          s = html_path.read_text(encoding="utf-8")
+
+          marker = '<script id="m36-mobile-next-ui-script">'
+          start = s.find(marker)
+          if start < 0:
+              raise SystemExit("target script marker not found")
+
+          body_start = start + len(marker)
+          body_end = s.find("</script>", body_start)
+          if body_end < 0:
+              raise SystemExit("target script closing tag not found")
+
+          new_js = r'''(()=>{
+            const mq=window.matchMedia("(max-width:1023px)");
+            const root=()=>document.querySelector(".mobile-layout");
+            const norm=v=>String(v||"").replace(/\s+/g," ").trim();
+            const META=/(?:\b무료\b|\d+\s*골드|\d+\s*(?:분|시간)|오후\s*\d+시|·|•|완료|종료|마감|끝났|시간 부족|사용 불가|이용 불가|영업 전)/;
+
+            function cleanLabel(v){
+              let x=norm(v);
+              x=x.replace(/\s*[·•]\s*.*/,"");
+              x=x.replace(/\s*(?:무료|\d+\s*골드).*/,"");
+              x=x.replace(/\s*\d+\s*(?:분|시간).*/,"");
+              x=x.replace(/\s*오후\s*\d+시.*/,"");
+              x=x.replace(/(?:완료|종료|마감|끝났|시간 부족|사용 불가|이용 불가|영업 전).*/,"");
+              return norm(x);
+            }
+
+            function choiceLabel(btn){
+              const candidates=[...btn.querySelectorAll("span,strong,b")].map(el=>norm(el.textContent)).filter(Boolean);
+              for(const text of candidates){
+                const cleaned=cleanLabel(text);
+                if(cleaned && cleaned.length<=60 && !META.test(cleaned)) return cleaned;
+              }
+              const fallback=cleanLabel(btn.textContent);
+              return fallback||"선택지";
+            }
+
+            function choiceStatus(text){
+              const x=norm(text);
+              if(/완료/.test(x)) return "완료";
+              if(/오후\s*5시|영업\s*(?:전|시간)/.test(x)) return "영업 전";
+              if(/늦|시간이 부족|시간\s*없|너무 늦/.test(x)) return "시간 부족";
+              if(/종료|마감|끝났/.test(x)) return "종료";
+              if(/없습니다|없어요|방 안에/.test(x)) return "이용 불가";
+              return "사용 불가";
+            }
+
+            function renderDisabled(){
+              const r=root();
+              if(!r||!mq.matches) return;
+              r.querySelectorAll("button:disabled").forEach(btn=>{
+                if(btn.dataset.m36DisabledChoice==="1") return;
+                const row=document.createElement("div");
+                row.className="m36-mobile-disabled-choice";
+                row.setAttribute("role","status");
+                const left=document.createElement("span");
+                left.className="m36-mobile-disabled-choice-label";
+                left.textContent=choiceLabel(btn);
+                const right=document.createElement("span");
+                right.className="m36-mobile-disabled-choice-status";
+                right.textContent=choiceStatus(btn.textContent);
+                row.append(left,right);
+                btn.replaceWith(row);
+              });
+            }
+
+            function bindCategories(){
+              const r=root();
+              if(!r) return;
+              r.querySelectorAll("h4").forEach(h=>{
+                const title=norm(h.textContent).replace(/^[▸▾]\s*/,"");
+                const isOutside=title==="외출";
+                const isVillage=title.startsWith("마을 둘러보기");
+                if(!(isOutside||isVillage)) return;
+                const list=h.nextElementSibling;
+                if(!list) return;
+                if(!mq.matches){
+                  h.style.cursor="";
+                  h.style.userSelect="";
+                  h.onclick=null;
+                  list.style.display="";
+                  const arrow=h.querySelector(".m36-category-arrow");
+                  if(arrow) arrow.remove();
+                  return;
+                }
+                if(h.dataset.m36CategoryBound==="1") return;
+                h.dataset.m36CategoryBound="1";
+                h.style.cursor="pointer";
+                h.style.userSelect="none";
+                const arrow=document.createElement("span");
+                arrow.className="m36-category-arrow";
+                arrow.textContent=" ▸";
+                h.appendChild(arrow);
+                list.style.display="none";
+                h.onclick=()=>{
+                  const open=list.style.display!=="none";
+                  list.style.display=open?"none":"";
+                  arrow.textContent=open?" ▸":" ▾";
+                };
+              });
+            }
+
+            let ticking=false;
+            function sync(){
+              if(ticking) return;
+              ticking=true;
+              queueMicrotask(()=>{
+                ticking=false;
+                if(!mq.matches){
+                  document.querySelectorAll(".m36-mobile-disabled-choice").forEach(row=>row.remove());
+                }else{
+                  renderDisabled();
+                }
+                bindCategories();
+              });
+            }
+
+            const observer=new MutationObserver(sync);
+            observer.observe(document.body,{childList:true,subtree:true,attributes:true,attributeFilter:["disabled"]});
+            mq.addEventListener?.("change",sync);
+            sync();
+          })();'''
+
+          s = s[:body_start] + new_js + s[body_end:]
+          html_path.write_text(s, encoding="utf-8")
+
+          js_path = Path("/tmp/m36-mobile-next-ui.js")
+          js_path.write_text(new_js, encoding="utf-8")
+          subprocess.run(["node","--check",str(js_path)], check=True)
+          print("validated m36-mobile-next-ui-script")
+          PY
+
+      - name: Diff check
+        run: git diff --check
+
+      - name: Commit patch and remove temporary workflow
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add Wayward_MOD_v3.36.html .github/workflows/m36-fix-disabled-choices.yml
+          git commit -m "fix(mobile): clean up disabled choice rows"
+          git push origin HEAD:mobile-migration-v1
