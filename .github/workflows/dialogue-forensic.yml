@@ -15,33 +15,24 @@ jobs:
         with:
           ref: mobile-migration-v1
           fetch-depth: 1
-      - name: Inspect dialogue/event/choice structure
+      - name: Focused dialogue choice forensic
         shell: bash
         run: |
           python3 - <<'PY'
           from pathlib import Path
           import re
-          p=Path("Wayward_MOD_v3.36.html")
-          s=p.read_text(encoding="utf-8")
-          print("BYTES", len(s.encode("utf-8")))
-          print("CHARS", len(s))
-          print("LINES", s.count("\n")+1)
-          terms=[
-            "대화","이벤트","선택지","엘레나","dialogue","event","choice","choices",
-            "overflow-y-auto","overflow-auto","sticky","M36Mobile","interaction"
-          ]
+          s=Path('Wayward_MOD_v3.36.html').read_text(encoding='utf-8')
+          terms=['pendingEvent','m313Acknowledgement','resolve_event','patron_interaction_choice','choiceId','choice','choices','M36Mobile']
           for term in terms:
-            hits=[m.start() for m in re.finditer(re.escape(term),s,re.I)]
-            print(f"TERM {term!r} COUNT {len(hits)}")
-            for i,pos in enumerate(hits[:6]):
-              a=max(0,pos-900); b=min(len(s),pos+1400)
-              snippet=s[a:b].replace("\n"," ")
-              print(f"--- {term!r} #{i+1} pos={pos} ---")
-              print(snippet)
-          pats=[r'className:"[^"]*(?:choice|dialogue|event)[^"]*"']
-          for pat in pats:
-            ms=list(re.finditer(pat,s,re.I))
-            print("PATTERN",pat,"COUNT",len(ms))
-            for m in ms[:30]:
-              print(m.group(0))
+            hits=[m.start() for m in re.finditer(re.escape(term),s)]
+            print(f'=== {term} COUNT {len(hits)} ===')
+            for i,pos in enumerate(hits[:8]):
+              a=max(0,pos-1800); b=min(len(s),pos+3200)
+              print(f'--- {i+1} pos={pos} ---')
+              print(s[a:b].replace('\n',' '))
+          print('=== FUNCTION DECLARATIONS NEAR CHOICE TERMS ===')
+          for m in re.finditer(r'function\s+[A-Za-z_$][\w$]*\([^)]*\)',s):
+            name=m.group(0)
+            if any(x.lower() in name.lower() for x in ['choice','dialog','event','acknow','conversation']):
+              print(name, 'pos=', m.start())
           PY
