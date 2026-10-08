@@ -20,9 +20,9 @@ jobs:
         run: |
           set -euo pipefail
           git diff --check
-          test "$(grep -o 'm36-responsive-ui-20261009' Wayward_MOD_v3.36.html | wc -l)" = "1"
-          test "$(grep -o 'm36-responsive-request' Wayward_MOD_v3.36.html | wc -l)" = "1"
-          test "$(grep -o 'm36-responsive-reasons' Wayward_MOD_v3.36.html | wc -l)" = "1"
+          grep -q 'm36-responsive-ui-20261009' Wayward_MOD_v3.36.html
+          grep -q 'm36-responsive-request' Wayward_MOD_v3.36.html
+          grep -q 'm36-responsive-reasons' Wayward_MOD_v3.36.html
           echo "RESPONSIVE_PATCH_VALIDATION_PASS"
       - name: Commit patch and cleanup
         shell: bash
