@@ -1,5 +1,4 @@
 from pathlib import Path
-import re
 
 p=Path("Wayward_MOD_v3.36.html")
 s=p.read_text(encoding="utf-8")
@@ -14,42 +13,46 @@ for a,b in {
 }.items():
     s=s.replace(a,b)
 
-new='''.m36-responsive-reasons{
-    display:flex!important;
-    flex-wrap:wrap!important;
-    align-items:center!important;
-    gap:4px!important;
-    margin-bottom:8px!important;
-  }
-  .m36-responsive-reasons>span{
-    flex:0 0 auto!important;
-    white-space:nowrap!important;
-    margin:0 2px 0 0!important;
-  }
-  .m36-responsive-reasons>button{
-    flex:0 0 auto!important;
-    min-width:0!important;
-    box-sizing:border-box!important;
-    white-space:nowrap!important;
-    padding:6px 6px!important;
-    min-height:32px!important;
-    line-height:1.1!important;
-    font-size:clamp(.68rem,3vw,.8rem)!important;
-  }'''
+needle=".m36-responsive-reasons{"
+pos=0
+blocks=0
+while True:
+    i=s.find(needle,pos)
+    if i < 0:
+        break
+    end=s.find("</style>",i)
+    if end < 0:
+        raise SystemExit("responsive reason style block is unterminated")
+    block=s[i:end]
+    block=block.replace("display:grid!important;","display:flex!important;")
+    block=block.replace("grid-template-columns:repeat(2,minmax(0,1fr))!important;","")
+    block=block.replace("grid-column:1 / -1!important;","")
+    block=block.replace("width:100%!important;","")
+    block=block.replace("overflow:hidden!important;","")
+    block=block.replace("text-overflow:clip!important;","")
+    block=block.replace("align-items:stretch!important;","align-items:center!important;")
+    block=block.replace("margin:0 0 1px 0!important;","margin:0 2px 0 0!important;")
+    block=block.replace(
+        "padding:6px 6px!important;\n    min-height:32px!important;",
+        "padding:6px 6px!important;\n    min-height:32px!important;"
+    )
+    block=block.replace(
+        ".m36-responsive-reasons>button{\n    min-width:0!important;",
+        ".m36-responsive-reasons>button{\n    flex:0 0 auto!important;\n    min-width:0!important;"
+    )
+    s=s[:i]+block+s[end:]
+    pos=i+len(block)
+    blocks+=1
 
-pattern=r'(?s).m36-responsive-reasons{.*?}s*.m36-responsive-reasons>span{.*?}s*.m36-responsive-reasons>button{.*?}'
-s2,n=re.subn(pattern,new,s)
-if n < 1:
-    raise SystemExit("no responsive reason CSS blocks found")
-s=s2
+if blocks < 1:
+    raise SystemExit("no responsive reason style block found")
 
 for needle in ['label:"부탁"','label:"접대"','label:"골드"','label:"호기심"']:
     if needle not in s:
         raise SystemExit("missing compact label: "+needle)
 
-for m in re.finditer(r'(?s).m36-responsive-reasons{.*?}(?:s*.m36-responsive-reasons>span{.*?})?(?:s*.m36-responsive-reasons>button{.*?})?',s):
-    if 'grid-template-columns:' in m.group(0):
-        raise SystemExit("reason grid still present")
+if "grid-template-columns:repeat(2,minmax(0,1fr))!important;" in s:
+    raise SystemExit("reason grid declaration still present")
 
 p.write_text(s,encoding="utf-8")
-print("COMPACT_LAYOUT_READY_BLOCKS",n)
+print("COMPACT_LAYOUT_READY_BLOCKS",blocks)
