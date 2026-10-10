@@ -5515,18 +5515,20 @@ END_WAYWARD_MOD_PARENT_3_25_EXTENSION_GUIDE -->
 <style id="m36-mobile-next-ui-v1">
 .m36-mobile-disabled-choice{
   position:relative!important;
-  display:grid!important;
-  grid-template-columns:minmax(0,1fr) auto!important;
-  align-items:center!important;
-  gap:.5rem!important;
+  display:block!important;
   width:100%!important;
   min-width:0!important;
   min-height:1.9rem!important;
+  margin:.08rem 0!important;
   padding:.32rem .5rem!important;
+  border:1px solid rgb(68 64 60)!important;
+  border-radius:.45rem!important;
+  background:rgba(28,25,23,.72)!important;
+  color:rgb(120 113 108)!important;
   text-align:left!important;
   font-size:0!important;
   line-height:1.2!important;
-  opacity:.58!important;
+  opacity:.62!important;
   overflow:hidden!important;
   white-space:nowrap!important;
 }
@@ -5538,159 +5540,185 @@ END_WAYWARD_MOD_PARENT_3_25_EXTENSION_GUIDE -->
   overflow:hidden!important;
   text-overflow:ellipsis!important;
   white-space:nowrap!important;
-  font-size:.74rem!importa(()=>{
-  const mq=window.matchMedia("(max-width:1023px)");
-  const root=()=>document.querySelector(".mobile-layout");
-  const norm=v=>String(v||"").trim().split(String.fromCharCode(10)).join(" ").split(String.fromCharCode(9)).join(" ");
+  font-size:.74rem!important;
+  line-height:1.2!important;
+}
+@media(min-width:1024px){
+  .m36-mobile-disabled-choice{font-size:inherit!important;opacity:1!important;}
+  .m36-mobile-disabled-choice > *{display:revert!important;}
+  .m36-mobile-disabled-choice::before{content:none!important;}
+}
+</style>
+<script id="m36-mobile-next-ui-script">
+(() => {
+  const mq = window.matchMedia("(max-width:1023px)");
+  const root = () => document.querySelector(".mobile-layout");
+  const norm = value => String(value || "").replace(/\s+/g, " ").trim();
 
-  function cutAtNumberToken(x,token){
-    const idx=x.indexOf(token);
-    if(idx<0) return x;
-    let start=idx;
-    const digits="0123456789 ";
-    while(start>0 && digits.includes(x[start-1])) start--;
-    return x.slice(0,start);
+  function cutAtNumberToken(text, token) {
+    const idx = text.indexOf(token);
+    if (idx < 0) return text;
+    let start = idx;
+    const allowed = "0123456789 ";
+    while (start > 0 && allowed.includes(text[start - 1])) start--;
+    return text.slice(0, start);
   }
 
-  function cleanLabel(v){
-    let x=norm(v);
-    const cuts=["·","•","무료","영업 전","시간 부족","시간이 부족","사용 불가","이용 불가","완료","종료","마감","끝났","오후"];
-    let cut=x.length;
-    for(const token of cuts){
-      const idx=x.indexOf(token);
-      if(idx>=0 && idx<cut) cut=idx;
+  function cleanLabel(value) {
+    let text = norm(value);
+    const cuts = ["·", "•", "무료", "영업 전", "시간 부족", "시간이 부족",
+      "사용 불가", "이용 불가", "완료", "종료", "마감", "끝났", "오후"];
+    let cut = text.length;
+    for (const token of cuts) {
+      const idx = text.indexOf(token);
+      if (idx >= 0 && idx < cut) cut = idx;
     }
-    x=x.slice(0,cut);
-    x=cutAtNumberToken(x,"골드");
-    x=cutAtNumberToken(x,"분");
-    x=cutAtNumberToken(x,"시간");
-    return norm(x);
+    text = text.slice(0, cut);
+    text = cutAtNumberToken(text, "골드");
+    text = cutAtNumberToken(text, "분");
+    text = cutAtNumberToken(text, "시간");
+    return norm(text);
   }
 
-  function choiceLabel(btn){
-    const candidates=[...btn.querySelectorAll("span,strong,b")].map(el=>norm(el.textContent)).filter(Boolean);
-    for(const text of candidates){
-      const cleaned=cleanLabel(text);
-      if(cleaned && cleaned.length<=60) return cleaned;
+  function choiceLabel(button) {
+    const candidates = [...button.querySelectorAll("span,strong,b")]
+      .map(el => norm(el.textContent)).filter(Boolean);
+    for (const candidate of candidates) {
+      const cleaned = cleanLabel(candidate);
+      if (cleaned && cleaned.length <= 60) return cleaned;
     }
-    return cleanLabel(btn.textContent)||"선택지";
+    return cleanLabel(button.textContent) || "선택지";
   }
 
-  function choiceStatus(text){
-    const x=norm(text);
-    if(x.includes("완료")) return "완료";
-    if(x.includes("오후 5시")||x.includes("영업 전")||x.includes("영업시간")) return "영업 전";
-    if(x.includes("시간이 부족")||x.includes("시간 부족")||x.includes("시간이 너무")||x.includes("너무 늦")||x.includes("늦었습니다")) return "시간 부족";
-    if(x.includes("종료")||x.includes("마감")||x.includes("끝났")) return "종료";
-    if(x.includes("없습니다")||x.includes("없어요")||x.includes("방 안에")) return "이용 불가";
+  function choiceStatus(value) {
+    const text = norm(value);
+    if (text.includes("완료")) return "완료";
+    if (text.includes("오후 5시") || text.includes("영업 전") || text.includes("영업시간")) return "영업 전";
+    if (text.includes("시간이 부족") || text.includes("시간 부족") ||
+        text.includes("시간이 너무") || text.includes("너무 늦") || text.includes("늦었습니다")) return "시간 부족";
+    if (text.includes("종료") || text.includes("마감") || text.includes("끝났")) return "종료";
+    if (text.includes("없습니다") || text.includes("없어요") || text.includes("방 안에")) return "이용 불가";
     return "사용 불가";
   }
 
-  function clearButton(btn){
-    btn.classList.remove("m36-mobile-disabled-choice");
-    btn.removeAttribute("data-m36-disabled-choice-label");
-    btn.removeAttribute("data-m36-disabled-choice-status");
+  function clearButton(button) {
+    button.classList.remove("m36-mobile-disabled-choice");
+    button.removeAttribute("data-m36-disabled-choice-label");
+    button.removeAttribute("data-m36-disabled-choice-status");
   }
 
-  function renderDisabled(){
-    const r=root();
-    if(!r) return;
-    if(!mq.matches){
-      r.querySelectorAll("button.m36-mobile-disabled-choice").forEach(clearButton);
+  function renderDisabled() {
+    const container = root();
+    if (!container) return;
+    if (!mq.matches) {
+      container.querySelectorAll("button.m36-mobile-disabled-choice").forEach(clearButton);
       return;
     }
-    r.querySelectorAll("button:disabled").forEach(btn=>{
-      btn.classList.add("m36-mobile-disabled-choice");
-      btn.setAttribute("data-m36-disabled-choice-label",choiceLabel(btn));
-      btn.setAttribute("data-m36-disabled-choice-status",choiceStatus(btn.textContent));
-    });
-    r.querySelectorAll("button.m36-mobile-disabled-choice:not(:disabled)").forEach(clearButton);
-  }
-
-  function bindCategories(){
-    const r=root();
-    if(!r) return;
-    r.querySelectorAll("h4").forEach(h=>{
-      const title=norm(h.textContent).split("▸").join("").split("▾").join("").trim();
-      const isOutside=title==="외출";
-      const isVillage=title.indexOf("마을 둘러보기")===0;
-      if(!(isOutside||isVillage)) return;
-      const list=h.nextElementSibling;
-      if(!list) return;
-      if(!mq.matches){
-        h.style.cursor="";
-        h.style.userSelect="";
-        h.onclick=null;
-        list.style.display="";
-        const arrow=h.querySelector(".m36-category-arrow");
-        if(arrow) arrow.remove();
-        h.dataset.m36CategoryBound="";
-        return;
+    // Keep React-owned buttons intact. Only apply classes/data attributes;
+    // never replace a button with a different DOM node.
+    container.querySelectorAll("button:disabled").forEach(button => {
+      button.classList.add("m36-mobile-disabled-choice");
+      const label = choiceLabel(button);
+      const status = choiceStatus(button.textContent);
+      if (button.getAttribute("data-m36-disabled-choice-label") !== label) {
+        button.setAttribute("data-m36-disabled-choice-label", label);
       }
-      if(h.dataset.m36CategoryBound==="1") return;
-      h.dataset.m36CategoryBound="1";
-      h.style.cursor="pointer";
-      h.style.userSelect="none";
-      const arrow=document.createElement("span");
-      arrow.className="m36-category-arrow";
-      arrow.textContent=" ▸";
-      h.appendChild(arrow);
-      list.style.display="none";
-      h.onclick=()=>{
-        const open=list.style.display!=="none";
-        list.style.display=open?"none":"";
-        arrow.textContent=open?" ▸":" ▾";
-      };
+      if (button.getAttribute("data-m36-disabled-choice-status") !== status) {
+        button.setAttribute("data-m36-disabled-choice-status", status);
+      }
+    });
+    container.querySelectorAll("button.m36-mobile-disabled-choice:not(:disabled)").forEach(clearButton);
+  }
+
+  // Store fold state independently of DOM nodes. A location change can
+  // replace the heading/list while keeping the user's collapsed state.
+  const categoryOpen = new Map();
+
+  function categoryKey(heading) {
+    const title = norm(heading.textContent).replace(/[▸▾]/g, "").trim();
+    if (title === "외출") return "outside";
+    if (title.indexOf("마을 둘러보기") === 0) return "village";
+    return null;
+  }
+
+  function syncCategory(heading, key) {
+    const list = heading.nextElementSibling;
+    if (!list) return;
+    if (!mq.matches) {
+      list.style.display = "";
+      const oldArrow = heading.querySelector(".m36-category-arrow");
+      if (oldArrow) oldArrow.remove();
+      heading.style.cursor = "";
+      heading.style.userSelect = "";
+      heading.removeAttribute("aria-expanded");
+      return;
+    }
+
+    if (!categoryOpen.has(key)) categoryOpen.set(key, false);
+    const open = categoryOpen.get(key) === true;
+    let arrow = heading.querySelector(".m36-category-arrow");
+    if (!arrow) {
+      arrow = document.createElement("span");
+      arrow.className = "m36-category-arrow";
+      heading.appendChild(arrow);
+    }
+    const arrowText = open ? " ▾" : " ▸";
+    if (arrow.textContent !== arrowText) arrow.textContent = arrowText;
+    const display = open ? "" : "none";
+    if (list.style.display !== display) list.style.display = display;
+    heading.style.cursor = "pointer";
+    heading.style.userSelect = "none";
+    heading.setAttribute("aria-expanded", open ? "true" : "false");
+  }
+
+  function bindCategories() {
+    const container = root();
+    if (!container) return;
+    container.querySelectorAll("h4").forEach(heading => {
+      const key = categoryKey(heading);
+      if (key) syncCategory(heading, key);
     });
   }
 
-  let ticking=false;
-  function sync(){
-    if(ticking) return;
-    ticking=true;
-    queueMicrotask(()=>{
-      ticking=false;
+  // Delegation deliberately resolves heading.nextElementSibling at click
+  // time so a rerendered list cannot leave a handler pointing at stale DOM.
+  document.addEventListener("click", event => {
+    const target = event.target;
+    if (!mq.matches || !target || typeof target.closest !== "function") return;
+    const heading = target.closest(".mobile-layout h4");
+    if (!heading) return;
+    const key = categoryKey(heading);
+    const list = heading.nextElementSibling;
+    if (!key || !list) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const open = !(categoryOpen.get(key) === true);
+    categoryOpen.set(key, open);
+    syncCategory(heading, key);
+  }, true);
+
+  let ticking = false;
+  function sync() {
+    if (ticking) return;
+    ticking = true;
+    queueMicrotask(() => {
+      ticking = false;
       renderDisabled();
       bindCategories();
     });
   }
 
-  const observer=new MutationObserver(sync);
-  observer.observe(document.body,{childList:true,subtree:true,attributes:true,attributeFilter:["disabled"]});
-  mq.addEventListener?.("change",sync);
+  const observer = new MutationObserver(sync);
+  observer.observe(document.body, {
+    childList: true,
+    subtree: true,
+    attributes: true,
+    attributeFilter: ["disabled", "style"]
+  });
+  mq.addEventListener?.("change", sync);
   sync();
-})();ame="m36-category-arrow";
-      arrow.textContent=" ▸";
-      h.appendChild(arrow);
-      list.style.display="none";
-      h.onclick=()=>{
-        const open=list.style.display!=="none";
-        list.style.display=open?"none":"";
-        arrow.textContent=open?" ▸":" ▾";
-      };
-    });
-  }
-
-  let ticking=false;
-  function sync(){
-    if(ticking) return;
-    ticking=true;
-    queueMicrotask(()=>{
-      ticking=false;
-      if(!mq.matches){
-        document.querySelectorAll(".m36-mobile-disabled-choice").forEach(row=>row.remove());
-      }else{
-        renderDisabled();
-      }
-      bindCategories();
-    });
-  }
-
-  const observer=new MutationObserver(sync);
-  observer.observe(document.body,{childList:true,subtree:true,attributes:true,attributeFilter:["disabled"]});
-  mq.addEventListener?.("change",sync);
-  sync();
-})();</script></body>
+})();
+</script></body>
 </html>
 
 <!-- WAYWARD_MOD_PARENT_3_26_MAP
