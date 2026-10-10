@@ -17,26 +17,27 @@ jobs:
     steps:
       - name: Checkout exact inspection branch
         uses: actions/checkout@v4
-      - name: Read predetermined byte windows only
+      - name: Locate exact tokens and read only tiny byte windows
         shell: bash
         run: |
-          python - <<'PY'
-          from pathlib import Path
-          import subprocess
-          p = Path("Wayward_MOD_v3.36.html")
-          size = p.stat().st_size
-          head = subprocess.check_output(["git", "rev-parse", "--short", "HEAD"], text=True).strip()
-          print(f"FILE_SIZE_BYTES={size} GIT_HEAD={head}")
-          windows = [
-              ("SAVE_SLOT_COMPONENT_EARLY", 11344000, 1800),
-              ("SAVE_SLOT_CARD_AND_BUTTONS", 11347000, 2200),
-              ("SAVE_SLOT_HANDLER_AND_RENDER", 11351000, 2200),
-              ("SETTINGS_IMPORT_CONTROL", 11539800, 1800),
-          ]
-          with p.open("rb") as f:
-              for label, offset, length in windows:
-                  f.seek(offset)
-                  chunk = f.read(min(length, max(0, size-offset)))
-                  print(f"\n===== {label} offset={offset} bytes_read={len(chunk)} =====")
-                  print(chunk.decode("utf-8", errors="replace"))
-          PY
+          set -euo pipefail
+          file="Wayward_MOD_v3.36.html"
+          echo "FILE_SIZE_BYTES=$(stat -c %s "$file")"
+          echo "HEAD=$(git rev-parse --short HEAD)"
+          for token in "M36_SAVE_SHARE_API" "shareSlot=async" "onShare" "onRename" "function M36CloudImportControl" "M36CloudImportControl"; do
+            echo
+            echo "===== OFFSETS FOR: $token ====="
+            offsets=$(LC_ALL=C grep -aboF "$token" "$file" | cut -d: -f1 | head -n 4 || true)
+            if [ -z "$offsets" ]; then
+              echo "NOT_FOUND"
+              continue
+            fi
+            printf '%s\n' "$offsets"
+            while IFS= read -r offset; do
+              [ -n "$offset" ] || continue
+              start=$(( offset > 500 ? offset - 500 : 0 ))
+              echo "----- $token offset=$offset; bytes=$start..$((start+1600)) -----"
+              dd if="$file" iflag=skip_bytes,count_bytes skip="$start" count=1600 status=none | iconv -f UTF-8 -t UTF-8 -c
+              echo
+            done <<< "$offsets"
+          done
