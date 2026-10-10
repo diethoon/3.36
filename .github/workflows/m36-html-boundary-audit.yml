@@ -1,0 +1,83 @@
+name: One-shot HTML boundary audit
+on:
+  push:
+    branches:
+      - mobile-migration-v1
+    paths:
+      - .github/workflows/m36-html-boundary-audit.yml
+permissions:
+  contents: write
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: mobile-migration-v1
+          fetch-depth: 1
+      - name: Scan exact HTML tag byte strings
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY' | tee /tmp/m36-html-boundary-report.txt
+          from pathlib import Path
+          import subprocess
+          p=Path("Wayward_MOD_v3.36.html")
+          needles=[b"<style",b"</style>",b"<script",b"</script>",b"<style id=\"wayward-mobile-choice-fixed-v1\"",b"<style id=\"m36-mobile-next-ui-v1\""]
+          found={n:[] for n in needles}
+          carry=b""
+          base=0
+          keep=max(map(len,needles))-1
+          with p.open("rb") as f:
+            while True:
+              chunk=f.read(65536)
+              if not chunk: break
+              data=carry+chunk
+              data_base=base-len(carry)
+              for n in needles:
+                pos=0
+                while True:
+                  i=data.find(n,pos)
+                  if i<0: break
+                  off=data_base+i
+                  if off>=0 and (not found[n] or off>found[n][-1]):
+                    found[n].append(off)
+                  pos=i+1
+              carry=data[-keep:]
+              base+=len(chunk)
+          print("FILE_BYTES",p.stat().st_size)
+          print("HEAD",subprocess.check_output(["git","rev-parse","HEAD"],text=True).strip())
+          for n,ofs in found.items():
+            print("TOKEN",n.decode("ascii"),"COUNT",len(ofs),"LAST",ofs[-20:])
+          key_offsets=sorted(set(found[b"<style id=\"m36-mobile-next-ui-v1\""][-1:]+found[b"<script"][-5:]+found[b"</script>"][-5:]+found[b"</style>"][-5:]))
+          for off in key_offsets:
+            with p.open("rb") as f:
+              f.seek(max(0,off-120))
+              raw=f.read(400)
+            print("CTX",off,raw.decode("utf-8","replace").replace("\\n"," ")[:400])
+          # Directly verify if any close tag appears after the known broken style opening.
+          style_off=found[b"<style id=\"m36-mobile-next-ui-v1\""][-1]
+          with p.open("rb") as f:
+            f.seek(style_off)
+            rest=f.read()
+          print("BROKEN_STYLE_OFFSET",style_off)
+          print("CLOSING_STYLE_AFTER_OPEN",rest.find(b"</style>"))
+          print("OPEN_SCRIPT_AFTER_STYLE",rest.find(b"<script"))
+          print("CLOSING_SCRIPT_AFTER_OPEN",rest.find(b"</script>"))
+          del rest
+          print("BOUNDARY_AUDIT=PASS")
+          PY
+      - name: Remove temporary boundary audit
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -f .github/workflows/m36-html-boundary-audit.yml
+          git add -u .github/workflows/m36-html-boundary-audit.yml
+          if ! git diff --cached --quiet; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git commit -m "chore: remove temporary HTML boundary audit"
+            git push origin HEAD:mobile-migration-v1
+          fi
