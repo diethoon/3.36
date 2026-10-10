@@ -1432,3 +1432,41 @@ Cloudflare Worker는 D1/R2 바인딩에 대해 다음 end-to-end API 테스트�
     - Worker API flow = runtime PASS (fake JSON fixture only)
     - Browser UI / 실제 게임 세이브 round-trip = NOT YET VERIFIED
     - GitHub Actions one-time workflow/patch script는 성공 결과 확인 후 제거한다. 이후 일반 브랜치에 임시 runtime/patch workflow를 남기지 않는다.
+
+### 30. 2026-10-10: 대형 원파일 비출력 검사 및 Worker 실서비스 E2E
+
+목적:
+    - 19MB급 단일 HTML을 ChatGPT 응답이나 GitHub 파일 조회 결과로 통째로 출력하지 않고,
+      GitHub Actions runner 안에서 읽어 필요한 표식 개수만 요약한다.
+    - 같은 runner에서 배포된 Worker의 발급·가져오기·1회 소비를 실제 HTTP 요청으로 확인한다.
+
+절차:
+    1. `.github/workflows/m36-save-share-inspect.yml` 일회용 workflow를
+       작업 브랜치 `mobile-migration-v1`에 추가한다.
+    2. runner의 Python 검사에서 HTML 전체 내용을 출력하지 않고 파일 바이트 수와
+       필요한 고정 문자열의 개수만 출력한다.
+    3. `node --check workers/wayward-save-share/index.js` 실행.
+    4. Node fetch로 `GET /api/health`, `POST /api/share`, 첫 `POST /api/import`,
+       같은 코드의 두 번째 `POST /api/import`를 검증한다.
+    5. 결과 로그를 회수한 다음 임시 workflow를 즉시 삭제한다.
+
+검증 결과:
+    Run: https://github.com/diethoon/3.36/actions/runs/38024025902
+    - HTML UTF-8 읽기 성공, 크기 19,609,580 bytes
+    - Worker API 상수 / 슬롯 제목 키 / 공유 handler / 슬롯 버튼 연결 /
+      설정 가져오기 / X-Share-Title 처리 표식: 각각 count=1
+    - </body> 닫는 태그: count=1
+    - Worker JavaScript `node --check`: PASS
+    - health: HTTP 200, schema=ready
+    - share create: HTTP 201, 6자리 코드 형식 및 expiresInSeconds=604800 확인
+    - 첫 import: HTTP 200, 원문 payload 및 제목 헤더 일치
+    - 재사용 import: HTTP 404, code_unavailable
+
+검증 범위의 한계:
+    - API 왕복 테스트 payload는 테스트용 가짜 JSON이다. 실제 게임 슬롯의 JSON을
+      생성해 가져온 테스트는 아니므로 브라우저 UI와 실제 세이브 호환성까지
+      검증되었다고 간주하지 않는다.
+    - 이번 검사는 HTML의 고정 문자열과 Worker API 런타임을 검증했으며 게임 로직을
+      변경하지 않았다. 실제 게임 저장/불러오기 round-trip은 별도 검증 대상이다.
+    - 일회용 workflow 제거 후에는 검사 workflow가 일반 작업 브랜치에 남지 않도록 한다.
+
