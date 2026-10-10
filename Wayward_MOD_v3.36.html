@@ -5513,40 +5513,95 @@ v3.25 storage: wrap only the game autosave adapter, WCe and UCe with m325WriteSt
 v3.20 keeps m320NativeSue byte-identical to the 3.19 sue body. Its wrapper calls it once and returns the original result unchanged when settings.autoPosition is ON. Only OFF maps an available takesPosition to pendingPositionRequest, reusing supplied v2.109 request text and native manual consent. Native clothing autonomy and the 3.19 first-scene lock remain. The flag stays in sibling modData; missing legacy value means ON. Existing afterglow values now read sixteen validated balance keys, with identical defaults and native ke/iq/caps/record expiry. Do not copy the older LX probability formula or change a global guest transition engine. Check source, full-file reversal, numeric audit, and handoff before porting.
 END_WAYWARD_MOD_PARENT_3_25_EXTENSION_GUIDE -->
 <style id="m36-mobile-next-ui-v1">
-.m36-mobile-disabled-choice{
-  position:relative!important;
-  display:block!important;
-  width:100%!important;
-  min-width:0!important;
-  min-height:1.9rem!important;
-  margin:.08rem 0!important;
-  padding:.32rem .5rem!important;
-  border:1px solid rgb(68 64 60)!important;
-  border-radius:.45rem!important;
-  background:rgba(28,25,23,.72)!important;
-  color:rgb(120 113 108)!important;
-  text-align:left!important;
-  font-size:0!important;
-  line-height:1.2!important;
-  opacity:.62!important;
-  overflow:hidden!important;
-  white-space:nowrap!important;
-}
-.m36-mobile-disabled-choice > *{display:none!important;}
-.m36-mobile-disabled-choice::before{
-  content:attr(data-m36-disabled-choice-label);
-  display:block!important;
-  min-width:0!important;
-  overflow:hidden!important;
-  text-overflow:ellipsis!important;
-  white-space:nowrap!important;
-  font-size:.74rem!important;
-  line-height:1.2!important;
+/* Keep the mobile panels inside their available vertical space. Only the
+   action list scrolls; dialogue/event text and gauges remain outside it. */
+@media(max-width:1023px){
+  .mobile-layout{
+    height:100%!important;
+    min-height:0!important;
+    max-height:100%!important;
+    overflow:hidden!important;
+  }
+  .mobile-layout>.mobile-main-panel,
+  .mobile-layout>.mobile-action-panel{
+    height:100%!important;
+    min-height:0!important;
+    max-height:100%!important;
+  }
+  .mobile-action-panel>.flex-1.min-h-0.flex.flex-col{
+    flex:1 1 0%!important;
+    height:0!important;
+    min-height:0!important;
+    max-height:100%!important;
+    overflow:hidden!important;
+  }
+  .mobile-action-scroll{
+    flex:1 1 0%!important;
+    height:0!important;
+    min-height:0!important;
+    max-height:100%!important;
+    overflow-x:hidden!important;
+    overflow-y:auto!important;
+    overscroll-behavior:contain!important;
+  }
+  .m36-mobile-dialogue-fixed,
+  .m36-mobile-pleasure-fixed{
+    flex:0 0 auto!important;
+  }
+  .m36-mobile-disabled-choice{
+    position:relative!important;
+    display:flex!important;
+    align-items:center!important;
+    justify-content:space-between!important;
+    gap:.45rem!important;
+    width:100%!important;
+    min-width:0!important;
+    min-height:1.9rem!important;
+    margin:.08rem 0!important;
+    padding:.32rem .5rem!important;
+    border:1px solid rgb(68 64 60)!important;
+    border-radius:.45rem!important;
+    background:rgba(28,25,23,.72)!important;
+    color:rgb(120 113 108)!important;
+    text-align:left!important;
+    font-size:0!important;
+    line-height:1.2!important;
+    opacity:.62!important;
+    overflow:hidden!important;
+    white-space:nowrap!important;
+  }
+  .m36-mobile-disabled-choice>*{display:none!important;}
+  .m36-mobile-disabled-choice::before{
+    content:attr(data-m36-disabled-choice-label);
+    display:block!important;
+    flex:1 1 auto!important;
+    min-width:0!important;
+    overflow:hidden!important;
+    text-overflow:ellipsis!important;
+    white-space:nowrap!important;
+    font-size:.74rem!important;
+    line-height:1.2!important;
+  }
+  .m36-mobile-disabled-choice::after{
+    content:attr(data-m36-disabled-choice-status);
+    display:block!important;
+    flex:0 1 auto!important;
+    max-width:42%!important;
+    min-width:0!important;
+    overflow:hidden!important;
+    text-overflow:ellipsis!important;
+    white-space:nowrap!important;
+    font-size:.62rem!important;
+    line-height:1.2!important;
+    color:rgb(168 162 158)!important;
+    text-align:right!important;
+  }
 }
 @media(min-width:1024px){
   .m36-mobile-disabled-choice{font-size:inherit!important;opacity:1!important;}
-  .m36-mobile-disabled-choice > *{display:revert!important;}
-  .m36-mobile-disabled-choice::before{content:none!important;}
+  .m36-mobile-disabled-choice>*{display:revert!important;}
+  .m36-mobile-disabled-choice::before,
+  .m36-mobile-disabled-choice::after{content:none!important;display:none!important;}
 }
 </style>
 <script id="m36-mobile-next-ui-script">
