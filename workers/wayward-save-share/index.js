@@ -37,18 +37,33 @@ function normalizeTitle(value) {
   return title || "Wayward Save";
 }
 
-function limitStream(body, maxBytes) {
-  let byteLength = 0;
-  const stream = body.pipeThrough(new TransformStream({
-    transform(chunk, controller) {
-      byteLength += chunk.byteLength;
-      if (byteLength > maxBytes) {
+async function readBodyLimited(body, maxBytes) {
+  const reader = body.getReader();
+  const chunks = [];
+  let totalBytes = 0;
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      totalBytes += value.byteLength;
+      if (totalBytes > maxBytes) {
+        try { await reader.cancel(); } catch { /* best effort */ }
         throw new Error("SAVE_TOO_LARGE");
       }
-      controller.enqueue(chunk);
-    },
-  }));
-  return { stream, getByteLength: () => byteLength };
+      chunks.push(value);
+    }
+  } finally {
+    try { reader.releaseLock(); } catch { /* best effort */ }
+  }
+
+  const payload = new Uint8Array(totalBytes);
+  let offset = 0;
+  for (const chunk of chunks) {
+    payload.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return payload;
 }
 
 function errorMessageForClient(code, message) {
@@ -102,11 +117,19 @@ async function createShare(request, env, ctx, url) {
   const now = Math.floor(Date.now() / 1000);
   const expiresAt = now + SHARE_TTL_SECONDS;
   const objectKey = `shares/${crypto.randomUUID()}.json`;
-  const limited = limitStream(request.body, MAX_SAVE_BYTES);
   const contentType = request.headers.get("content-type") || "application/json; charset=utf-8";
+  let phase = "read_body";
 
   try {
-    await env.SAVE_OBJECTS.put(objectKey, limited.stream, {
+    // R2 requires a known-length stream. Buffer at most 20 MiB and pass a
+    // Uint8Array to R2 so the upload length is known and bounded.
+    const payload = await readBodyLimited(request.body, MAX_SAVE_BYTES);
+    if (payload.byteLength === 0) {
+      return errorMessageForClient("empty_save", "공유할 세이브 데이터가 없습니다.");
+    }
+
+    phase = "r2_put";
+    await env.SAVE_OBJECTS.put(objectKey, payload, {
       httpMetadata: { contentType },
       customMetadata: {
         title,
@@ -115,6 +138,7 @@ async function createShare(request, env, ctx, url) {
       },
     });
 
+    phase = "d1_insert";
     for (let attempt = 0; attempt < 10; attempt += 1) {
       const code = makeCode();
       const inserted = await env.DB.prepare(
@@ -144,18 +168,22 @@ async function createShare(request, env, ctx, url) {
     }, 503);
   } catch (error) {
     ctx.waitUntil(env.SAVE_OBJECTS.delete(objectKey).catch(() => {}));
-    if (String(error?.message || error).includes("SAVE_TOO_LARGE")) {
+    const reason = String(error?.message || error);
+    if (reason.includes("SAVE_TOO_LARGE")) {
       return jsonResponse({
         ok: false,
         error: "save_too_large",
         message: "세이브 파일은 20MB 이하여야 합니다.",
       }, 413);
     }
-    console.error("share creation failed", String(error?.message || error));
+
+    console.error("share creation failed", { phase, error: reason });
     return jsonResponse({
       ok: false,
-      error: "share_creation_failed",
-      message: "공유 코드를 만드는 중 서버 오류가 발생했습니다.",
+      error: phase === "r2_put" ? "r2_store_failed" :
+        phase === "d1_insert" ? "d1_register_failed" : "share_creation_failed",
+      stage: phase,
+      message: "공유 코드를 만드는 중 서버 오류가 발생했습니다. stage 값을 통해 원인을 확인할 수 있습니다.",
     }, 500);
   }
 }
