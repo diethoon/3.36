@@ -57,7 +57,7 @@ jobs:
             overflow:hidden!important;
             text-overflow:ellipsis!important;
             white-space:nowrap!important;
-            font-size:.74rem!important;
+            font-size:.74rem!importa(()=>{nt;
             line-height:1.2!important;
           }
           @media(min-width:1024px){
@@ -307,7 +307,7 @@ jobs:
                   raise RuntimeError("NEW_SCRIPT_ANCHOR_COUNT_FAIL")
               if count_bytes(b"replaceWith(row)") != 0:
                   raise RuntimeError("REACT_DOM_REPLACEMENT_STILL_PRESENT")
-              if count_bytes(b"font-size:.74rem!importa") != 0:
+              if count_bytes(b"font-size:.74rem!importa(()=>{") != 0:
                   raise RuntimeError("BROKEN_STYLE_SCRIPT_SEAM_REMAINS")
               temp_size = temp.stat().st_size
               print("PATCH_BOUNDARIES=PASS")
@@ -328,7 +328,7 @@ jobs:
           git diff --numstat -- Wayward_MOD_v3.36.html
           test "$(grep -o '<style id="m36-mobile-next-ui-v1">' Wayward_MOD_v3.36.html | wc -l)" -eq 1
           test "$(grep -o '<script id="m36-mobile-next-ui-script">' Wayward_MOD_v3.36.html | wc -l)" -eq 1
-          ! grep -q 'font-size:.74rem!importa' Wayward_MOD_v3.36.html
+          ! grep -q 'font-size:.74rem!importa(()=>{' Wayward_MOD_v3.36.html
           ! grep -q 'replaceWith(row)' Wayward_MOD_v3.36.html
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
