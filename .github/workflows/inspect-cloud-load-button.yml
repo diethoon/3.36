@@ -16,21 +16,17 @@ jobs:
     timeout-minutes: 3
     steps:
       - uses: actions/checkout@v4
-      - name: Read only importer component and save-modal window
+      - name: Read only cloud-load mount anchor
         shell: bash
         run: |
           set -eu
           file="Wayward_MOD_v3.36.html"
           echo "FILE_SIZE_BYTES=$(stat -c %s "$file")"
-          for token in "function M36CloudImportControl" "const M36_SAVE_SHARE_API" "function EOe"; do
-            echo
-            echo "===== $token OFFSETS ====="
-            LC_ALL=C grep -aboF "$token" "$file" | cut -d: -f1 | head -n 2 || true
-            offset=$(LC_ALL=C grep -aboF "$token" "$file" | head -n 1 | cut -d: -f1 || true)
-            if [ -n "$offset" ]; then
-              before=500
-              start=$(( offset > before ? offset-before : 0 ))
-              echo "===== $token bounded context; start=$start count=3000 ====="
-              dd if="$file" iflag=skip_bytes,count_bytes skip="$start" count=3000 status=none | python -c 'import sys; print(sys.stdin.buffer.read().decode("utf-8", "replace"))'
-            fi
-          done
+          token='I==="saves"&&u.jsxs(u.Fragment,{children:['
+          echo "===== target offset ====="
+          offset=$(LC_ALL=C grep -aboF "$token" "$file" | head -n 1 | cut -d: -f1 || true)
+          echo "offset=$offset"
+          if [ -z "$offset" ]; then exit 2; fi
+          start=$(( offset > 900 ? offset-900 : 0 ))
+          echo "===== only 2600-byte context from $start ====="
+          dd if="$file" iflag=skip_bytes,count_bytes skip="$start" count=2600 status=none | python -c 'import sys; print(sys.stdin.buffer.read().decode("utf-8", "replace"))'
