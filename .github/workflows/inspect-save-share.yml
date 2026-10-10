@@ -17,27 +17,31 @@ jobs:
     steps:
       - name: Checkout exact inspection branch
         uses: actions/checkout@v4
-      - name: Locate exact tokens and read only tiny byte windows
+      - name: Inspect only exact save UI symbols
         shell: bash
         run: |
-          set -euo pipefail
+          set -eu
           file="Wayward_MOD_v3.36.html"
           echo "FILE_SIZE_BYTES=$(stat -c %s "$file")"
           echo "HEAD=$(git rev-parse --short HEAD)"
-          for token in "M36_SAVE_SHARE_API" "shareSlot=async" "onShare" "onRename" "function M36CloudImportControl" "M36CloudImportControl"; do
+
+          for token in "M36_SAVE_SHARE_API" "shareSlot=async" "function EOe" "function M36CloudImportControl" "u.jsx(M36CloudImportControl"; do
             echo
-            echo "===== OFFSETS FOR: $token ====="
-            offsets=$(LC_ALL=C grep -aboF "$token" "$file" | cut -d: -f1 | head -n 4 || true)
-            if [ -z "$offsets" ]; then
-              echo "NOT_FOUND"
-              continue
-            fi
-            printf '%s\n' "$offsets"
-            while IFS= read -r offset; do
-              [ -n "$offset" ] || continue
-              start=$(( offset > 500 ? offset - 500 : 0 ))
-              echo "----- $token offset=$offset; bytes=$start..$((start+1600)) -----"
-              dd if="$file" iflag=skip_bytes,count_bytes skip="$start" count=1600 status=none | iconv -f UTF-8 -t UTF-8 -c
-              echo
-            done <<< "$offsets"
+            echo "===== OFFSETS: $token ====="
+            LC_ALL=C grep -aboF "$token" "$file" | cut -d: -f1 | head -n 4 || true
           done
+
+          inspect_first() {
+            token="$1"
+            length="$2"
+            offset=$(LC_ALL=C grep -aboF "$token" "$file" | head -n 1 | cut -d: -f1 || true)
+            if [ -z "$offset" ]; then echo "NOT_FOUND: $token"; return; fi
+            start=$(( offset > 350 ? offset - 350 : 0 ))
+            echo
+            echo "===== WINDOW: $token offset=$offset start=$start count=$length ====="
+            dd if="$file" iflag=skip_bytes,count_bytes skip="$start" count="$length" status=none | python -c 'import sys; print(sys.stdin.buffer.read().decode("utf-8", "replace"))'
+          }
+
+          inspect_first "function EOe" 2100
+          inspect_first "function M36CloudImportControl" 1900
+          inspect_first "u.jsx(M36CloudImportControl" 1100
