@@ -57,7 +57,7 @@ jobs:
             overflow:hidden!important;
             text-overflow:ellipsis!important;
             white-space:nowrap!important;
-            font-size:.74rem!importa(()=>{nt;
+            font-size:.74rem!important;
             line-height:1.2!important;
           }
           @media(min-width:1024px){
