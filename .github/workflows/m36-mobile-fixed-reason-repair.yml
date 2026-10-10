@@ -1,0 +1,211 @@
+name: One-shot mobile fixed area and reason repair
+on:
+  push:
+    branches:
+      - mobile-migration-v1
+    paths:
+      - .github/workflows/m36-mobile-fixed-reason-repair.yml
+permissions:
+  contents: write
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: mobile-migration-v1
+          fetch-depth: 1
+      - name: Restore disabled reasons and constrain choice scroll
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import os, subprocess
+          p=Path("Wayward_MOD_v3.36.html")
+          temp=p.with_name(p.name+".fixed-reason.tmp")
+          start=b'<style id="m36-mobile-next-ui-v1">'
+          end=b'</style>'
+          replacement=b'''<style id="m36-mobile-next-ui-v1">
+          /* Keep the mobile panels inside their available vertical space. Only the
+             action list scrolls; dialogue/event text and gauges remain outside it. */
+          @media(max-width:1023px){
+            .mobile-layout{
+              height:100%!important;
+              min-height:0!important;
+              max-height:100%!important;
+              overflow:hidden!important;
+            }
+            .mobile-layout>.mobile-main-panel,
+            .mobile-layout>.mobile-action-panel{
+              height:100%!important;
+              min-height:0!important;
+              max-height:100%!important;
+            }
+            .mobile-action-panel>.flex-1.min-h-0.flex.flex-col{
+              flex:1 1 0%!important;
+              height:0!important;
+              min-height:0!important;
+              max-height:100%!important;
+              overflow:hidden!important;
+            }
+            .mobile-action-scroll{
+              flex:1 1 0%!important;
+              height:0!important;
+              min-height:0!important;
+              max-height:100%!important;
+              overflow-x:hidden!important;
+              overflow-y:auto!important;
+              overscroll-behavior:contain!important;
+            }
+            .m36-mobile-dialogue-fixed,
+            .m36-mobile-pleasure-fixed{
+              flex:0 0 auto!important;
+            }
+            .m36-mobile-disabled-choice{
+              position:relative!important;
+              display:flex!important;
+              align-items:center!important;
+              justify-content:space-between!important;
+              gap:.45rem!important;
+              width:100%!important;
+              min-width:0!important;
+              min-height:1.9rem!important;
+              margin:.08rem 0!important;
+              padding:.32rem .5rem!important;
+              border:1px solid rgb(68 64 60)!important;
+              border-radius:.45rem!important;
+              background:rgba(28,25,23,.72)!important;
+              color:rgb(120 113 108)!important;
+              text-align:left!important;
+              font-size:0!important;
+              line-height:1.2!important;
+              opacity:.62!important;
+              overflow:hidden!important;
+              white-space:nowrap!important;
+            }
+            .m36-mobile-disabled-choice>*{display:none!important;}
+            .m36-mobile-disabled-choice::before{
+              content:attr(data-m36-disabled-choice-label);
+              display:block!important;
+              flex:1 1 auto!important;
+              min-width:0!important;
+              overflow:hidden!important;
+              text-overflow:ellipsis!important;
+              white-space:nowrap!important;
+              font-size:.74rem!important;
+              line-height:1.2!important;
+            }
+            .m36-mobile-disabled-choice::after{
+              content:attr(data-m36-disabled-choice-status);
+              display:block!important;
+              flex:0 1 auto!important;
+              max-width:42%!important;
+              min-width:0!important;
+              overflow:hidden!important;
+              text-overflow:ellipsis!important;
+              white-space:nowrap!important;
+              font-size:.62rem!important;
+              line-height:1.2!important;
+              color:rgb(168 162 158)!important;
+              text-align:right!important;
+            }
+          }
+          @media(min-width:1024px){
+            .m36-mobile-disabled-choice{font-size:inherit!important;opacity:1!important;}
+            .m36-mobile-disabled-choice>*{display:revert!important;}
+            .m36-mobile-disabled-choice::before,
+            .m36-mobile-disabled-choice::after{content:none!important;display:none!important;}
+          }
+          </style>'''
+          def count_pattern(path, pat):
+              total=0; carry=b''
+              with path.open('rb') as f:
+                  while True:
+                      chunk=f.read(65536)
+                      if not chunk: break
+                      data=carry+chunk
+                      total+=data.count(pat)
+                      carry=data[-(len(pat)-1):] if len(pat)>1 else b''
+              return total
+          if count_pattern(p,start)!=1:
+              raise SystemExit("STYLE_START_NOT_UNIQUE")
+          if count_pattern(p,b'<script id="m36-mobile-next-ui-script">')!=1:
+              raise SystemExit("SCRIPT_START_NOT_UNIQUE")
+          state=0; buf=b''
+          with p.open('rb') as src, temp.open('wb') as dst:
+              while True:
+                  chunk=src.read(65536)
+                  if not chunk: break
+                  if state==2:
+                      dst.write(chunk); continue
+                  buf+=chunk
+                  if state==0:
+                      i=buf.find(start)
+                      if i<0:
+                          safe=max(0,len(buf)-len(start)+1)
+                          if safe: dst.write(buf[:safe]); buf=buf[safe:]
+                          continue
+                      dst.write(buf[:i])
+                      buf=buf[i+len(start):]
+                      dst.write(replacement)
+                      state=1
+                  if state==1:
+                      i=buf.find(end)
+                      if i<0:
+                          buf=buf[-(len(end)-1):]
+                          continue
+                      buf=buf[i+len(end):]
+                      if buf: dst.write(buf)
+                      buf=b''
+                      state=2
+              if state!=2:
+                  raise SystemExit("STYLE_REGION_END_NOT_FOUND")
+          os.replace(temp,p)
+          size=p.stat().st_size
+          if size<19000000: raise SystemExit("FILE_SIZE_SANITY_FAILED")
+          # Read only the last bounded tail to syntax-check the injected script.
+          with p.open('rb') as f:
+              f.seek(max(0,size-50000)); tail=f.read(50000)
+          sm=b'<script id="m36-mobile-next-ui-script">'
+          si=tail.rfind(sm)
+          sj=tail.find(b'</script>',si)
+          if si<0 or sj<0: raise SystemExit("SCRIPT_BOUNDARIES_INVALID")
+          js=tail[si+len(sm):sj].decode('utf-8')
+          Path('/tmp/m36-mobile-next-ui.js').write_text(js,encoding='utf-8')
+          required=[
+            b'content:attr(data-m36-disabled-choice-label)',
+            b'content:attr(data-m36-disabled-choice-status)',
+            b'.mobile-layout>.mobile-action-panel',
+            b'.mobile-action-scroll',
+            b'height:0!important',
+            b'flex:0 0 auto!important',
+          ]
+          block=tail[tail.rfind(start):tail.rfind(b'</style>')+len(end)]
+          missing=[x.decode() for x in required if x not in block]
+          if missing: raise SystemExit("CSS_VALIDATION_MISSING: "+repr(missing))
+          if b'replaceWith(row)' in js: raise SystemExit("REACT_DOM_REPLACEMENT_PRESENT")
+          subprocess.run(['node','--check','/tmp/m36-mobile-next-ui.js'],check=True)
+          print("STREAM_PATCH=PASS")
+          print("FILE_BYTES",size)
+          print("DISABLED_LABEL_AND_REASON=PASS")
+          print("PANEL_HEIGHT_AND_CHOICE_SCROLL_CONSTRAINTS=PASS")
+          print("DIALOGUE_AND_GAUGES_NONSHRINK=PASS")
+          print("INJECTED_JS_NODE_CHECK=PASS")
+          PY
+          git diff --check
+          git diff --numstat -- Wayward_MOD_v3.36.html
+      - name: Commit repair and remove temporary workflow
+        shell: bash
+        run: |
+          set -euo pipefail
+          git rm -f .github/workflows/m36-mobile-fixed-reason-repair.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add Wayward_MOD_v3.36.html
+          git add -u .github/workflows/m36-mobile-fixed-reason-repair.yml
+          git diff --cached --check
+          git status --short
+          git commit -m "fix(mobile): constrain choice scroll and restore disabled reasons"
+          git push origin HEAD:mobile-migration-v1
