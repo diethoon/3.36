@@ -95,7 +95,6 @@ jobs:
           grep -F -o 'e==="load"&&u.jsx(M36CloudImportControl,{onDone:o,compact:true}),I==="saves"&&u.jsxs' Wayward_MOD_v3.36.html | wc -l
           grep -F -o 'u.jsx(M36CloudImportControl,{onDone:e})' Wayward_MOD_v3.36.html | wc -l
           git diff --numstat
-          git diff --unified=1 -- Wayward_MOD_v3.36.html | head -c 5000
       - name: Remove this one-time workflow and commit the single-file patch
         shell: bash
         run: |
