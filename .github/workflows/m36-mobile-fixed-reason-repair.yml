@@ -185,7 +185,7 @@ jobs:
           block=tail[tail.rfind(start):tail.rfind(b'</style>')+len(end)]
           missing=[x.decode() for x in required if x not in block]
           if missing: raise SystemExit("CSS_VALIDATION_MISSING: "+repr(missing))
-          if b'replaceWith(row)' in js: raise SystemExit("REACT_DOM_REPLACEMENT_PRESENT")
+          if 'replaceWith(row)' in js: raise SystemExit("REACT_DOM_REPLACEMENT_PRESENT")
           subprocess.run(['node','--check','/tmp/m36-mobile-next-ui.js'],check=True)
           print("STREAM_PATCH=PASS")
           print("FILE_BYTES",size)
