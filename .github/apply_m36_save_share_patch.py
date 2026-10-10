@@ -124,6 +124,5 @@ checks = [
 ]
 if not all(checks):
     raise SystemExit("Static validation failed: "+repr(checks))
-path = Path(".github/apply_m36_save_share_patch.py")
-path.write_text(script, encoding="utf-8")
-print("PATCH_SCRIPT_WRITTEN; checks=" + repr(checks))
+path.write_text(text, encoding="utf-8")
+print("PATCH_APPLIED; checks=" + repr(checks))
