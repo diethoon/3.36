@@ -1,0 +1,92 @@
+name: Apply Wayward save-share UI integration
+
+on:
+  push:
+    branches:
+      - mobile-migration-v1
+    paths:
+      - ".github/apply_m36_save_share_patch.py"
+      - ".github/workflows/apply-m36-save-share-integration.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch-single-file-game:
+    if: ${{ github.event_name == 'workflow_dispatch' || !contains(github.event.head_commit.message, '[save-share-patch]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout work branch
+        uses: actions/checkout@v4
+        with:
+          ref: mobile-migration-v1
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Set up Node.js syntax checker
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Apply targeted save-share patch
+        run: python .github/apply_m36_save_share_patch.py
+
+      - name: Extract main browser module
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          source = Path("Wayward_MOD_v3.36.html").read_text(encoding="utf-8")
+          opening = '<script type="module" crossorigin>'
+          start = source.find(opening)
+          if start < 0:
+              raise SystemExit("main module opening tag not found")
+          start += len(opening)
+          end = source.find("</script>", start)
+          if end < 0:
+              raise SystemExit("main module closing tag not found")
+          body = source[start:end]
+          Path("/tmp/wayward-main.mjs").write_text(body, encoding="utf-8")
+          print("Main module extracted; chars:", len(body))
+          PY
+
+      - name: Check JavaScript syntax
+        run: node --check /tmp/wayward-main.mjs
+
+      - name: Check HTML patch invariants and whitespace
+        run: |
+          git diff --check
+          python - <<'PY'
+          from pathlib import Path
+          text = Path("Wayward_MOD_v3.36.html").read_text(encoding="utf-8")
+          checks = {
+              "share_api_once": text.count('const M36_SAVE_SHARE_API=') == 1,
+              "settings_import_once": text.count("function M36CloudImportControl") == 1,
+              "slot_share_handler": 'onShare:()=>shareSlot(O.slot)' in text,
+              "slot_title_handler": 'onRename:()=>renameSlot(O.slot)' in text,
+              "settings_import_button": 'u.jsx(M36CloudImportControl,{onDone:e})' in text,
+              "body_close_preserved": text.count("</body>") == 1,
+              "save_serialization_preserved": "function WCe(e,t,o){" in text,
+              "native_import_preserved": 'importSaveFromJSON:o=>{const n=zCe(o);' in text,
+          }
+          print(checks)
+          if not all(checks.values()):
+              raise SystemExit("HTML invariant check failed")
+          PY
+          git diff --stat
+
+      - name: Commit and push the patched original HTML
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add Wayward_MOD_v3.36.html
+          if git diff --cached --quiet; then
+            echo "No game-file changes to commit"
+            exit 0
+          fi
+          git commit -m "feat(save-share): integrate cloud sharing into single-file game [save-share-patch]"
+          git push origin HEAD:mobile-migration-v1
