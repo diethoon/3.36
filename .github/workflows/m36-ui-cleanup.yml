@@ -29,7 +29,7 @@ jobs:
           temp = p.with_name(p.name + ".cleanup.tmp")
           replacements = [
               (
-                  b'''  function choiceStatus(value) {
+                  '''  function choiceStatus(value) {
               const text = norm(value);
               if (text.includes("완료")) return "완료";
               if (text.includes("오후 5시") || text.includes("영업 전") || text.includes("영업시간")) return "영업 전";
@@ -40,7 +40,7 @@ jobs:
               return "사용 불가";
             }
 
-            function clearButton(button) {''',
+            function clearButton(button) '''.encode("utf-8"),
                   b'''  function clearButton(button) {'''
               ),
               (
