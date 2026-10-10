@@ -1393,3 +1393,42 @@ Render runtime을 사용할 때도 다른 프로젝트에서 가져온:
 주의:
     - action semantics를 새 로직으로 대체하지 않는다.
     - 대형 HTML 전체를 모델 context에 출력하지 않는다.
+
+
+### 29. 2026-10-10 세이브 공유 UI 원파일 통합 검증 경로
+
+Cloudflare Worker는 D1/R2 바인딩에 대해 다음 end-to-end API 테스트를 통과했다.
+
+    GET /api/health → 200, schema=ready
+    POST /api/share → 201
+    POST /api/import (첫 사용) → 200, payload 일치
+    POST /api/import (동일 코드 재사용) → 404 code_unavailable
+
+19MB급 `Wayward_MOD_v3.36.html`는 GitHub API의 파일 전체 업데이트가 연결 중단으로 실패할 수 있어, 작업 브랜치에서 일회용 GitHub Actions runner patch 경로를 사용했다.
+
+    exact current HTML blob SHA 확인
+    → .github/apply_m36_save_share_patch.py에서 유일한 문자열 앵커만 교체
+    → 원본 HTML의 기존 save/load/store/schema 함수 보존 확인
+    → main type=module script 추출
+    → node --check = PASS
+    → git diff --check = PASS
+    → invariant checks (share/import/title hooks, body close, native writer/import) = PASS
+    → patched original HTML commit/push
+    → final branch + blob SHA 재조회
+
+통합된 UI:
+    - 저장 슬롯별 제목 편집 (별도 localStorage metadata, 게임 save schema에는 추가 필드 없음)
+    - 기존 수동 저장 칸의 공유 버튼: 해당 슬롯의 기존 JSON envelope를 Worker에 전송
+    - 설정 메뉴의 6자리 코드를 이용한 가져오기: 기존 importSaveFromJSON을 호출
+    - 공유 코드 만료 7일, 서버가 1회 소비
+    - Worker/R2 object data remains private; no public bucket URL
+
+최종 통합 커밋:
+    0149495e2d974cd370597622534a76cd44820361
+    feat(save-share): integrate cloud sharing into single-file game [save-share-patch]
+
+중요 구분:
+    - node --check / static invariants = PASS
+    - Worker API flow = runtime PASS (fake JSON fixture only)
+    - Browser UI / 실제 게임 세이브 round-trip = NOT YET VERIFIED
+    - GitHub Actions one-time workflow/patch script는 성공 결과 확인 후 제거한다. 이후 일반 브랜치에 임시 runtime/patch workflow를 남기지 않는다.
