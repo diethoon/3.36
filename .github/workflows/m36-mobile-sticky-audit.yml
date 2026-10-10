@@ -1,0 +1,88 @@
+name: One-shot mobile sticky forensic audit
+on:
+  push:
+    branches:
+      - mobile-migration-v1
+    paths:
+      - .github/workflows/m36-mobile-sticky-audit.yml
+permissions:
+  contents: write
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: mobile-migration-v1
+          fetch-depth: 1
+      - name: Stream targeted layout contexts only
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path("Wayward_MOD_v3.36.html")
+          patterns=[
+            b'className:"mobile-layout"',
+            b'className:"mobile-action-scroll',
+            b'className:"m36-mobile-dialogue-fixed"',
+            b'className:"m36-mobile-pleasure-fixed"',
+            b'M36MobileDialogueFixed,{',
+            b'M36MobilePleasureFixed,{',
+            b'overflow-y-auto',
+            b'.mobile-layout{',
+            b'.mobile-layout ',
+            b'.mobile-action-scroll',
+            b'id="m36-mobile-next-ui-v1"',
+          ]
+          found={x:[] for x in patterns}
+          counts={x:0 for x in patterns}
+          keep=64000
+          carry=b''
+          offset=0
+          with p.open('rb') as f:
+            while True:
+              chunk=f.read(65536)
+              if not chunk: break
+              data=carry+chunk
+              base=offset-len(carry)
+              for pat in patterns:
+                pos=0
+                while True:
+                  i=data.find(pat,pos)
+                  if i<0: break
+                  absolute=base+i
+                  counts[pat]+=1
+                  arr=found[pat]
+                  if len(arr)<keep: arr.append(absolute)
+                  pos=i+1
+              offset+=len(chunk)
+              carry=data[-max(map(len,patterns))*2:]
+          print("FILE_BYTES",p.stat().st_size)
+          for pat in patterns:
+            poss=found[pat]
+            print("\nPATTERN",pat.decode('utf-8','replace'),"COUNT",counts[pat],"SAMPLE_OFFSETS",poss[:2]+(poss[-4:] if len(poss)>2 else []))
+            chosen=poss[:2]+(poss[-4:] if len(poss)>2 else [])
+            last=None
+            for at in chosen:
+              if last==at: continue
+              last=at
+              with p.open('rb') as f:
+                f.seek(max(0,at-520))
+                snippet=f.read(1040)
+              print("OFFSET",at,"CONTEXT",snippet.decode('utf-8','replace').replace("\n"," ")[:1200])
+          PY
+      - name: Remove temporary audit workflow
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          git rm -f .github/workflows/m36-mobile-sticky-audit.yml || true
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -u
+          if ! git diff --cached --quiet; then
+            git commit -m "chore: remove temporary mobile sticky audit"
+            git push origin HEAD:mobile-migration-v1
+          fi
