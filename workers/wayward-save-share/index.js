@@ -79,11 +79,14 @@ async function health(env) {
     }, 500);
   }
 
-  await env.DB.prepare("SELECT 1 AS ok").first();
+  // Verify the application table too; SELECT 1 alone does not prove
+  // that the schema has been created in the bound production database.
+  await env.DB.prepare("SELECT COUNT(*) AS count FROM save_shares").first();
   return jsonResponse({
     ok: true,
     service: "wayward-save-share",
     storage: "D1+R2",
+    schema: "ready",
   });
 }
 
