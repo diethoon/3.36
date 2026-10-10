@@ -44,23 +44,18 @@ jobs:
                   b'''  function clearButton(button) {'''
               ),
               (
-                  b'''      button.removeAttribute("data-m36-disabled-choice-status");
-            }''',
-                  b'''    }'''
+                  b'''button.removeAttribute("data-m36-disabled-choice-status");''',
+                  b'''''
               ),
               (
-                  b'''              const label = choiceLabel(button);
-              const status = choiceStatus(button.textContent);
-              if (button.getAttribute("data-m36-disabled-choice-label") !== label) {
-                button.setAttribute("data-m36-disabled-choice-label", label);
-              }
-              if (button.getAttribute("data-m36-disabled-choice-status") !== status) {
-                button.setAttribute("data-m36-disabled-choice-status", status);
-              }''',
-                  b'''              const label = choiceLabel(button);
-              if (button.getAttribute("data-m36-disabled-choice-label") !== label) {
-                button.setAttribute("data-m36-disabled-choice-label", label);
-              }'''
+                  b'''const status = choiceStatus(button.textContent);''',
+                  b'''''
+              ),
+              (
+                  b'''if (button.getAttribute("data-m36-disabled-choice-status") !== status) {
+        button.setAttribute("data-m36-disabled-choice-status", status);
+      }''',
+                  b'''''
               ),
               (
                   b'''      attributeFilter: ["disabled", "style"]''',
