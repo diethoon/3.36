@@ -1,0 +1,109 @@
+name: One-shot mobile observer safety patch
+on:
+  push:
+    branches:
+      - mobile-migration-v1
+    paths:
+      - .github/workflows/m36-observer-safety.yml
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: mobile-migration-v1
+          fetch-depth: 1
+      - name: Remove unnecessary style mutation observation
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import subprocess
+
+          p = Path("Wayward_MOD_v3.36.html")
+          temp = p.with_name(p.name + ".observer.tmp")
+          old = b'attributeFilter: ["disabled", "style"]'
+          new = b'attributeFilter: ["disabled"]'
+          count = 0
+          carry = bytearray()
+          with p.open("rb") as src, temp.open("wb") as dst:
+              while True:
+                  chunk = src.read(65536)
+                  if not chunk: break
+                  carry.extend(chunk)
+                  while len(carry) >= len(old):
+                      if carry.startswith(old):
+                          dst.write(new)
+                          del carry[:len(old)]
+                          count += 1
+                      else:
+                          dst.write(carry[:1])
+                          del carry[:1]
+              while carry:
+                  if carry.startswith(old):
+                      dst.write(new)
+                      del carry[:len(old)]
+                      count += 1
+                  else:
+                      dst.write(carry[:1])
+                      del carry[:1]
+          if count != 1:
+              temp.unlink(missing_ok=True)
+              raise SystemExit(f"OBSERVER_ANCHOR_COUNT_FAIL={count}")
+          # Extract only the new mobile UI script by streaming; never load the full HTML.
+          start = b'<script id="m36-mobile-next-ui-script">'
+          end = b"</script>"
+          script = bytearray()
+          state = 0
+          with temp.open("rb") as src:
+              buf = b""
+              while True:
+                  chunk = src.read(65536)
+                  if not chunk: break
+                  buf += chunk
+                  if state == 0:
+                      idx = buf.find(start)
+                      if idx < 0:
+                          buf = buf[-(len(start)-1):]
+                          continue
+                      buf = buf[idx+len(start):]
+                      state = 1
+                  if state == 1:
+                      idx = buf.find(end)
+                      if idx >= 0:
+                          script.extend(buf[:idx])
+                          break
+                      script.extend(buf[:-len(end)+1])
+                      buf = buf[-(len(end)-1):]
+          if state != 1: raise SystemExit("SCRIPT_BOUNDARY_FAIL")
+          check = Path("/tmp/m36-mobile-next-ui-script.js")
+          check.write_bytes(script)
+          result = subprocess.run(["node", "--check", str(check)], capture_output=True, text=True)
+          if result.returncode:
+              temp.unlink(missing_ok=True)
+              raise SystemExit("NODE_CHECK_FAIL\n" + result.stderr)
+          if b'attributeFilter: ["disabled"]' not in script:
+              temp.unlink(missing_ok=True)
+              raise SystemExit("OBSERVER_FILTER_VALIDATION_FAIL")
+          temp.replace(p)
+          print("OBSERVER_ANCHOR_COUNT=1")
+          print("INJECTED_JS_NODE_CHECK=PASS")
+          print("OBSERVER_STYLE_CHURN=REMOVED")
+          PY
+      - name: Verify diff and clean up
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --check
+          git diff --numstat -- Wayward_MOD_v3.36.html
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add Wayward_MOD_v3.36.html
+          rm -f .github/workflows/m36-observer-safety.yml
+          git add -u .github/workflows/m36-observer-safety.yml
+          git commit -m "fix(mobile): prevent observer churn during category folding"
+          git push origin HEAD:mobile-migration-v1
