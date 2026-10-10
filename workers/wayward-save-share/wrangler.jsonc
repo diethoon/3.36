@@ -1,0 +1,22 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "wayward-save-share",
+  "main": "index.js",
+  "compatibility_date": "2026-10-10",
+  "observability": {
+    "enabled": true
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "wayward-save-share-db",
+      "database_id": "092f05fa-909c-4a3b-b8a8-b5b6dce615d8"
+    }
+  ],
+  "r2_buckets": [
+    {
+      "binding": "SAVE_OBJECTS",
+      "bucket_name": "wayward-save-share-files"
+    }
+  ]
+}
