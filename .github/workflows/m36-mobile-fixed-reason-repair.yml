@@ -204,7 +204,6 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add Wayward_MOD_v3.36.html
-          git add -u .github/workflows/m36-mobile-fixed-reason-repair.yml
           git diff --cached --check
           git status --short
           git commit -m "fix(mobile): constrain choice scroll and restore disabled reasons"
