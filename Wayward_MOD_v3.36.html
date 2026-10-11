@@ -5970,59 +5970,132 @@ END_WAYWARD_MOD_PARENT_3_25_EXTENSION_GUIDE -->
   .mobile-portrait-panel {display:none!important;}
 }
 </style>
-<style id="wayward-mobile-landscape-v4">
+<style id="wayward-mobile-landscape-v5">
 @media (max-width:1023px) and (orientation:landscape) {
+  html,body,#root {height:100dvh!important;min-height:0!important;overflow:hidden!important;}
   .m34-header {
-    flex-wrap:nowrap!important;height:52px!important;min-height:52px!important;max-height:52px!important;
-    overflow:hidden!important;gap:3px!important;padding:0 2px!important;align-items:center!important;
+    box-sizing:border-box!important;display:grid!important;grid-template-columns:minmax(0,1fr)!important;
+    grid-template-rows:38px!important;gap:0!important;
+    width:100%!important;height:38px!important;min-height:38px!important;max-height:38px!important;
+    flex:0 0 38px!important;overflow:visible!important;padding:0!important;position:sticky!important;top:0!important;z-index:40!important;
   }
   .m34-header-stats {
-    flex:1 1 0!important;width:0!important;min-width:0!important;max-width:none!important;
-    height:48px!important;overflow:hidden!important;padding:0!important;
+    grid-column:1!important;grid-row:1!important;box-sizing:border-box!important;
+    display:block!important;flex:none!important;width:100%!important;min-width:0!important;max-width:none!important;
+    height:38px!important;min-height:38px!important;max-height:38px!important;overflow:hidden!important;
+    padding:0!important;font-size:16px!important;
   }
-  .m34-header-stats>[class*="desk:flex"] {
-    display:flex!important;box-sizing:border-box!important;width:100%!important;max-width:100%!important;min-width:0!important;
-    height:48px!important;overflow-x:auto!important;overflow-y:hidden!important;padding:2px 4px!important;align-items:center!important;
+  .m34-header-stats>div:first-child {
+    display:block!important;box-sizing:border-box!important;width:100%!important;max-width:100%!important;min-width:0!important;
+    height:38px!important;max-height:38px!important;overflow:hidden!important;padding:2px 6px!important;font-size:16px!important;
   }
+  .m34-header-stats>div:nth-child(2) {display:none!important;}
   .m34-header-tools {
-    display:flex!important;flex:0 0 auto!important;width:auto!important;max-width:none!important;min-width:0!important;
-    height:28px!important;flex-wrap:nowrap!important;align-items:center!important;gap:2px!important;overflow:hidden!important;
+    position:fixed!important;left:calc((100vw - 6px) * .182 + 2px)!important;right:auto!important;
+    top:38px!important;bottom:80px!important;box-sizing:border-box!important;
+    display:flex!important;flex:0 0 28px!important;flex-direction:column!important;align-items:center!important;justify-content:flex-start!important;
+    gap:2px!important;width:28px!important;min-width:28px!important;max-width:28px!important;
+    height:auto!important;min-height:0!important;max-height:none!important;overflow-x:hidden!important;overflow-y:auto!important;
+    padding:2px 1px!important;margin:0!important;background:rgba(28,25,23,.96)!important;
+    border-right:1px solid rgba(120,113,108,.65)!important;z-index:80!important;flex-wrap:nowrap!important;
   }
   .m33-launchers {
-    display:flex!important;flex:0 0 148px!important;width:148px!important;max-width:148px!important;min-width:0!important;
-    height:28px!important;gap:1px!important;overflow:hidden!important;
+    display:flex!important;flex:0 0 auto!important;flex-direction:column!important;align-items:center!important;justify-content:flex-start!important;
+    gap:2px!important;width:26px!important;min-width:26px!important;max-width:26px!important;
+    height:auto!important;min-height:0!important;max-height:none!important;overflow:visible!important;
   }
-  .m33-launchers>button:has(svg) {
-    box-sizing:border-box!important;display:flex!important;flex:0 0 26px!important;width:26px!important;min-width:26px!important;max-width:26px!important;
-    height:26px!important;min-height:26px!important;max-height:26px!important;padding:0!important;gap:0!important;justify-content:center!important;
-    overflow:hidden!important;font-size:0!important;
+  .m33-launchers>button:has(svg),.m33-launchers>button.m33-editor-launch {
+    position:relative!important;box-sizing:border-box!important;display:flex!important;flex:0 0 26px!important;
+    width:26px!important;min-width:26px!important;max-width:26px!important;
+    height:26px!important;min-height:26px!important;max-height:26px!important;
+    padding:0!important;margin:0!important;gap:0!important;align-items:center!important;justify-content:center!important;
+    overflow:hidden!important;font-size:0!important;border-radius:4px!important;
   }
-  .m33-launchers>button:has(svg) small {font-size:.55rem!important;}
-  .m33-launchers>button:has(svg):nth-child(2) {
-    flex-basis:34px!important;width:34px!important;min-width:34px!important;max-width:34px!important;
-  }
-  .m33-launchers>button.m33-editor-launch {
-    box-sizing:border-box!important;flex:0 0 84px!important;width:84px!important;min-width:84px!important;max-width:84px!important;
-    height:26px!important;min-height:26px!important;max-height:26px!important;padding:0 2px!important;font-size:.56rem!important;gap:1px!important;
-    overflow:hidden!important;
-  }
-  .m33-launchers>button.m33-editor-launch small {font-size:.5rem!important;}
+  .m33-launchers>button:has(svg) svg {width:18px!important;height:18px!important;flex:0 0 18px!important;}
+  .m33-launchers>button:has(svg) small,.m33-launchers>button:has(svg) span,
+  .m33-launchers>button.m33-editor-launch small {display:none!important;}
+  .m33-launchers>button.m33-editor-launch:before {content:"✎";display:block!important;font-size:16px!important;line-height:1!important;color:#e7e5e4!important;}
   .m34-system-tools {
-    display:flex!important;flex:0 0 auto!important;width:auto!important;max-width:none!important;min-width:0!important;height:28px!important;
-    gap:2px!important;overflow:hidden!important;flex-wrap:nowrap!important;
+    display:flex!important;flex:0 0 auto!important;flex-direction:column!important;align-items:center!important;justify-content:flex-start!important;
+    gap:2px!important;width:26px!important;min-width:26px!important;max-width:26px!important;
+    height:auto!important;min-height:0!important;max-height:none!important;overflow:visible!important;flex-wrap:nowrap!important;
   }
-  .m34-system-tools .m33-theme-holder,.m34-system-tools .m33-theme-button {
-    box-sizing:border-box!important;flex:0 0 26px!important;width:26px!important;min-width:26px!important;max-width:26px!important;
-    height:26px!important;min-height:26px!important;max-height:26px!important;
-  }
+  .m34-system-tools .m33-theme-holder,.m34-system-tools .m33-theme-button,
   .m34-system-tools .m34-header-control {
-    box-sizing:border-box!important;flex:0 0 26px!important;width:26px!important;min-width:26px!important;max-width:26px!important;
-    height:26px!important;min-height:26px!important;max-height:26px!important;
+    box-sizing:border-box!important;display:flex!important;flex:0 0 26px!important;
+    width:26px!important;min-width:26px!important;max-width:26px!important;
+    height:26px!important;min-height:26px!important;max-height:26px!important;margin:0!important;padding:0!important;
+    align-items:center!important;justify-content:center!important;overflow:hidden!important;border-radius:4px!important;
+  }
+  .mobile-layout {
+    display:grid!important;
+    grid-template-columns:minmax(92px,.7fr) minmax(150px,1fr) minmax(118px,.95fr) minmax(140px,1.2fr)!important;
+    grid-template-rows:minmax(0,1fr)!important;gap:2px!important;
+    width:100%!important;height:100%!important;min-width:0!important;min-height:0!important;
+    overflow:hidden!important;position:relative!important;flex:1 1 0%!important;
+  }
+  .mobile-portrait-panel {
+    grid-column:1!important;grid-row:1!important;position:relative!important;
+    display:flex!important;min-width:0!important;min-height:0!important;width:auto!important;max-width:none!important;height:100%!important;overflow:hidden!important;
+  }
+  .mobile-main-panel {
+    grid-column:2!important;grid-row:1!important;position:relative!important;
+    display:flex!important;flex-direction:column!important;box-sizing:border-box!important;
+    width:auto!important;max-width:none!important;min-width:0!important;min-height:0!important;height:100%!important;
+    padding-left:30px!important;overflow:hidden!important;
+  }
+  .mobile-main-panel>.flex-1 {min-width:0!important;min-height:0!important;overflow-x:hidden!important;overflow-y:auto!important;}
+  .mobile-main-panel .m36-mobile-tabs {
+    position:absolute!important;left:0!important;right:auto!important;top:auto!important;bottom:0!important;
+    display:flex!important;flex-direction:column!important;align-items:stretch!important;justify-content:flex-end!important;
+    box-sizing:border-box!important;width:28px!important;min-width:28px!important;max-width:28px!important;
+    height:78px!important;min-height:78px!important;max-height:78px!important;
+    overflow:hidden!important;padding:0 1px 2px!important;margin:0!important;gap:0!important;
+    border-right:1px solid rgba(120,113,108,.65)!important;background:rgba(28,25,23,.96)!important;z-index:25!important;
+  }
+  .mobile-main-panel .m36-mobile-tabs>* {
+    box-sizing:border-box!important;display:flex!important;flex:0 0 25px!important;
+    width:26px!important;min-width:26px!important;max-width:26px!important;
+    height:25px!important;min-height:25px!important;max-height:25px!important;
+    padding:0!important;margin:0!important;align-items:center!important;justify-content:center!important;
+    overflow:hidden!important;white-space:nowrap!important;font-size:0!important;
+  }
+  .mobile-action-panel {
+    grid-column:3 / span 2!important;grid-row:1!important;position:relative!important;
+    display:block!important;box-sizing:border-box!important;width:100%!important;max-width:none!important;min-width:0!important;
+    min-height:0!important;height:100%!important;max-height:100%!important;overflow:hidden!important;
+  }
+  .mobile-action-panel>* {
+    box-sizing:border-box!important;width:44%!important;max-width:44%!important;min-width:0!important;
+  }
+  .mobile-action-panel>.flex-1.min-h-0.flex.flex-col {display:contents!important;}
+  .mobile-action-panel>.shrink-0.flex.items-center {display:none!important;}
+  .mobile-action-panel .m36-mobile-store-status,
+  .mobile-action-panel .m36-mobile-stock-status,
+  .mobile-action-panel .m36-mobile-status-panel,
+  .mobile-action-panel .m36-mobile-prep-compact,
+  .mobile-action-panel .m36-mobile-facility-only,
+  .mobile-action-panel .m36-mobile-facility-upgrade,
+  .mobile-action-panel .m36-mobile-dialogue-fixed,
+  .mobile-action-panel .m36-mobile-pleasure-fixed {
+    box-sizing:border-box!important;width:44%!important;max-width:44%!important;min-width:0!important;
+  }
+  .mobile-action-panel .m36-mobile-store-status,
+  .mobile-action-panel .m36-mobile-prep-compact {overflow-x:hidden!important;overflow-y:auto!important;}
+  .mobile-action-panel .mobile-action-scroll {
+    position:absolute!important;left:44%!important;right:0!important;top:0!important;bottom:0!important;
+    box-sizing:border-box!important;display:block!important;
+    width:56%!important;min-width:0!important;max-width:56%!important;height:auto!important;max-height:none!important;
+    min-height:0!important;margin:0!important;padding:2px!important;
+    overflow-x:hidden!important;overflow-y:auto!important;
+  }
+  .mobile-action-panel .mobile-action-scroll>div {
+    box-sizing:border-box!important;width:100%!important;min-width:0!important;max-width:100%!important;
+  }
+  .mobile-action-panel .mobile-action-scroll button {
+    box-sizing:border-box!important;min-width:0!important;max-width:100%!important;white-space:normal!important;
   }
   .mobile-action-panel .mobile-action-scroll [class*="desk:block"] {display:none!important;}
-  .mobile-action-panel .mobile-action-scroll,.mobile-action-panel .mobile-action-scroll>* {min-width:0!important;max-width:100%!important;}
-  .mobile-action-panel .mobile-action-scroll>div {width:100%!important;}
-  .mobile-action-panel .mobile-action-scroll button {box-sizing:border-box!important;min-width:0!important;max-width:100%!important;}
 }
 </style>
 </body>
