@@ -18,21 +18,34 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: mobile-migration-v1
-      - name: Extract bounded layout CSS and selector inventory
+      - name: Install browser test runtime
         run: |
-          python3 - <<'PY'
-          from pathlib import Path
-          import re, hashlib
-          s=Path("Wayward_MOD_v3.36.html").read_text(encoding="utf-8",errors="replace")
-          print("SOURCE_BYTES",len(s.encode()),"SHA256",hashlib.sha256(s.encode()).hexdigest())
-          ids=["wayward-mobile-migration-v1","m36-mobile-space-layout-v2","wayward-mobile-landscape-clean-v11","wayward-landscape-header-fit-v10"]
-          for ident in ids:
-              m=re.search(r'<style\b[^>]*\bid=["\']'+re.escape(ident)+r'["\'][^>]*>(.*?)</style>',s,re.I|re.S)
-              print("\n===== CSS_BLOCK",ident,"FOUND",bool(m),"LEN",len(m.group(1)) if m else 0,"=====")
-              if m: print(m.group(1)[:14000])
-          print("\n===== TARGET SELECTORS IN LANDSCAPE CSS =====")
-          for m in re.finditer(r'([^{}]+)\{([^{}]*)\}',s,re.S):
-              sel=m.group(1).strip()
-              if re.search(r'landscape|m34-header|mobile-layout|portrait-panel|main-panel|action-panel|choice-scroll',sel,re.I) and len(sel)<500 and ("@media" in sel or "m34-" in sel or "mobile-" in sel):
-                  print(sel[:450].replace("\n"," "),"=>",m.group(2)[:400].replace("\n"," "))
-          PY
+          npm install --no-save playwright
+          npx playwright install --with-deps chromium
+      - name: Inspect character setup continuation controls
+        run: |
+          node --input-type=module <<'JS'
+          import {chromium} from 'playwright';
+          const b=await chromium.launch({headless:true,args:['--no-sandbox']});
+          const p=await b.newPage({viewport:{width:1920,height:1080}});
+          await p.goto('http://127.0.0.1:8080/Wayward_MOD_v3.36.html',{waitUntil:'domcontentloaded',timeout:30000});
+          for(let step=0;step<6;step++){
+            await p.waitForTimeout(250);
+            const labels=(await p.locator('button').allTextContents()).map(t=>t.trim());
+            const body=await p.locator('body').innerText();
+            let label=null;
+            if(labels.includes('예'))label='예';
+            else if(labels.includes('이해하고 동의합니다'))label='이해하고 동의합니다';
+            else if(labels.includes('새 게임'))label='새 게임';
+            else if(body.includes('그녀는 당신에게 어떤 존재인가요?')&&labels.includes('아내'))label='아내';
+            else if(labels.some(t=>t.startsWith('엘레나')))label=labels.find(t=>t.startsWith('엘레나'));
+            else if(labels.some(t=>t.includes('계속하기 — 엘레나')))label=labels.find(t=>t.includes('계속하기 — 엘레나'));
+            if(!label)break;
+            await p.locator('button').nth(labels.indexOf(label)).click();
+          }
+          await p.waitForTimeout(500);
+          await p.evaluate(()=>window.scrollTo(0,document.documentElement.scrollHeight));
+          await p.waitForTimeout(500);
+          console.log('SCROLL_BOTTOM '+JSON.stringify(await p.evaluate(()=>({scroll:{y:scrollY,docH:document.documentElement.scrollHeight,bodyH:document.body.scrollHeight},buttons:[...document.querySelectorAll('button')].map((e,i)=>({i,text:e.innerText.trim().replace(/\s+/g,' ').slice(0,140),disabled:e.disabled,rect:(()=>{const r=e.getBoundingClientRect();return {y:Math.round(r.y),h:Math.round(r.height)}})()})),tail:document.body.innerText.slice(-1800)}))));
+          await b.close();
+          JS
