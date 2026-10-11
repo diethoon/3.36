@@ -30,7 +30,7 @@ jobs:
 
           path = Path("idea/GPT_RUNTIME_FORENSIC_FALLBACK.md")
           marker = b'\\n\\n### 31. 2026-10-12 mobile landscape four-column UI patch'
-          replacement = b"\\n\\n### 33. 2026-10-12 mobile landscape four-column UI patch"
+          replacement = b"\n\n### 33. 2026-10-12 mobile landscape four-column UI patch"
           literal_tail = b'\\n'
           with path.open("rb") as f, mmap.mmap(f.fileno(), 0, access=mmap.ACCESS_READ) as mm:
               at = mm.find(marker)
@@ -44,7 +44,7 @@ jobs:
               print("DOC_BYTES", size, "PREFIX_OFFSET", at, "EOF_LITERAL_OFFSET", size - 2)
           ops = [
               (at, at + len(marker), replacement),
-              (size - 2, size, b"\\n"),
+              (size - 2, size, b"\n"),
           ]
           ops.sort()
           temp = path.with_suffix(".md.m36tmp")
