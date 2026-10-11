@@ -28,7 +28,7 @@ jobs:
           for i in $(seq 1 30); do curl -fsS http://127.0.0.1:8080/Wayward_MOD_v3.36.html >/dev/null && exit 0; sleep 1; done
           cat /tmp/m36-static.log
           exit 1
-      - name: Measure responsive layout after age gate
+      - name: Measure responsive layout after consent gates
         run: |
           node --input-type=module <<'JS'
           import { chromium } from 'playwright';
@@ -46,13 +46,15 @@ jobs:
             page.on('pageerror',e=>errors.push('pageerror:'+String(e)));
             page.on('console',m=>{if(m.type()==='error')errors.push('console:'+m.text().slice(0,200));});
             await page.goto('http://127.0.0.1:8080/Wayward_MOD_v3.36.html',{waitUntil:'domcontentloaded',timeout:30000});
-            const age=page.getByRole('button',{name:'예',exact:true});
-            if(await age.count()) {await age.click(); await page.waitForTimeout(1200);}
-            await page.waitForTimeout(1800);
+            for (const label of ['예','이해하고 동의합니다']) {
+              const button=page.getByRole('button',{name:label,exact:true});
+              if(await button.count()) {await button.first().click(); await page.waitForTimeout(800);}
+            }
+            await page.waitForTimeout(1500);
             const m=await page.evaluate(()=>{
               const rect=s=>{const e=document.querySelector(s);if(!e)return null;const r=e.getBoundingClientRect();return {x:Math.round(r.x),y:Math.round(r.y),w:Math.round(r.width),h:Math.round(r.height),scrollW:e.scrollWidth,clientW:e.clientWidth,scrollH:e.scrollHeight,clientH:e.clientHeight,display:getComputedStyle(e).display,overflow:getComputedStyle(e).overflow};};
               const a=document.querySelector('.m34-header-stats')?.getBoundingClientRect(),b=document.querySelector('.m34-header-tools')?.getBoundingClientRect();
-              return {viewport:{w:innerWidth,h:innerHeight,docW:document.documentElement.scrollWidth,docH:document.documentElement.scrollHeight},bodyText:document.body.innerText.slice(0,180),header:rect('.m34-header'),stats:rect('.m34-header-stats'),tools:rect('.m34-header-tools'),layout:rect('.mobile-layout'),portrait:rect('.mobile-portrait-panel'),main:rect('.mobile-main-panel'),actions:rect('.mobile-action-panel'),choiceScroll:rect('.mobile-action-scroll'),headerRowDelta:a&&b?Math.round(b.top-a.top):null};
+              return {viewport:{w:innerWidth,h:innerHeight,docW:document.documentElement.scrollWidth,docH:document.documentElement.scrollHeight},bodyText:document.body.innerText.slice(0,160),header:rect('.m34-header'),stats:rect('.m34-header-stats'),tools:rect('.m34-header-tools'),layout:rect('.mobile-layout'),portrait:rect('.mobile-portrait-panel'),main:rect('.mobile-main-panel'),actions:rect('.mobile-action-panel'),choiceScroll:rect('.mobile-action-scroll'),headerRowDelta:a&&b?Math.round(b.top-a.top):null};
             });
             console.log('CASE '+c.name+' '+JSON.stringify({metrics:m,errors:errors.slice(0,5)}));
             await page.close();
