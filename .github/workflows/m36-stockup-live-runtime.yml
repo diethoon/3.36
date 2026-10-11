@@ -1,0 +1,87 @@
+name: One-shot stock-up live runtime probe
+on:
+  push:
+    branches:
+      - mobile-migration-v1
+    paths:
+      - .github/workflows/m36-stockup-live-runtime.yml
+permissions:
+  contents: write
+jobs:
+  runtime-probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: mobile-migration-v1
+          fetch-depth: 1
+      - name: Install Playwright Chromium
+        run: |
+          npm init -y
+          npm install playwright
+          npx playwright install --with-deps chromium
+      - name: Inspect live game setup and current runtime state
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > stockup-probe.mjs <<'EOF'
+          import { chromium } from 'playwright';
+          import fs from 'node:fs';
+          const url='https://static-3-36.onrender.com/Wayward_MOD_v3.36.html';
+          const browser=await chromium.launch({headless:true});
+          const context=await browser.newContext({viewport:{width:390,height:844},deviceScaleFactor:1,isMobile:true,hasTouch:true});
+          const page=await context.newPage();
+          const errors=[];
+          page.on('pageerror',e=>errors.push(String(e)));
+          const actions=[];
+          const clickIfVisible=async(text)=>{
+            const loc=page.getByText(text,{exact:true}).first();
+            if(await loc.count()&&await loc.isVisible().catch(()=>false)){
+              const enabled=await loc.isEnabled().catch(()=>false);
+              if(enabled){await loc.click({timeout:5000}).catch(()=>{});await page.waitForTimeout(700);actions.push('clicked:'+text);return true;}
+            }
+            actions.push('not-clicked:'+text);return false;
+          };
+          await page.goto(url,{waitUntil:'networkidle',timeout:120000});
+          await page.waitForTimeout(1300);
+          for(const t of ['예','이해하고 동의합니다','새 게임','피파','계속하기 — 피파 →','운명에 맡김','시작 — 피파 →','건너뛰기']) await clickIfVisible(t);
+          await page.waitForTimeout(1500);
+          const report=await page.evaluate(()=>{
+            const visible=e=>!!(e&&e.getClientRects().length&&getComputedStyle(e).visibility!=='hidden'&&getComputedStyle(e).display!=='none');
+            const texts=[...document.querySelectorAll('button,[role=button],input,textarea,select,[role=radio]')].filter(visible).map(e=>({tag:e.tagName,role:e.getAttribute('role'),text:(e.innerText||e.getAttribute('aria-label')||e.value||'').trim().slice(0,100),disabled:!!e.disabled,cls:String(e.className||'').slice(0,100)})).slice(0,140);
+            const body=(document.body?.innerText||'').replace(/\n{3,}/g,'\n\n').slice(0,6500);
+            const keys=Object.keys(localStorage);
+            const store=keys.map(key=>{let value='';try{value=localStorage.getItem(key)||'';}catch{}return {key,length:value.length,prefix:value.slice(0,180).replace(/[\\r\\n]/g,' '),looksJson:/^\\s*[\\[{]/.test(value)};});
+            const winKeys=Object.keys(window).filter(k=>/store|state|game|save|zustand|redux/i.test(k)).slice(0,100);
+            const layout={phaseHints:[...document.querySelectorAll('[class*=mobile],[class*=prep]')].filter(visible).slice(0,20).map(e=>({cls:String(e.className||'').slice(0,100),text:(e.innerText||'').trim().slice(0,180)}))};
+            return {title:document.title,url:location.href,body,controls:texts,storage:store,windowKeys:winKeys,layout};
+          });
+          report.actions=actions;report.pageErrors=errors;
+          fs.writeFileSync('stockup-live-probe.json',JSON.stringify(report,null,2));
+          await page.screenshot({path:'stockup-live-probe.png',fullPage:false});
+          console.log('STOCKUP_LIVE_PROBE',JSON.stringify(report));
+          await browser.close();
+          EOF
+          node stockup-probe.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: stockup-live-runtime-probe
+          path: |
+            stockup-live-probe.json
+            stockup-live-probe.png
+          if-no-files-found: ignore
+      - name: Remove temporary runtime workflow
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          git rm -f .github/workflows/m36-stockup-live-runtime.yml || true
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -u
+          if ! git diff --cached --quiet; then
+            git commit -m "chore: remove temporary stock-up live runtime probe"
+            git push origin HEAD:mobile-migration-v1
+          fi
