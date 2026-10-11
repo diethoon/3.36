@@ -1,0 +1,1 @@
+Temporary trigger only: append landscape patch evidence to forensic fallback documentation. Do not merge.
