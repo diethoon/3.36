@@ -1,0 +1,110 @@
+name: TEMP m36 landscape runtime verification
+on:
+  push:
+    branches: [mobile-migration-v1]
+    paths:
+      - .github/workflows/m36-landscape-runtime-verify.yml
+permissions:
+  contents: write
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install Playwright
+        run: |
+          npm install --no-save playwright
+          npx playwright install --with-deps chromium
+      - name: Reach the actual game and measure real deployment
+        continue-on-error: true
+        run: |
+          node <<'NODE'
+          const { chromium } = require('playwright');
+          (async () => {
+            const browser = await chromium.launch({headless:true});
+            const page = await browser.newPage({viewport:{width:844,height:390},deviceScaleFactor:1});
+            const errors=[];
+            page.on('pageerror', e=>errors.push(String(e)));
+            await page.goto('https://static-3-36.onrender.com/Wayward_MOD_v3.36.html',{waitUntil:'domcontentloaded',timeout:120000});
+            await page.waitForTimeout(2500);
+            const buttons=()=>page.locator('button').evaluateAll(es=>es.map((e,i)=>({i,text:(e.innerText||e.textContent||'').trim().replace(/\\s+/g,' ').slice(0,110),disabled:!!e.disabled||e.getAttribute('aria-disabled')==='true',rect:(()=>{const r=e.getBoundingClientRect();return{x:Math.round(r.x),y:Math.round(r.y),w:Math.round(r.width),h:Math.round(r.height)}})()})));
+            async function click(re,label){
+              const all=await buttons();
+              let b=all.find(x=>re.test(x.text)&&!x.disabled&&x.rect.w>0&&x.rect.h>0);
+              if(!b){console.log('NO_TARGET',JSON.stringify({label,buttons:all.filter(x=>x.text).slice(-25)}));return false;}
+              const el=page.locator('button').nth(b.i);
+              await el.scrollIntoViewIfNeeded({timeout:5000});
+              await el.click({timeout:6000});
+              console.log('FLOW_CLICK',JSON.stringify({label,text:b.text}));
+              await page.waitForTimeout(850);
+              return true;
+            }
+            let reached=false;
+            for(let i=0;i<12;i++){
+              if(await page.locator('.mobile-layout').count()){reached=true;break;}
+              const body=(await page.locator('body').innerText().catch(()=>'' )).slice(0,1600);
+              if(body.includes('법정 성인 연령')||body.includes('만 18세')) {
+                if(await click(/^예$/,'age yes')) continue; 
+              }
+              if(body.includes('이해하고 동의합니다')) {
+                if(await click(/이해하고 동의합니다/,'consent')) continue;
+              }
+              if(body.includes('새 게임')) {
+                if(await click(/^새 게임$/,'new game')) continue;
+              }
+              if(body.includes('그녀가 누구인지 고르세요')) {
+                if(await click(/^계속하기.*엘레나/,'continue to traits')) continue;
+                if(await click(/엘레나.*농가 출신 여성/,'select Elena fallback')) continue;
+              }
+              if(body.includes('엘레나는 어떤 사람인가요?')) {
+                if(await click(/^시작.*엘레나/,'start game')) continue;
+                const all=await buttons();
+                const start=all.find(x=>x.text.startsWith('시작')&&x.text.includes('엘레나'));
+                console.log('START_NOT_CLICKABLE',JSON.stringify({start,buttons:all.filter(x=>x.text).slice(-25)}));
+                if(await click(/^운명에 맡김$/,'choose random default')) continue;
+              }
+              console.log('FLOW_STALLED',JSON.stringify({step:i,body:body.slice(0,900),buttons:(await buttons()).filter(x=>x.text).slice(-25)}));
+              break;
+            }
+            await page.waitForTimeout(1500);
+            async function measure(name,w,h,path){
+              await page.setViewportSize({width:w,height:h});await page.waitForTimeout(700);
+              const d=await page.evaluate(()=>{
+                const ss=['.m34-header','.m34-header-stats','.mobile-layout','.mobile-portrait-panel','.mobile-main-panel','.mobile-action-panel','.m36-mobile-tabs','.mobile-action-scroll','.m36-mobile-dialogue-fixed','.m36-mobile-store-status'];
+                const box=e=>{if(!e)return null;const r=e.getBoundingClientRect(),c=getComputedStyle(e);return{rect:{x:Math.round(r.x),y:Math.round(r.y),w:Math.round(r.width),h:Math.round(r.height)},display:c.display,position:c.position,overflow:c.overflow,grid:c.gridTemplateColumns,flexDirection:c.flexDirection,scrollH:e.scrollHeight,clientH:e.clientHeight,scrollW:e.scrollWidth,clientW:e.clientWidth}};
+                return{viewport:{w:innerWidth,h:innerHeight},body:{w:document.body.scrollWidth,h:document.body.scrollHeight},elements:Object.fromEntries(ss.map(s=>[s,box(document.querySelector(s))])),headerControls:[...document.querySelectorAll('.m34-header-control')].slice(0,20).map(e=>({text:(e.innerText||e.textContent||'').trim().slice(0,25),...box(e)})),bodyText:(document.body.innerText||'').slice(0,650)};
+              });
+              console.log(name+'_RESULT',JSON.stringify(d));
+              await page.screenshot({path,fullPage:false}).catch(e=>console.log('SCREENSHOT_ERROR',name,String(e)));
+            }
+            await measure('LANDSCAPE',844,390,'/tmp/m36-landscape.png');
+            await measure('PORTRAIT',390,844,'/tmp/m36-portrait.png');
+            await measure('NARROW_PORTRAIT',320,640,'/tmp/m36-narrow.png');
+            console.log('REACHED_MOBILE_LAYOUT',reached||await page.locator('.mobile-layout').count()>0);
+            console.log('PAGE_ERRORS',JSON.stringify(errors.slice(0,20)));
+            await browser.close();
+          })().catch(e=>{console.error('VERIFY_EXCEPTION',String(e));process.exitCode=1;});
+          NODE
+      - name: Upload geometry screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: m36-landscape-runtime-screenshots-final
+          path: /tmp/m36-*.png
+          if-no-files-found: warn
+          retention-days: 1
+      - name: Remove temporary runtime verifier
+        if: always()
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm -f .github/workflows/m36-landscape-runtime-verify.yml
+          git diff --cached --check
+          git commit -m "chore: remove temporary landscape runtime verifier" || true
+          git push origin HEAD:mobile-migration-v1
