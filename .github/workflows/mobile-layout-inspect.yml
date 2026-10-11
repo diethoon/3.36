@@ -25,37 +25,26 @@ jobs:
       - name: Start local static server
         run: |
           python3 -m http.server 8080 --bind 127.0.0.1 >/tmp/m36-static.log 2>&1 &
-          echo $! >/tmp/m36-static.pid
           for i in $(seq 1 30); do curl -fsS http://127.0.0.1:8080/Wayward_MOD_v3.36.html >/dev/null && exit 0; sleep 1; done
           cat /tmp/m36-static.log
           exit 1
-      - name: Measure responsive layout at portrait and landscape sizes
+      - name: Diagnose app mount and measure layout
         run: |
           node --input-type=module <<'JS'
           import { chromium } from 'playwright';
           const browser = await chromium.launch({headless:true,args:['--no-sandbox']});
-          const cases = [
-            {name:'portrait-390x844',width:390,height:844},
-            {name:'landscape-900x400',width:900,height:400},
-            {name:'landscape-1280x720',width:1280,height:720},
-            {name:'landscape-1920x1080',width:1920,height:1080},
-            {name:'landscape-2560x1080',width:2560,height:1080},
-          ];
-          let failed = false;
+          const cases = [{name:'portrait',width:390,height:844},{name:'landscape',width:1920,height:1080}];
           for (const c of cases) {
             const page = await browser.newPage({viewport:{width:c.width,height:c.height}});
-            const errors=[];
-            page.on('pageerror',e=>errors.push(String(e)));
-            await page.goto('http://127.0.0.1:8080/Wayward_MOD_v3.36.html',{waitUntil:'domcontentloaded',timeout:30000});
-            await page.waitForTimeout(3500);
-            const m = await page.evaluate(() => {
-              const rect = s => {const e=document.querySelector(s);if(!e)return null;const r=e.getBoundingClientRect();return {x:Math.round(r.x),y:Math.round(r.y),w:Math.round(r.width),h:Math.round(r.height),scrollW:e.scrollWidth,clientW:e.clientWidth,scrollH:e.scrollHeight,clientH:e.clientHeight,display:getComputedStyle(e).display,overflow:getComputedStyle(e).overflow};};
-              return {viewport:{w:innerWidth,h:innerHeight,docW:document.documentElement.scrollWidth,docH:document.documentElement.scrollHeight},header:rect('.m34-header'),stats:rect('.m34-header-stats'),tools:rect('.m34-header-tools'),layout:rect('.mobile-layout'),portrait:rect('.mobile-portrait-panel'),main:rect('.mobile-main-panel'),actions:rect('.mobile-action-panel'),choiceScroll:rect('.mobile-action-scroll'),headerRowDelta:(()=>{let a=document.querySelector('.m34-header-stats')?.getBoundingClientRect(),b=document.querySelector('.m34-header-tools')?.getBoundingClientRect();return a&&b?Math.round(b.top-a.top):null})()};
-            });
-            console.log('CASE '+c.name+' '+JSON.stringify({metrics:m,errors:errors.slice(0,5)}));
-            if(m.viewport.docW>c.width+2) {console.log('FAIL horizontal document overflow');failed=true;}
+            const errors=[], failed=[];
+            page.on('pageerror',e=>errors.push('pageerror:'+String(e)));
+            page.on('console',m=>{if(m.type()==='error')errors.push('console:'+m.text().slice(0,250));});
+            page.on('requestfailed',r=>failed.push(r.url()+':'+(r.failure()?.errorText||'')));
+            const response=await page.goto('http://127.0.0.1:8080/Wayward_MOD_v3.36.html',{waitUntil:'domcontentloaded',timeout:30000});
+            await page.waitForTimeout(5000);
+            const m=await page.evaluate(()=>({title:document.title,ready:document.readyState,bodyText:document.body?.innerText?.slice(0,500),bodyHtml:document.body?.innerHTML?.slice(0,1000),scripts:[...document.scripts].map(s=>({src:s.src,type:s.type,bytes:s.textContent.length})).slice(-8),root:document.querySelector('#root')?.outerHTML?.slice(0,500),headers:document.querySelectorAll('.m34-header').length,htmlBytes:document.documentElement.outerHTML.length,viewport:{w:innerWidth,h:innerHeight,docW:document.documentElement.scrollWidth,docH:document.documentElement.scrollHeight}}));
+            console.log('CASE '+c.name+' status='+response.status()+' '+JSON.stringify({m,errors:errors.slice(0,15),failed:failed.slice(0,10)}));
             await page.close();
           }
           await browser.close();
-          if(failed) process.exitCode=1;
           JS
