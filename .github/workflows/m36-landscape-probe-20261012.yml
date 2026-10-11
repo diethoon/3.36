@@ -33,7 +33,15 @@ jobs:
           print("FILE", p.name, "BYTES", size)
           with p.open("rb") as fp:
               mm = mmap.mmap(fp.fileno(), 0, access=mmap.ACCESS_READ)
-              print("NEWLINES", mm[:].count(b"\\n"))
+              fp.seek(0)
+          newline_count = 0
+          while True:
+              block = fp.read(65536)
+              if not block:
+                  break
+              newline_count += block.count(b"\\n")
+          fp.seek(0)
+          print("NEWLINES", newline_count)
               patterns = [
                   ("landscape media", re.compile(rb"@media[^{}]{0,180}landscape", re.I), 5),
                   ("orientation", re.compile(rb"orientation", re.I), 4),
