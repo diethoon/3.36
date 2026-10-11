@@ -9,7 +9,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   inspect:
@@ -18,6 +18,55 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: mobile-migration-v1
+      - name: Move landscape header rules to all landscape heights
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re, hashlib
+          path=Path("Wayward_MOD_v3.36.html")
+          source=path.read_text(encoding="utf-8", errors="strict")
+          if 'id="wayward-landscape-header-unified-v12"' in source:
+              raise SystemExit("PATCH_ABORT: v12 block already exists")
+          pattern=r'(<style id="wayward-mobile-landscape-clean-v11">)(.*?)(</style>)'
+          matches=list(re.finditer(pattern, source, re.S))
+          if len(matches)!=1:
+              raise SystemExit(f"PATCH_ABORT: expected one v11 block, found {len(matches)}")
+          m=matches[0]
+          css=m.group(2)
+          start_token="  .m34-header {"
+          end_token="  .flex.flex-col.min-h-0.flex-1:has(> .mobile-layout)"
+          if css.count(start_token)!=1 or css.count(end_token)!=1:
+              raise SystemExit("PATCH_ABORT: header extraction anchors are not unique")
+          start=css.index(start_token)
+          end=css.index(end_token)
+          if end<=start:
+              raise SystemExit("PATCH_ABORT: invalid CSS block boundaries")
+          header_rules=css[start:end].rstrip()
+          if header_rules.count(".m34-header")<5 or ".m33-launchers" not in header_rules:
+              raise SystemExit("PATCH_ABORT: extracted header rules failed validation")
+          remaining=css[:start]+css[end:]
+          replacement=m.group(1)+remaining+m.group(3)
+          new_style='''<style id="wayward-landscape-header-unified-v12">
+          @media (orientation:landscape) {
+          '''+header_rules+'''
+            .m34-header {padding:2px max(4px,env(safe-area-inset-right)) 2px max(4px,env(safe-area-inset-left))!important;gap:0 2px!important;}
+            .m34-header-stats {flex-flow:row nowrap!important;height:34px!important;min-height:34px!important;max-height:34px!important;overflow-x:auto!important;overflow-y:hidden!important;scrollbar-width:none!important;}
+            .m34-header-stats::-webkit-scrollbar {display:none!important;}
+          }
+          </style>
+          '''
+          updated=source[:m.start()]+new_style+replacement+source[m.end():]
+          if updated.count('id="wayward-landscape-header-unified-v12"')!=1:
+              raise SystemExit("PATCH_ABORT: v12 block count is not one")
+          if updated.count('id="wayward-mobile-landscape-clean-v11"')!=1:
+              raise SystemExit("PATCH_ABORT: original landscape layout block changed unexpectedly")
+          path.write_text(updated,encoding="utf-8",newline="")
+          print("PATCH_APPLIED=wayward-landscape-header-unified-v12")
+          print("SOURCE_BYTES_BEFORE",len(source.encode()),"AFTER",len(updated.encode()))
+          print("SOURCE_SHA256_BEFORE",hashlib.sha256(source.encode()).hexdigest())
+          print("SOURCE_SHA256_AFTER",hashlib.sha256(updated.encode()).hexdigest())
+          PY
       - name: Install browser test runtime
         run: |
           npm install --no-save playwright
@@ -63,7 +112,33 @@ jobs:
               return {body:document.body.innerText.slice(0,500),buttons:[...document.querySelectorAll('button')].map(e=>e.innerText.trim().replace(/\s+/g,' ').slice(0,60)).slice(0,20),viewport:{w:innerWidth,h:innerHeight,docW:document.documentElement.scrollWidth,docH:document.documentElement.scrollHeight},header:rect('.m34-header'),stats:rect('.m34-header-stats'),tools:rect('.m34-header-tools'),layout:rect('.mobile-layout'),portrait:rect('.mobile-portrait-panel'),main:rect('.mobile-main-panel'),actions:rect('.mobile-action-panel'),choiceScroll:rect('.mobile-action-scroll'),namedStyles:[...document.querySelectorAll('style[id]')].map(e=>e.id).filter(x=>/landscape|header/i.test(x))};
             });
             console.log('MEASURE '+c.name+' '+JSON.stringify({m,errs:errs.slice(0,5)}));
+            if(!m.header || m.header.h>80 || m.viewport.docW>c.width+2) throw new Error('LANDSCAPE_HEADER_LAYOUT_FAIL '+c.name+' '+JSON.stringify({header:m.header,viewport:m.viewport}));
+            if(c.width<1500 && m.layout.display!=='grid') throw new Error('LANDSCAPE_THREE_COLUMN_LAYOUT_MISSING '+c.name+' '+JSON.stringify(m.layout));
             await p.close();
           }
           await b.close();
           JS
+      - name: Validate source and commit only after browser checks
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --check
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          s=Path("Wayward_MOD_v3.36.html").read_text(encoding="utf-8",errors="strict")
+          assert s.count('id="wayward-landscape-header-unified-v12"')==1
+          assert s.count('id="wayward-mobile-landscape-clean-v11"')==1
+          m=re.search(r'<script\s+type="module"[^>]*>(.*?)</script>',s,re.S|re.I)
+          assert m, "main module script not found"
+          Path("/tmp/wayward-main-check.mjs").write_text(m.group(1),encoding="utf-8")
+          print("TARGETED_ANCHORS_PASS")
+          PY
+          node --check /tmp/wayward-main-check.mjs
+          test "$(git status --short | wc -l)" -eq 1
+          git status --short
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add Wayward_MOD_v3.36.html
+          git commit -m "fix(mobile): unify landscape header across viewport heights"
+          git push origin HEAD:mobile-migration-v1
