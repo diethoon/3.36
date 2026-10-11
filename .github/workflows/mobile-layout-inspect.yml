@@ -28,7 +28,7 @@ jobs:
           for i in $(seq 1 30); do curl -fsS http://127.0.0.1:8080/Wayward_MOD_v3.36.html >/dev/null && exit 0; sleep 1; done
           cat /tmp/m36-static.log
           exit 1
-      - name: Enter playable scene and measure layout
+      - name: Reach live game scene and measure layout
         run: |
           node --input-type=module <<'JS'
           import { chromium } from 'playwright';
@@ -38,26 +38,28 @@ jobs:
             const page=await browser.newPage({viewport:{width:c.width,height:c.height}});
             const errors=[];page.on('pageerror',e=>errors.push(String(e)));page.on('console',m=>{if(m.type()==='error')errors.push(m.text().slice(0,150));});
             await page.goto('http://127.0.0.1:8080/Wayward_MOD_v3.36.html',{waitUntil:'domcontentloaded',timeout:30000});
-            for(let step=0;step<14;step++){
-              await page.waitForTimeout(300);
+            let relationDone=false, wifeDone=false;
+            for(let step=0;step<18;step++){
+              await page.waitForTimeout(250);
+              const body=await page.locator('body').innerText();
               const labels=(await page.locator('button').allTextContents()).map(t=>t.trim());
-              let idx=-1;
-              if(labels.includes('예'))idx=labels.indexOf('예');
-              else if(labels.includes('이해하고 동의합니다'))idx=labels.indexOf('이해하고 동의합니다');
-              else if(labels.includes('새 게임'))idx=labels.indexOf('새 게임');
-              else if(labels.includes('아내'))idx=labels.indexOf('아내');
-              else if(labels.some(t=>t.startsWith('엘레나')))idx=labels.findIndex(t=>t.startsWith('엘레나'));
-              else if(labels.some(t=>t.includes('함께할 아내를 선택하세요')))idx=labels.findIndex(t=>t.includes('함께할 아내를 선택하세요'));
-              else if(labels.some(t=>t.includes('계속')))idx=labels.findIndex(t=>t.includes('계속'));
-              else if(labels.some(t=>t.includes('시작')))idx=labels.findIndex(t=>t.includes('시작'));
-              if(idx<0)break;
-              console.log('CLICK '+c.name+' step='+step+' '+JSON.stringify(labels[idx]));
-              await page.locator('button').nth(idx).click({timeout:3000}).catch(e=>console.log('CLICK_ERROR '+String(e).slice(0,150)));
+              let idx=-1, reason='';
+              if(labels.includes('예')){idx=labels.indexOf('예');reason='age';}
+              else if(labels.includes('이해하고 동의합니다')){idx=labels.indexOf('이해하고 동의합니다');reason='consent';}
+              else if(labels.includes('새 게임')){idx=labels.indexOf('새 게임');reason='new game';}
+              else if(!relationDone && body.includes('그녀는 당신에게 어떤 존재인가요?') && labels.includes('아내')){idx=labels.indexOf('아내');relationDone=true;reason='relationship';}
+              else if(relationDone && !wifeDone && labels.some(t=>t.startsWith('엘레나'))){idx=labels.findIndex(t=>t.startsWith('엘레나'));wifeDone=true;reason='choose Elena';}
+              else if(wifeDone && labels.some(t=>t.includes('함께할 아내를 선택하세요'))){idx=labels.findIndex(t=>t.includes('함께할 아내를 선택하세요'));reason='confirm wife';}
+              else if(labels.some(t=>t==='계속')){idx=labels.indexOf('계속');reason='continue';}
+              else if(labels.some(t=>t==='시작')){idx=labels.indexOf('시작');reason='start';}
+              if(idx<0){console.log('STOP '+c.name+' '+JSON.stringify({step,body:body.slice(0,250),labels:labels.slice(0,15)}));break;}
+              console.log('CLICK '+c.name+' '+reason+' '+JSON.stringify(labels[idx]));
+              await page.locator('button').nth(idx).click({timeout:3000}).catch(e=>console.log('CLICK_ERROR '+String(e).slice(0,120)));
             }
-            await page.waitForTimeout(1500);
+            await page.waitForTimeout(1200);
             const m=await page.evaluate(()=>{
               const rect=s=>{const e=document.querySelector(s);if(!e)return null;const r=e.getBoundingClientRect();return {x:Math.round(r.x),y:Math.round(r.y),w:Math.round(r.width),h:Math.round(r.height),scrollW:e.scrollWidth,clientW:e.clientWidth,scrollH:e.scrollHeight,clientH:e.clientHeight,display:getComputedStyle(e).display,overflow:getComputedStyle(e).overflow};};
-              return {body:document.body.innerText.slice(0,500),buttons:[...document.querySelectorAll('button')].map(b=>b.innerText.trim()).slice(0,25),viewport:{w:innerWidth,h:innerHeight,docW:document.documentElement.scrollWidth,docH:document.documentElement.scrollHeight},header:rect('.m34-header'),stats:rect('.m34-header-stats'),tools:rect('.m34-header-tools'),layout:rect('.mobile-layout'),portrait:rect('.mobile-portrait-panel'),main:rect('.mobile-main-panel'),actions:rect('.mobile-action-panel'),choiceScroll:rect('.mobile-action-scroll')};
+              return {body:document.body.innerText.slice(0,450),buttons:[...document.querySelectorAll('button')].map(b=>b.innerText.trim()).slice(0,20),viewport:{w:innerWidth,h:innerHeight,docW:document.documentElement.scrollWidth,docH:document.documentElement.scrollHeight},header:rect('.m34-header'),stats:rect('.m34-header-stats'),tools:rect('.m34-header-tools'),layout:rect('.mobile-layout'),portrait:rect('.mobile-portrait-panel'),main:rect('.mobile-main-panel'),actions:rect('.mobile-action-panel'),choiceScroll:rect('.mobile-action-scroll')};
             });
             console.log('CASE '+c.name+' '+JSON.stringify({metrics:m,errors:errors.slice(0,8)}));
             await page.close();
