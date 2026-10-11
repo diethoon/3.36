@@ -262,7 +262,13 @@ jobs:
               for marker in (b'wayward-landscape-header-unified-v12', b'wayward-mobile-landscape-clean-v11'):
                   if mm.find(marker) >= 0: raise SystemExit("LEGACY_LANDSCAPE_STYLE_REMAINS")
               print("PATCH_APPLIED_BYTES", len(mm))
-              print("PATCH_NEW_STYLE_COUNT", mm[:].count(b'wayward-mobile-landscape-four-column-v13'))
+              marker = b'wayward-mobile-landscape-four-column-v13'
+                  marker_count = 0
+                  pos = mm.find(marker)
+                  while pos >= 0:
+                      marker_count += 1
+                      pos = mm.find(marker, pos + len(marker))
+                  print("PATCH_NEW_STYLE_COUNT", marker_count)
           PY
           git diff --check
 
