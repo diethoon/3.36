@@ -93,7 +93,7 @@ jobs:
           replacement = b'className:"mobile-layout lg:hidden flex-1 min-h-0",children:[u.jsx("div",{className:"mobile-portrait-panel",children:x}),n&&N,'
           replace_in_place(marker, replacement)
 
-          css = br"""<style id="wayward-mobile-landscape-v1">
+          css = """<style id="wayward-mobile-landscape-v1">
           @media (max-width:1023px) and (orientation:landscape) {
             html,body,#root {
               width:100vw!important;height:100dvh!important;min-height:0!important;max-height:100dvh!important;overflow:hidden!important;
@@ -229,7 +229,7 @@ jobs:
             .mobile-portrait-panel {display:none!important;}
           }
           </style>
-          """
+          """.encode("utf-8")
           end_body = b'</body>'
           replace_in_place(end_body, css + end_body, last=True)
 
