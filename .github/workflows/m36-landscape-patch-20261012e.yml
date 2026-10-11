@@ -1,0 +1,218 @@
+name: M36 landscape final responsive header and choice height fix
+
+on:
+  pull_request_target:
+    types: [opened, reopened, synchronize]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  patch-and-verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout the temporary PR head
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.event.pull_request.head.repo.full_name }}
+          ref: ${{ github.event.pull_request.head.ref }}
+          fetch-depth: 1
+
+      - name: Switch to the real working branch and log setup
+        shell: bash
+        run: |
+          set -e
+          {
+            echo "CHECKOUT_OK"
+            git status --short --branch
+            git remote -v
+            git fetch --depth=1 origin refs/heads/mobile-migration-v1:refs/remotes/origin/mobile-migration-v1
+            git checkout -B mobile-migration-v1 refs/remotes/origin/mobile-migration-v1
+            test -f Wayward_MOD_v3.36.html
+            echo "TARGET_BRANCH_OK $(git rev-parse HEAD)"
+            echo "SOURCE_BYTES $(stat -c %s Wayward_MOD_v3.36.html)"
+          } 2>&1 | tee /tmp/m36-landscape-setup.txt
+
+      - name: Adjust header media and rebalance the choice scroll with streamed I/O
+        shell: bash
+        run: |
+          python3 - <<'PY' 2>&1 | tee /tmp/m36-landscape-patch.txt
+          from pathlib import Path
+          import mmap, os
+
+          path = Path("Wayward_MOD_v3.36.html")
+          patch_id = b'wayward-mobile-landscape-four-column-v15'
+          header_old = b'@media (orientation:landscape) {'
+          header_new = b'@media (orientation:landscape) and (max-height:900px) {'
+          rows_old = b'grid-template-rows:minmax(0,18%) minmax(0,34%) minmax(0,10%) minmax(0,1fr) 26px!important;'
+          rows_new = b'grid-template-rows:minmax(0,.55fr) minmax(0,1fr) minmax(0,.35fr) minmax(0,1.2fr) 26px!important;'
+          with path.open("rb") as f, mmap.mmap(f.fileno(), 0, access=mmap.ACCESS_READ) as mm:
+              style_pos = mm.find(patch_id)
+              if style_pos < 0: raise SystemExit("FOUR_COLUMN_STYLE_NOT_FOUND")
+              style_start = mm.rfind(b"<style", 0, style_pos)
+              style_end = mm.find(b"</style>", style_pos)
+              if style_start < 0 or style_end < 0: raise SystemExit("STYLE_BOUNDARY_NOT_FOUND")
+              header_pos = mm.find(header_old, style_start, style_end)
+              row_pos = mm.find(rows_old, style_start, style_end)
+              if header_pos < 0: raise SystemExit("LANDSCAPE_HEADER_MEDIA_NOT_FOUND")
+              if row_pos < 0: raise SystemExit("PREP_GRID_ROW_RULE_NOT_FOUND")
+              if mm.find(header_old, header_pos + len(header_old), style_end) >= 0:
+                  raise SystemExit("HEADER_MEDIA_AMBIGUOUS")
+              print("SOURCE_BYTES",len(mm),"STYLE_RANGE",(style_start,style_end))
+              print("REPLACE_HEADER_MEDIA_AT",header_pos)
+              print("REPLACE_PREP_ROWS_AT",row_pos)
+          ops=[
+            (header_pos,header_pos+len(header_old),header_new),
+            (row_pos,row_pos+len(rows_old),rows_new),
+          ]
+          ops.sort(key=lambda q:q[0])
+          temp=path.with_suffix(path.suffix+".m36tmp")
+          cursor=0
+          with path.open("rb") as src,temp.open("wb") as dst:
+              for start,end,repl in ops:
+                  if start<cursor: raise SystemExit("PATCH_OPERATIONS_OVERLAP")
+                  src.seek(cursor)
+                  remaining=start-cursor
+                  while remaining:
+                      block=src.read(min(65536,remaining))
+                      if not block: raise SystemExit("UNEXPECTED_EOF_COPY")
+                      dst.write(block);remaining-=len(block)
+                  dst.write(repl);cursor=end
+              src.seek(cursor)
+              while True:
+                  block=src.read(65536)
+                  if not block: break
+                  dst.write(block)
+          os.replace(temp,path)
+          with path.open("rb") as f,mmap.mmap(f.fileno(),0,access=mmap.ACCESS_READ) as mm:
+              if mm.find(header_new)<0 or mm.find(rows_new)<0: raise SystemExit("PATCH_VALIDATION_MISSING")
+              if mm.find(rows_old)>=0: raise SystemExit("OLD_GRID_ROW_RULE_REMAINS")
+              print("PATCH_VALIDATED_BYTES",len(mm))
+          PY
+          git diff --check
+
+      - name: Install browser and validate live geometry
+        shell: bash
+        run: |
+          npm install --no-save playwright
+          npx playwright install --with-deps chromium
+          python3 -m http.server 8080 --bind 127.0.0.1 >/tmp/m36-landscape-static.log 2>&1 &
+          for i in $(seq 1 30); do curl -fsS http://127.0.0.1:8080/Wayward_MOD_v3.36.html >/dev/null && break; sleep 1; done
+          node --input-type=module <<'JS' > /tmp/m36-landscape-runtime.txt 2>&1
+          import {chromium} from 'playwright';
+          const browser=await chromium.launch({headless:true,args:['--no-sandbox']});
+          const cases=[{name:'landscape-900x400',width:900,height:400},{name:'landscape-1280x720',width:1280,height:720},{name:'landscape-1920x1080',width:1920,height:1080}];
+          let failed=false;
+          for(const c of cases){
+            const page=await browser.newPage({viewport:{width:c.width,height:c.height}});
+            const errors=[];
+            page.on('pageerror',e=>errors.push(String(e).slice(0,150)));
+            page.on('console',m=>{if(m.type()==='error')errors.push(m.text().slice(0,150));});
+            try {
+              await page.goto('http://127.0.0.1:8080/Wayward_MOD_v3.36.html',{waitUntil:'domcontentloaded',timeout:30000});
+              let relationDone=false,wifeDone=false;
+              for(let step=0;step<16;step++){
+                await page.waitForTimeout(200);
+                const labels=(await page.locator('button').allTextContents()).map(t=>t.trim());
+                const body=await page.locator('body').innerText();
+                let label=null;
+                if(labels.includes('예'))label='예';
+                else if(labels.includes('이해하고 동의합니다'))label='이해하고 동의합니다';
+                else if(labels.includes('새 게임'))label='새 게임';
+                else if(!relationDone&&body.includes('그녀는 당신에게 어떤 존재인가요?')&&labels.includes('아내')){label='아내';relationDone=true;}
+                else if(relationDone&&!wifeDone&&labels.some(t=>t.startsWith('엘레나'))){label=labels.find(t=>t.startsWith('엘레나'));wifeDone=true;}
+                else if(wifeDone&&labels.some(t=>t.includes('계속하기 — 엘레나'))){label=labels.find(t=>t.includes('계속하기 — 엘레나'));}
+                else if(labels.some(t=>t.includes('시작 — 엘레나'))){label=labels.find(t=>t.includes('시작 — 엘레나'));}
+                else if(labels.includes('건너뛰기'))label='건너뛰기';
+                else if(labels.includes('다음'))label='다음';
+                else break;
+                await page.locator('button').nth(labels.indexOf(label)).click({timeout:2500}).catch(()=>{});
+              }
+              await page.waitForTimeout(900);
+              const out=await page.evaluate(()=>{
+                const rect=e=>{if(!e)return null;const r=e.getBoundingClientRect(),s=getComputedStyle(e);return {x:Math.round(r.x),y:Math.round(r.y),w:Math.round(r.width),h:Math.round(r.height),right:Math.round(r.right),bottom:Math.round(r.bottom),scrollW:e.scrollWidth,clientW:e.clientWidth,scrollH:e.scrollHeight,clientH:e.clientHeight,display:s.display,overflowX:s.overflowX,overflowY:s.overflowY,gridTemplateColumns:s.gridTemplateColumns};};
+                const pick=s=>rect(document.querySelector(s));
+                const stock=[...document.querySelectorAll('.m34-header *')].find(e=>e.children.length===0&&e.textContent.trim()==='재고');
+                const headerTree=(e,d=0)=>!e||d>2?[]:[...e.children].slice(0,10).map(c=>({tag:c.tagName,cls:String(c.className||'').slice(0,80),text:(c.innerText||'').replace(/\\s+/g,' ').slice(0,40),w:Math.round(c.getBoundingClientRect().width),h:Math.round(c.getBoundingClientRect().height),fs:getComputedStyle(c).fontSize,wrap:getComputedStyle(c).flexWrap,children:headerTree(c,d+1)}));
+              return {headerTree:headerTree(document.querySelector('.m34-header')),viewport:{w:innerWidth,h:innerHeight,docW:document.documentElement.scrollWidth,docH:document.documentElement.scrollHeight},
+                  header:pick('.m34-header'),stats:pick('.m34-header-stats'),tools:pick('.m34-header-tools'),stockFont:stock?getComputedStyle(stock).fontSize:null,
+                  layout:pick('.mobile-layout'),portrait:pick('.mobile-portrait-panel'),main:pick('.mobile-main-panel'),action:pick('.mobile-action-panel'),
+                  dialogue:pick('.mobile-action-panel .m36-mobile-dialogue-fixed'),gauges:pick('.mobile-action-panel .m36-mobile-pleasure-fixed'),
+                  choices:pick('.mobile-action-panel .mobile-action-scroll'),status:pick('.mobile-action-panel>.m36-mobile-store-status'),
+                  prep:pick('.mobile-action-panel>.m36-mobile-prep-compact'),facility:pick('.mobile-action-panel>.m36-mobile-facility-only'),
+                  waiting:pick('.mobile-portrait-panel>.divide-y.divide-stone-800.pb-2>:nth-child(2)>:nth-child(2)'),
+                  wrapper:getComputedStyle(document.querySelector('.mobile-action-panel>.flex-1.min-h-0.flex.flex-col')||document.body).display,
+                  styles:[...document.querySelectorAll('style[id]')].map(e=>e.id).filter(x=>/landscape/i.test(x))};
+              });
+              console.log('CASE '+c.name+' '+JSON.stringify({out,errors:errors.slice(0,5)}));
+              if(c.width<1500){
+                if(!out.layout||out.layout.display!=='grid') {console.log('FAIL mobile layout not grid');failed=true;}
+                if(!out.layout||out.layout.gridTemplateColumns.split(' ').length!==4) {console.log('FAIL layout does not have four tracks');failed=true;}
+                if(!out.header||out.header.h>100) {console.log('FAIL header height');failed=true;}
+                if(out.viewport.docW>c.width+2||out.viewport.docH>c.height+3) {console.log('FAIL document overflows viewport');failed=true;}
+                if(!out.portrait||!out.main||!out.action||Math.abs(out.portrait.h-out.layout.h)>3||Math.abs(out.main.h-out.layout.h)>3||Math.abs(out.action.h-out.layout.h)>3) {console.log('FAIL panels do not fill layout height');failed=true;}
+                if(!out.waiting||out.waiting.display!=='none') {console.log('FAIL portrait waiting-space not hidden');failed=true;}
+                const inside=out.action?.gridTemplateColumns?.split(' ')||[];
+                if(inside.length!==2||Math.abs(parseFloat(inside[0])-parseFloat(inside[1]))>2) {console.log('FAIL third/fourth widths differ '+JSON.stringify(inside));failed=true;}
+                if(out.choices&&out.choices.x < (out.action.x+out.action.w/2-6)) {console.log('FAIL choices region is not fourth column');failed=true;}
+                if(out.choices&&out.choices.h<90) {console.log('FAIL choice scroll area too short: '+out.choices.h);failed=true;}
+                if(out.stats&&(out.stats.overflowX==='auto'||out.stats.overflowX==='scroll')) {console.log('FAIL header still horizontally scrolls');failed=true;}
+              }
+            } catch(e) {console.log('CASE_FAIL '+c.name+' '+String(e));failed=true;}
+            await page.close();
+          }
+          await browser.close();
+          if(failed) process.exit(1);
+          console.log('RUNTIME_LAYOUT_VALIDATION_PASS');
+          JS
+          status=$?
+          cat /tmp/m36-landscape-runtime.txt
+          exit $status
+
+      - name: Commit the CSS-only change on mobile-migration-v1
+        if: success()
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -e
+          git diff --check
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add Wayward_MOD_v3.36.html
+          git commit -m "fix(mobile): reuse portrait UI in four-column landscape layout"
+          git push origin HEAD:mobile-migration-v1
+          git rev-parse HEAD | tee /tmp/m36-landscape-commit.txt
+
+      - name: Report result and clean the temporary workflow
+        if: always()
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PROBE_BRANCH: m36-landscape-patch-20261012e
+          WF_PATH: .github/workflows/m36-landscape-patch-20261012e.yml
+        run: |
+          set +e
+          {
+            echo "Mobile landscape patch runner result."
+            echo
+            [ -f /tmp/m36-landscape-setup.txt ] && cat /tmp/m36-landscape-setup.txt
+            echo
+            [ -f /tmp/m36-landscape-patch.txt ] && cat /tmp/m36-landscape-patch.txt
+            echo
+            [ -f /tmp/m36-landscape-runtime.txt ] && cat /tmp/m36-landscape-runtime.txt
+            echo
+            [ -f /tmp/m36-landscape-commit.txt ] && echo "COMMIT $(cat /tmp/m36-landscape-commit.txt)"
+            echo
+            echo "JOB_STATUS: ${{ job.status }}"
+          } > /tmp/m36-landscape-patch-report.txt
+          gh api --method POST "repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER/comments" -f body="$(cat /tmp/m36-landscape-patch-report.txt)" >/tmp/m36-landscape-report-comment.log 2>&1
+          gh pr close "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" --comment "Temporary patch runner completed; no merge performed." >/tmp/m36-landscape-pr-close.log 2>&1
+          gh api --method DELETE "repos/$GITHUB_REPOSITORY/git/refs/heads/$PROBE_BRANCH" >/tmp/m36-landscape-branch-delete.log 2>&1
+          WF_SHA="$(gh api "repos/$GITHUB_REPOSITORY/contents/$WF_PATH?ref=main" --jq .sha 2>/dev/null)"
+          if [ -n "$WF_SHA" ]; then
+            gh api --method DELETE "repos/$GITHUB_REPOSITORY/contents/$WF_PATH" -f message="chore: remove temporary landscape patch runner" -f sha="$WF_SHA" -f branch=main >/tmp/m36-landscape-workflow-delete.log 2>&1
+          fi
+          echo "Temporary runner cleanup attempted."
