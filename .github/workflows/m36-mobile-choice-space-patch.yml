@@ -1,0 +1,199 @@
+name: One-shot mobile choices and space-efficiency patch
+on:
+  push:
+    branches:
+      - mobile-migration-v1
+    paths:
+      - .github/workflows/m36-mobile-choice-space-patch.yml
+permissions:
+  contents: write
+jobs:
+  patch-and-verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: mobile-migration-v1
+          fetch-depth: 1
+      - name: Install Playwright Chromium
+        run: |
+          npm init -y
+          npm install playwright
+          npx playwright install --with-deps chromium
+      - name: Patch the existing script in place with bounded chunks
+        shell: bash
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const fs=require('node:fs'),path='Wayward_MOD_v3.36.html';
+          const replacement="function categoryKey(heading) {\n    const title = norm(heading.textContent)\n      .replace(/[▸▾]/g, \"\")\n      .replace(/·\\s*비활성\\s*\\d+개/g, \"\")\n      .trim();\n    if (title === \"외출\") return \"outside\";\n    if (title.indexOf(\"마을 둘러보기\") === 0) return \"village\";\n    return null;\n  }\n\n  function restoreFold(button) {\n    if (!button.hasAttribute(\"data-m36-folded\")) return;\n    const value = button.getAttribute(\"data-m36-display-before\") || \"\";\n    const priority = button.getAttribute(\"data-m36-priority-before\") || \"\";\n    button.style.removeProperty(\"display\");\n    if (value) button.style.setProperty(\"display\", value, priority);\n    button.removeAttribute(\"data-m36-folded\");\n    button.removeAttribute(\"data-m36-display-before\");\n    button.removeAttribute(\"data-m36-priority-before\");\n  }\n\n  function foldChoice(button, folded) {\n    if (!folded) {\n      restoreFold(button);\n      return;\n    }\n    if (!button.hasAttribute(\"data-m36-folded\")) {\n      button.setAttribute(\"data-m36-display-before\", button.style.getPropertyValue(\"display\"));\n      button.setAttribute(\"data-m36-priority-before\", button.style.getPropertyPriority(\"display\"));\n      button.setAttribute(\"data-m36-folded\", \"1\");\n    }\n    button.style.setProperty(\"display\", \"none\", \"important\");\n  }\n\n  function syncCategory(heading, key) {\n    const list = heading.nextElementSibling;\n    if (!list) return;\n    const disabled = [...list.querySelectorAll(\"button:disabled\")];\n\n    if (!mq.matches || disabled.length === 0) {\n      list.querySelectorAll(\"[data-m36-folded]\").forEach(restoreFold);\n      list.style.display = \"\";\n      const oldArrow = heading.querySelector(\".m36-category-arrow\");\n      if (oldArrow) oldArrow.remove();\n      heading.style.cursor = \"\";\n      heading.style.userSelect = \"\";\n      heading.removeAttribute(\"aria-expanded\");\n      return;\n    }\n\n    if (!categoryOpen.has(key)) categoryOpen.set(key, false);\n    const open = categoryOpen.get(key) === true;\n    disabled.forEach(button => foldChoice(button, !open));\n\n    let arrow = heading.querySelector(\".m36-category-arrow\");\n    if (!arrow) {\n      arrow = document.createElement(\"span\");\n      arrow.className = \"m36-category-arrow\";\n      heading.appendChild(arrow);\n    }\n    const arrowText = \" · 비활성 \" + disabled.length + \"개 \" + (open ? \"▾\" : \"▸\");\n    if (arrow.textContent !== arrowText) arrow.textContent = arrowText;\n    list.style.display = \"\";\n    heading.style.cursor = \"pointer\";\n    heading.style.userSelect = \"none\";\n    heading.setAttribute(\"aria-expanded\", open ? \"true\" : \"false\");\n  }\n\n  function bindCategories() {\n    const container = root();\n    if (!container) return;\n    container.querySelectorAll(\"h4\").forEach(heading => {\n      const key = categoryKey(heading);\n      if (key) syncCategory(heading, key);\n    });\n  }\n\n  // The heading toggles only unavailable choices; enabled choices always stay visible.\n  document.addEventListener(\"click\", event => {\n    const target = event.target;\n    if (!mq.matches || !target || typeof target.closest !== \"function\") return;\n    const heading = target.closest(\".mobile-layout h4\");\n    if (!heading) return;\n    const key = categoryKey(heading);\n    const list = heading.nextElementSibling;\n    if (!key || !list || !list.querySelector(\"button:disabled\")) return;\n    event.preventDefault();\n    event.stopPropagation();\n    categoryOpen.set(key, categoryOpen.get(key) !== true);\n    syncCategory(heading, key);\n  }, true);\n\n  ",css="<style id=\"m36-mobile-space-layout-v2\">\n@media(max-width:1023px){\n  .m36-mobile-dialogue-fixed{\n    box-sizing:border-box!important;display:flex!important;flex-direction:column!important;\n    flex:0 1 auto!important;min-height:0!important;max-height:32vh!important;overflow:hidden!important;\n  }\n  .m36-mobile-dialogue-box{\n    box-sizing:border-box!important;flex:1 1 auto!important;min-height:0!important;\n    max-height:calc(32vh - 2.2rem)!important;overflow-x:hidden!important;overflow-y:auto!important;\n    overscroll-behavior:contain!important;scrollbar-width:thin!important;\n  }\n  .m36-mobile-dialogue-box p{overflow-wrap:anywhere!important;}\n  .m36-mobile-pleasure-fixed{\n    box-sizing:border-box!important;flex:0 1 auto!important;min-height:0!important;\n    max-height:13vh!important;overflow-x:hidden!important;overflow-y:auto!important;overscroll-behavior:contain!important;\n  }\n  .m36-mobile-status-panel{\n    box-sizing:border-box!important;flex:0 1 auto!important;min-height:0!important;max-height:20vh!important;\n    overflow-x:hidden!important;overflow-y:auto!important;overscroll-behavior:contain!important;\n  }\n  .m36-mobile-prep-compact{\n    box-sizing:border-box!important;flex:0 1 auto!important;min-height:0!important;max-height:20vh!important;\n    overflow-x:hidden!important;overflow-y:auto!important;overscroll-behavior:contain!important;\n  }\n  .m36-mobile-store-status-line{min-width:0!important;gap:.2rem!important;}\n  .m36-mobile-store-label,.m36-mobile-store-value{\n    min-width:0!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important;\n  }\n  .m36-mobile-prep-compact .grid>div:first-child{min-width:0!important;flex-wrap:nowrap!important;gap:.25rem!important;}\n  .m36-mobile-prep-compact .grid>div:first-child>span:first-child{\n    max-width:clamp(2.8rem,16vw,4.1rem)!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important;\n  }\n  .m36-mobile-prep-compact .grid>div:last-child{white-space:nowrap!important;}\n  .m36-mobile-facility-only>.m36-facility-upgrade button{min-width:0!important;gap:.25rem!important;}\n  .m36-mobile-facility-only>.m36-facility-upgrade button>span:first-child{\n    min-width:0!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important;\n  }\n  .mobile-action-scroll{min-height:0!important;}\n  .mobile-action-scroll h4{min-width:0!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important;}\n  .mobile-action-scroll button{min-width:0!important;max-width:100%!important;box-sizing:border-box!important;}\n  .mobile-action-scroll button.select-none{white-space:nowrap!important;min-width:0!important;gap:.3rem!important;}\n  .mobile-action-scroll button.select-none .flex{flex-wrap:nowrap!important;min-width:0!important;gap:.3rem!important;}\n  .mobile-action-scroll button.select-none span{\n    min-width:0!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important;\n  }\n}\n</style>",fd=fs.openSync(path,'r+'),CHUNK=65536;
+          function scan(needles){
+            const result=new Map(needles.map(x=>[x,[]])),max=Math.max(...needles.map(x=>Buffer.byteLength(x)));
+            const size=fs.fstatSync(fd).size,b=Buffer.allocUnsafe(CHUNK);let carry=Buffer.alloc(0),offset=0;
+            while(true){const n=fs.readSync(fd,b,0,b.length,offset);if(!n)break;
+              const chunk=Buffer.concat([carry,b.subarray(0,n)]),base=offset-carry.length;
+              for(const text of needles){const needle=Buffer.from(text);let at=0;while(true){const i=chunk.indexOf(needle,at);if(i<0)break;
+                const list=result.get(text);if(list.length<30)list.push(base+i);at=i+1;}}
+              offset+=n;carry=Buffer.from(chunk.subarray(Math.max(0,chunk.length-max+1)));
+            }return{result,size};
+          }
+          function shiftRight(oldEnd,delta,size){let pos=size;while(pos>oldEnd){const from=Math.max(oldEnd,pos-CHUNK),len=pos-from,block=Buffer.allocUnsafe(len);
+            fs.readSync(fd,block,0,len,from);fs.writeSync(fd,block,0,len,from+delta);pos=from;}}
+          function shiftLeft(oldEnd,delta,size){let from=oldEnd;while(from<size){const len=Math.min(CHUNK,size-from),block=Buffer.allocUnsafe(len);
+            fs.readSync(fd,block,0,len,from);fs.writeSync(fd,block,0,len,from+delta);from+=len;}}
+          function replaceRange(start,oldLen,newBytes){const size=fs.fstatSync(fd).size,oldEnd=start+oldLen,delta=newBytes.length-oldLen;
+            if(delta>0)shiftRight(oldEnd,delta,size);if(delta<0)shiftLeft(oldEnd,delta,size);
+            fs.writeSync(fd,newBytes,0,newBytes.length,start);if(delta)fs.ftruncateSync(fd,size+delta);return delta;}
+          const a=scan(['<script id="m36-mobile-next-ui-script">','function categoryKey(heading) {','let ticking = false;',
+            'const observer = new MutationObserver(sync);','</body>','m36-mobile-space-layout-v2']).result;
+          if((a.get('m36-mobile-space-layout-v2')||[]).length)throw Error('Patch marker already exists.');
+          const open=(a.get('<script id="m36-mobile-next-ui-script">')||[])[0];
+          const start=(a.get('function categoryKey(heading) {')||[]).find(x=>x>open);
+          const end=(a.get('let ticking = false;')||[]).find(x=>x>start);
+          if(open==null||start==null||end==null||(a.get('const observer = new MutationObserver(sync);')||[]).filter(x=>x>end).length===0)
+            throw Error('Unable to resolve mobile choice script region.');
+          const delta=replaceRange(start,end-start,Buffer.from(replacement));fs.fsyncSync(fd);
+          const b=scan(['<script id="m36-mobile-next-ui-script">','</script>','</body>']).result;
+          const scriptAt=(b.get('<script id="m36-mobile-next-ui-script">')||[])[0];
+          const scriptEnd=(b.get('</script>')||[]).find(x=>x>scriptAt);
+          const bodyEnd=(b.get('</body>')||[]).find(x=>x>scriptEnd);
+          if(scriptAt==null||scriptEnd==null||bodyEnd==null)throw Error('HTML anchors missing after script replacement.');
+          const styleDelta=replaceRange(bodyEnd,0,Buffer.from(css));fs.fsyncSync(fd);
+          const c=scan(['<script id="m36-mobile-next-ui-script">','</script>','<style id="m36-mobile-space-layout-v2">','</body>']).result;
+          const s=(c.get('<script id="m36-mobile-next-ui-script">')||[])[0];
+          const se=(c.get('</script>')||[]).find(x=>x>s),st=(c.get('<style id="m36-mobile-space-layout-v2">')||[])[0];
+          if(st==null||se==null||st<se||(c.get('</body>')||[]).find(x=>x>st)==null)throw Error('Inserted layout style is misplaced.');
+          const marker=Buffer.byteLength('<script id="m36-mobile-next-ui-script">'),script=Buffer.alloc(se-(s+marker));
+          fs.readSync(fd,script,0,script.length,s+marker);fs.writeFileSync('/tmp/m36-mobile-next-ui.js',script);fs.closeSync(fd);
+          console.log(JSON.stringify({fileBytes:fs.statSync(path).size,replacedBytes:end-start,newBytes:Buffer.byteLength(replacement),delta,styleBytes:Buffer.byteLength(css),styleDelta,fullFileReadIntoMemory:false,fullTempCopyMade:false}));
+          NODE
+          node --check /tmp/m36-mobile-next-ui.js
+      - name: Run browser tests at large text size and narrow viewports
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > /tmp/m36-test-server.cjs <<'NODE'
+          const http=require('node:http'),fs=require('node:fs');
+          http.createServer((req,res)=>{
+            if(!req.url.includes('Wayward_MOD_v3.36.html')){res.statusCode=404;res.end('not found');return;}
+            res.writeHead(200,{'content-type':'text/html; charset=utf-8','cache-control':'no-store'});
+            fs.createReadStream('Wayward_MOD_v3.36.html').pipe(res);
+          }).listen(4173,'127.0.0.1');
+          NODE
+          node /tmp/m36-test-server.cjs >/tmp/m36-test-server.log 2>&1 &
+          for i in $(seq 1 30); do if curl -fsS http://127.0.0.1:4173/Wayward_MOD_v3.36.html -o /dev/null; then break; fi; sleep 1; done
+          cat > mobile-space-test.mjs <<'EOF'
+          import {chromium} from 'playwright';
+          import fs from 'node:fs';
+          const url='http://127.0.0.1:4173/Wayward_MOD_v3.36.html';
+          const browser=await chromium.launch({headless:true});
+          const context=await browser.newContext({viewport:{width:390,height:844},deviceScaleFactor:1,hasTouch:true});
+          await context.addInitScript(()=>localStorage.setItem('tavern-settings',JSON.stringify({version:3,state:{
+            autosaveEnabled:true,fontScale:1.4,ageAffirmed:true,contentAcknowledged:true,devMode:false,inspectorOpen:false,
+            lastSeenVersion:'2026-09-30',onboardingSeen:false,proximityMode:false,actionPanelSide:'right',
+            paneOrder:['story','house','focus','actions'],paneWidths:{story:.34,house:.23,focus:.26,actions:.17},
+            recordPlayerActions:false,imageBackendMode:'auto',imageBackendUrl:'',sfwMode:false,statDetailPinned:false,logOrder:'newest-first'
+          }})));
+          const page=await context.newPage(),pageErrors=[],actions=[];
+          page.on('pageerror',e=>pageErrors.push(String(e)));
+          async function clickIfVisible(text){const loc=page.getByText(text,{exact:true}).first();
+            if(await loc.count()&&await loc.isVisible().catch(()=>false)&&await loc.isEnabled().catch(()=>false)){
+              await loc.click({timeout:7000}).catch(()=>{});await page.waitForTimeout(350);actions.push('clicked:'+text);return true;}
+            actions.push('not-clicked:'+text);return false;}
+          await page.goto(url,{waitUntil:'networkidle',timeout:120000});await page.waitForTimeout(900);
+          for(const t of ['예','이해하고 동의합니다','새 게임','피파','계속하기 — 피파 →','운명에 맡김','시작 — 피파 →','건너뛰기'])await clickIfVisible(t);
+          await page.waitForTimeout(700);
+          const setup=await page.evaluate(()=>({width:innerWidth,height:innerHeight,scale:JSON.parse(localStorage.getItem('tavern-settings')||'{}').state?.fontScale,
+            root:!!document.querySelector('.mobile-layout'),panel:!!document.querySelector('.mobile-action-panel'),scroller:!!document.querySelector('.mobile-action-scroll'),pageY:scrollY}));
+          if(!setup.root||!setup.panel||!setup.scroller)throw Error('Mobile action layout missing: '+JSON.stringify(setup));
+          const fold=await page.evaluate(async()=>{
+            const sc=document.querySelector('.mobile-action-scroll'),fixture=document.createElement('section');
+            const h=document.createElement('h4');h.textContent='외출';const list=document.createElement('div');
+            const active=document.createElement('button');active.className='select-none';active.textContent='가능한 행동';
+            const d1=document.createElement('button');d1.disabled=true;d1.textContent='완료한 행동 1';
+            const d2=document.createElement('button');d2.disabled=true;d2.textContent='시간이 부족한 행동 2';
+            list.append(active,d1,d2);fixture.append(h,list);sc.appendChild(fixture);await new Promise(r=>setTimeout(r,150));
+            const state=()=>({heading:h.textContent,expanded:h.getAttribute('aria-expanded'),
+              activeHidden:getComputedStyle(active).display==='none'||active.getClientRects().length===0,
+              d1Hidden:getComputedStyle(d1).display==='none'||d1.getClientRects().length===0,
+              d2Hidden:getComputedStyle(d2).display==='none'||d2.getClientRects().length===0});
+            const collapsed=state();h.click();await new Promise(r=>setTimeout(r,50));const expanded=state();
+            h.click();await new Promise(r=>setTimeout(r,50));return{collapsed,expanded,collapsedAgain:state()};
+          });
+          if(fold.collapsed.activeHidden||!fold.collapsed.d1Hidden||!fold.collapsed.d2Hidden||
+             fold.expanded.activeHidden||fold.expanded.d1Hidden||fold.expanded.d2Hidden||
+             fold.collapsedAgain.activeHidden||!fold.collapsedAgain.d1Hidden||!fold.collapsedAgain.d2Hidden)
+            throw Error('Choice fold test failed: '+JSON.stringify(fold));
+          const geometry=await page.evaluate(async()=>{
+            const panel=document.querySelector('.mobile-action-panel'),wrapper=panel.querySelector(':scope > .flex-1.min-h-0.flex.flex-col'),sc=wrapper.querySelector('.mobile-action-scroll');
+            const dlg=document.createElement('section');dlg.className='m36-mobile-dialogue-fixed';
+            const label=document.createElement('div');label.className='m36-mobile-dialogue-label';label.textContent='[이벤트] 긴 나레이션';
+            const box=document.createElement('div');box.className='m36-mobile-dialogue-box';
+            for(let i=0;i<45;i++){const p=document.createElement('p');p.textContent='큰 글자 설정에서도 선택지를 가리지 않도록 나레이션 영역 내부에서 스크롤됩니다. 긴 문장 검증 '+i;box.appendChild(p);}
+            dlg.append(label,box);wrapper.insertBefore(dlg,sc);
+            for(let i=0;i<35;i++){const b=document.createElement('button');b.className='select-none';b.textContent='가능한 선택지 '+(i+1)+' · 1분';sc.appendChild(b);}
+            await new Promise(r=>setTimeout(r,100));
+            const read=e=>{const r=e.getBoundingClientRect(),c=getComputedStyle(e);return{top:r.top,bottom:r.bottom,height:r.height,clientHeight:e.clientHeight,scrollHeight:e.scrollHeight,scrollTop:e.scrollTop,maxHeight:c.maxHeight,overflowY:c.overflowY};};
+            const out={viewport:{width:innerWidth,height:innerHeight},dialogueBefore:read(dlg),narrationBefore:read(box),choicesBefore:read(sc),pageYBefore:scrollY};
+            box.scrollTop=Math.min(120,box.scrollHeight-box.clientHeight);sc.scrollTop=Math.min(180,sc.scrollHeight-sc.clientHeight);
+            await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));
+            out.dialogueAfter=read(dlg);out.narrationAfter=read(box);out.choicesAfter=read(sc);out.pageYAfter=scrollY;
+            return out;
+          });
+          const failures=[];
+          if(pageErrors.length)failures.push('PAGE_ERRORS:'+pageErrors.slice(0,3).join('|'));
+          if(geometry.dialogueBefore.height>geometry.viewport.height*.35)failures.push('DIALOGUE_REGION_NOT_CAPPED');
+          if(geometry.narrationBefore.scrollHeight<=geometry.narrationBefore.clientHeight+10)failures.push('NARRATION_NOT_SCROLLABLE');
+          if(geometry.narrationAfter.scrollTop<=geometry.narrationBefore.scrollTop)failures.push('NARRATION_SCROLL_NOT_MOVING');
+          if(geometry.choicesBefore.clientHeight<=0||geometry.choicesBefore.scrollHeight<=geometry.choicesBefore.clientHeight+20)failures.push('CHOICE_LIST_NOT_SCROLLABLE');
+          if(geometry.choicesAfter.scrollTop<=geometry.choicesBefore.scrollTop)failures.push('CHOICE_SCROLL_NOT_MOVING');
+          if(geometry.pageYAfter!==geometry.pageYBefore)failures.push('PAGE_SCROLL_CHANGED');
+          await page.setViewportSize({width:320,height:640});await page.waitForTimeout(150);
+          const narrow=await page.evaluate(()=>{
+            const panel=document.querySelector('.mobile-action-panel'),wrapper=panel.querySelector(':scope > .flex-1.min-h-0.flex.flex-col');
+            const dlg=wrapper.querySelector('.m36-mobile-dialogue-fixed'),box=dlg.querySelector('.m36-mobile-dialogue-box'),sc=wrapper.querySelector('.mobile-action-scroll');
+            const read=e=>({height:e.getBoundingClientRect().height,clientHeight:e.clientHeight,scrollHeight:e.scrollHeight,maxHeight:getComputedStyle(e).maxHeight});
+            return{viewport:{width:innerWidth,height:innerHeight},dialogue:read(dlg),narration:read(box),choices:read(sc),pageY:scrollY};
+          });
+          if(narrow.dialogue.height>narrow.viewport.height*.35)failures.push('NARROW_DIALOGUE_NOT_CAPPED');
+          if(narrow.choices.clientHeight<=0)failures.push('NARROW_CHOICES_HAVE_NO_HEIGHT');
+          const report={setup,fold,geometry,narrow,pageErrors,actions,failures};
+          fs.writeFileSync('mobile-choice-space-test.json',JSON.stringify(report,null,2));
+          await page.screenshot({path:'mobile-choice-space-test.png',fullPage:false});
+          console.log('MOBILE_CHOICE_SPACE_REPORT',JSON.stringify(report));
+          await browser.close();
+          if(failures.length)throw Error('Mobile space checks failed: '+JSON.stringify(failures));
+          console.log('MOBILE_CHOICE_SPACE_PASS');
+          EOF
+          node mobile-space-test.mjs
+          git diff --check
+          touch /tmp/m36-mobile-space-patch-passed
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: mobile-choice-space-test
+          path: |
+            mobile-choice-space-test.json
+            mobile-choice-space-test.png
+          if-no-files-found: ignore
+      - name: Commit only if tests pass and remove temporary workflow
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -f /tmp/m36-mobile-space-patch-passed ]; then
+            git add Wayward_MOD_v3.36.html
+            git diff --cached --check
+            git commit -m "fix(mobile): keep active choices visible and constrain fixed narration"
+          else
+            git checkout -- Wayward_MOD_v3.36.html || true
+          fi
+          git rm -f .github/workflows/m36-mobile-choice-space-patch.yml || true
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -u
+          if ! git diff --cached --quiet; then
+            git commit -m "chore: remove temporary mobile choice space workflow"
+            git push origin HEAD:mobile-migration-v1
+          fi
