@@ -1,0 +1,103 @@
+name: M36 one-shot landscape forensic probe
+
+on:
+  pull_request_target:
+    types: [opened, reopened, synchronize]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout exact probe branch
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.event.pull_request.head.repo.full_name }}
+          ref: ${{ github.event.pull_request.head.ref }}
+          fetch-depth: 1
+
+      - name: Stream targeted source contexts only
+        shell: bash
+        run: |
+          python3 - <<'PY' | tee /tmp/m36-landscape-probe.txt
+          from pathlib import Path
+          import mmap, re
+
+          p = Path("Wayward_MOD_v3.36.html")
+          if not p.exists():
+              raise SystemExit("SOURCE_NOT_FOUND")
+          size = p.stat().st_size
+          print("FILE", p.name, "BYTES", size)
+          with p.open("rb") as fp:
+              mm = mmap.mmap(fp.fileno(), 0, access=mmap.ACCESS_READ)
+              print("NEWLINES", mm[:].count(b"\\n"))
+              patterns = [
+                  ("landscape media", re.compile(rb"@media[^{}]{0,180}landscape", re.I), 5),
+                  ("orientation", re.compile(rb"orientation", re.I), 4),
+                  ("landscape", re.compile(rb"landscape", re.I), 5),
+                  ("portrait", re.compile(rb"portrait", re.I), 4),
+                  ("mobile-layout", re.compile(rb"mobile-layout", re.I), 3),
+                  ("portrait panel", re.compile(rb"mobile-portrait-panel", re.I), 3),
+                  ("main panel", re.compile(rb"mobile-main-panel", re.I), 3),
+                  ("action panel", re.compile(rb"mobile-action-panel", re.I), 3),
+                  ("choice scroller", re.compile(rb"mobile-action-scroll", re.I), 3),
+                  ("header m34", re.compile(rb"m34-header", re.I), 4),
+                  ("m36-mobile", re.compile(rb"m36-mobile", re.I), 4),
+                  ("grid-template-columns", re.compile(rb"grid-template-columns", re.I), 5),
+                  ("minmax", re.compile(rb"minmax\\(", re.I), 3),
+                  ("stock label", re.compile("재고".encode("utf-8")), 2),
+              ]
+              seen = set()
+              for label, pat, cap in patterns:
+                  matches = list(pat.finditer(mm))
+                  positions = [m.start() for m in matches]
+                  print(f"\\n## {label}: {len(positions)}")
+                  if not positions:
+                      continue
+                  picks = positions[:min(2, cap)]
+                  if len(positions) > 2:
+                      picks += positions[-min(2, cap):]
+                  for pos in picks:
+                      if (label, pos) in seen:
+                          continue
+                      seen.add((label, pos))
+                      a, b = max(0, pos - 240), min(size, pos + 440)
+                      fp.seek(a)
+                      chunk = fp.read(b - a)
+                      excerpt = re.sub(rb"\\s+", b" ", chunk).decode("utf-8", "replace")
+                      print(f"@{pos}: {excerpt[:720]}")
+              print("\\n## EOF four bounded chunks (250 bytes each)")
+              for i in range(4, 0, -1):
+                  a = max(0, size - i * 250)
+                  fp.seek(a)
+                  chunk = fp.read(min(250, size-a))
+                  print(f"EOF-{i} @{a}: {chunk.decode('utf-8','replace')}")
+              mm.close()
+          print("\\nEND_TARGETED_PROBE")
+          PY
+
+      - name: Post compact output and remove temporary runner
+        if: always()
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PROBE_BRANCH: m36-landscape-probe-20261012
+          WF_PATH: .github/workflows/m36-landscape-probe-20261012.yml
+        run: |
+          set +e
+          if [ -s /tmp/m36-landscape-probe.txt ] && [ -n "$PR_NUMBER" ]; then
+            gh pr comment "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" --body-file /tmp/m36-landscape-probe.txt >/tmp/m36-landscape-comment.log 2>&1
+          fi
+          if [ -n "$PR_NUMBER" ]; then
+            gh pr close "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" --comment "One-shot source probe completed; no game source was changed by this probe." >/tmp/m36-landscape-close.log 2>&1
+          fi
+          gh api --method DELETE "repos/$GITHUB_REPOSITORY/git/refs/heads/$PROBE_BRANCH" >/tmp/m36-landscape-branch-delete.log 2>&1
+          WF_SHA="$(gh api "repos/$GITHUB_REPOSITORY/contents/$WF_PATH?ref=main" --jq .sha 2>/dev/null)"
+          if [ -n "$WF_SHA" ]; then
+            gh api --method DELETE "repos/$GITHUB_REPOSITORY/contents/$WF_PATH" -f message="chore: remove temporary landscape probe workflow" -f sha="$WF_SHA" -f branch=main >/tmp/m36-landscape-workflow-delete.log 2>&1
+          fi
+          echo "Probe cleanup attempted."
