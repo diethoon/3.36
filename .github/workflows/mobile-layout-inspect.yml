@@ -1,0 +1,43 @@
+name: Mobile layout targeted source inspection
+
+on:
+  push:
+    branches:
+      - mobile-migration-v1
+    paths:
+      - ".github/workflows/mobile-layout-inspect.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: mobile-migration-v1
+      - name: Inspect only relevant HTML windows
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          p = Path("Wayward_MOD_v3.36.html")
+          b = p.read_bytes()
+          print(f"SOURCE_BYTES={len(b)}")
+          print(f"SOURCE_SHA256={__import__('hashlib').sha256(b).hexdigest()}")
+          s = b.decode("utf-8", "replace")
+          terms = [
+              "m34-header", "m34-header-stats", "wayward-landscape-header-fit-v",
+              "@media (orientation:landscape", "m36-landscape-header-height",
+          ]
+          for term in terms:
+              hits = [m.start() for m in re.finditer(re.escape(term), s)]
+              print(f"\nTERM={term} COUNT={len(hits)}")
+              for pos in hits[-8:]:
+                  lo, hi = max(0, pos-650), min(len(s), pos+1450)
+                  print(f"--- OFFSET {pos} ---")
+                  print(s[lo:hi].replace("\n", " ")[:2200])
+          PY
