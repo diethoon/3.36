@@ -18,25 +18,44 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: mobile-migration-v1
-      - name: Map injected style blocks and targeted anchors
-        shell: bash
+      - name: Install browser test runtime
         run: |
-          python3 - <<'PY'
-          from pathlib import Path
-          import re, hashlib
-          s = Path("Wayward_MOD_v3.36.html").read_text(encoding="utf-8", errors="replace")
-          print(f"SOURCE_BYTES={len(s.encode())}")
-          print(f"SOURCE_SHA256={hashlib.sha256(s.encode()).hexdigest()}")
-          tags = list(re.finditer(r'<(?:style|script)\b[^>]*\bid=["\']([^"\']+)["\'][^>]*>', s, re.I))
-          print("\nLAST_NAMED_BLOCKS")
-          for m in tags[-60:]:
-              print(f"{m.start()} {m.group(0)[:180]}")
-          print("\nLANDSCAPE_BLOCKS")
-          for m in re.finditer(r'<style\b[^>]*>.*?</style>', s, re.I|re.S):
-              block=m.group(0)
-              if re.search(r'orientation\s*:\s*landscape|wayward.*landscape|landscape.*wayward',block,re.I):
-                  ident=re.search(r'\bid=["\']([^"\']+)',block,re.I)
-                  print(f"OFFSET={m.start()} LEN={len(block)} ID={ident.group(1) if ident else '(unnamed)'}")
-          print("\nEOF_8000")
-          print(s[-8000:])
-          PY
+          npm install --no-save playwright
+          npx playwright install --with-deps chromium
+      - name: Start local static server
+        run: |
+          python3 -m http.server 8080 --bind 127.0.0.1 >/tmp/m36-static.log 2>&1 &
+          echo $! >/tmp/m36-static.pid
+          for i in $(seq 1 30); do curl -fsS http://127.0.0.1:8080/Wayward_MOD_v3.36.html >/dev/null && exit 0; sleep 1; done
+          cat /tmp/m36-static.log
+          exit 1
+      - name: Measure responsive layout at portrait and landscape sizes
+        run: |
+          node --input-type=module <<'JS'
+          import { chromium } from 'playwright';
+          const browser = await chromium.launch({headless:true,args:['--no-sandbox']});
+          const cases = [
+            {name:'portrait-390x844',width:390,height:844},
+            {name:'landscape-900x400',width:900,height:400},
+            {name:'landscape-1280x720',width:1280,height:720},
+            {name:'landscape-1920x1080',width:1920,height:1080},
+            {name:'landscape-2560x1080',width:2560,height:1080},
+          ];
+          let failed = false;
+          for (const c of cases) {
+            const page = await browser.newPage({viewport:{width:c.width,height:c.height}});
+            const errors=[];
+            page.on('pageerror',e=>errors.push(String(e)));
+            await page.goto('http://127.0.0.1:8080/Wayward_MOD_v3.36.html',{waitUntil:'domcontentloaded',timeout:30000});
+            await page.waitForTimeout(3500);
+            const m = await page.evaluate(() => {
+              const rect = s => {const e=document.querySelector(s);if(!e)return null;const r=e.getBoundingClientRect();return {x:Math.round(r.x),y:Math.round(r.y),w:Math.round(r.width),h:Math.round(r.height),scrollW:e.scrollWidth,clientW:e.clientWidth,scrollH:e.scrollHeight,clientH:e.clientHeight,display:getComputedStyle(e).display,overflow:getComputedStyle(e).overflow};};
+              return {viewport:{w:innerWidth,h:innerHeight,docW:document.documentElement.scrollWidth,docH:document.documentElement.scrollHeight},header:rect('.m34-header'),stats:rect('.m34-header-stats'),tools:rect('.m34-header-tools'),layout:rect('.mobile-layout'),portrait:rect('.mobile-portrait-panel'),main:rect('.mobile-main-panel'),actions:rect('.mobile-action-panel'),choiceScroll:rect('.mobile-action-scroll'),headerRowDelta:(()=>{let a=document.querySelector('.m34-header-stats')?.getBoundingClientRect(),b=document.querySelector('.m34-header-tools')?.getBoundingClientRect();return a&&b?Math.round(b.top-a.top):null})()};
+            });
+            console.log('CASE '+c.name+' '+JSON.stringify({metrics:m,errors:errors.slice(0,5)}));
+            if(m.viewport.docW>c.width+2) {console.log('FAIL horizontal document overflow');failed=true;}
+            await page.close();
+          }
+          await browser.close();
+          if(failed) process.exitCode=1;
+          JS
