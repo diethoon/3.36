@@ -1,0 +1,91 @@
+name: One-shot supply refill logic forensic
+on:
+  push:
+    branches:
+      - mobile-migration-v1
+    paths:
+      - .github/workflows/m36-supply-refill-audit.yml
+permissions:
+  contents: write
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: mobile-migration-v1
+          fetch-depth: 1
+      - name: Stream search refill logic in mobile branch and main
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --depth=1 origin main:refs/remotes/origin/main
+          git show origin/main:Wayward_MOD_v3.36.html > /tmp/main-v336.html
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          targets={
+            'M36MobileStockStatus':4,
+            'M36MobileStock':5,
+            '물자 채우기':8,
+            '물자채우기':5,
+            'buy_supplies':5,
+            'buySupplies':5,
+            'restock':6,
+            'stockPurchase':4,
+            'supplyPurchase':4,
+            'goldEarnedToday':2,
+            '재고':4,
+            'case"buy':4,
+            'case: "buy':3,
+          }
+          for ref,path in [('mobile','Wayward_MOD_v3.36.html'),('main','/tmp/main-v336.html')]:
+            p=Path(path); size=p.stat().st_size
+            print("\n===== REF",ref,"BYTES",size,"=====")
+            positions={x:[] for x in targets}; counts={x:0 for x in targets}
+            carry=b''; offset=0; maxpat=max(len(x.encode()) for x in targets)
+            with p.open('rb') as f:
+              while True:
+                chunk=f.read(65536)
+                if not chunk: break
+                data=carry+chunk; base=offset-len(carry)
+                for term,limit in targets.items():
+                  pat=term.encode()
+                  pos=0
+                  while True:
+                    i=data.find(pat,pos)
+                    if i<0: break
+                    at=base+i
+                    counts[term]+=1
+                    if len(positions[term])<limit: positions[term].append(at)
+                    pos=i+1
+                offset+=len(chunk); carry=data[-maxpat:]
+            selected=[]
+            for term in targets:
+              print("TERM",term,"COUNT",counts[term],"OFFSETS",positions[term])
+              # For relevant exact components, retain contexts from their first occurrences.
+              if positions[term] and term in ['M36MobileStockStatus','M36MobileStock','物자 채우기','물자채우기','buy_supplies','buySupplies','restock','stockPurchase','supplyPurchase']:
+                selected.extend((term,x) for x in positions[term][:3])
+            used=set()
+            for term,at in selected:
+              if any(abs(at-old)<500 for old in used): continue
+              used.add(at)
+              with p.open('rb') as f:
+                f.seek(max(0,at-1150)); context=f.read(2300)
+              print("\n---",term,"OFFSET",at,"---")
+              print(context.decode('utf-8','replace').replace("\n"," ")[:2300])
+          PY
+      - name: Remove temporary forensic workflow
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          git rm -f .github/workflows/m36-supply-refill-audit.yml || true
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -u
+          if ! git diff --cached --quiet; then
+            git commit -m "chore: remove temporary supply refill audit"
+            git push origin HEAD:mobile-migration-v1
+          fi
