@@ -6293,6 +6293,23 @@ END_WAYWARD_MOD_PARENT_3_25_EXTENSION_GUIDE -->
   attach();
 })();
 </script>
+
+<style id="wayward-mobile-landscape-v8">
+/* Keep wide landscape status on a single compact row when the platform has room.
+   The existing flex-wrap in v7 provides the portrait-style two-row fallback. */
+@media (orientation:landscape) and (max-height:900px) {
+  .m34-header-stats {gap:0!important;}
+  .m34-header-stats>div:first-child *,
+  .m34-header-stats>div:nth-child(2) * {
+    font-size:clamp(11px, .68vw, 13px)!important;
+    line-height:1.15!important;
+  }
+  .m34-header-stats>div:first-child,
+  .m34-header-stats>div:nth-child(2) {
+    padding:1px 4px!important;
+  }
+}
+</style>
 </body>
 </html>
 
