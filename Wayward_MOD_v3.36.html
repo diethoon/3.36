@@ -6335,6 +6335,74 @@ END_WAYWARD_MOD_PARENT_3_25_EXTENSION_GUIDE -->
   }
 }
 </style>
+
+<style id="wayward-landscape-header-fit-v10">
+@media (orientation:landscape) and (max-height:900px) and (min-width:1800px) {
+  .m34-header {height:38px!important;min-height:38px!important;max-height:38px!important;position:sticky!important;}
+  .m34-header-stats {position:absolute!important;left:0!important;top:0!important;flex:none!important;max-width:none!important;transform-origin:left top!important;}
+}
+@media (orientation:landscape) and (max-height:900px) and (min-width:1400px) and (max-width:1799px) {
+  .m34-header {height:auto!important;max-height:76px!important;}
+  .m34-header-stats {position:static!important;display:flex!important;flex-wrap:wrap!important;height:auto!important;max-height:76px!important;transform:none!important;overflow:hidden!important;}
+  .m34-header-stats>div:first-child,.m34-header-stats>div:nth-child(2) {
+    display:flex!important;position:static!important;flex:0 1 max-content!important;
+    width:max-content!important;min-width:0!important;max-width:100%!important;
+    height:38px!important;min-height:38px!important;max-height:38px!important;
+  }
+}
+</style>
+<script id="wayward-landscape-header-fit-v10">
+(() => {
+  const clear = (el, props) => props.forEach(p => el.style.removeProperty(p));
+  let raf = 0;
+  const sync = () => {
+    if (raf) cancelAnimationFrame(raf);
+    raf = requestAnimationFrame(() => {
+      const header = document.querySelector('.m34-header');
+      const stats = document.querySelector('.m34-header-stats');
+      if (!header || !stats) return;
+      const wide = matchMedia('(orientation:landscape) and (max-height:900px) and (min-width:1800px)').matches;
+      if (!wide) {
+        clear(stats, ['position','left','top','width','max-width','flex','transform','transform-origin']);
+        clear(header, ['height','min-height','max-height']);
+        const h = Math.max(38, Math.round(header.getBoundingClientRect().height));
+        document.documentElement.style.setProperty('--m36-landscape-header-height', h + 'px');
+        return;
+      }
+      header.style.setProperty('height','38px','important');
+      header.style.setProperty('min-height','38px','important');
+      header.style.setProperty('max-height','38px','important');
+      stats.style.setProperty('position','absolute','important');
+      stats.style.setProperty('left','0','important');
+      stats.style.setProperty('top','0','important');
+      stats.style.setProperty('max-width','none','important');
+      stats.style.setProperty('flex','0 0 auto','important');
+      stats.style.setProperty('width','100%','important');
+      stats.style.setProperty('transform','none','important');
+      stats.style.setProperty('transform-origin','left top','important');
+      const intrinsic = Math.max(stats.scrollWidth, stats.clientWidth, 1);
+      const available = Math.max(1, header.clientWidth - 8);
+      const scale = Math.min(1, available / intrinsic);
+      stats.style.setProperty('width', intrinsic + 'px','important');
+      stats.style.setProperty('transform','scaleX(' + scale + ')','important');
+      document.documentElement.style.setProperty('--m36-landscape-header-height','38px');
+    });
+  };
+  const attach = () => {
+    const header = document.querySelector('.m34-header');
+    if (header && typeof ResizeObserver !== 'undefined') {
+      const ro = new ResizeObserver(sync);
+      ro.observe(header);
+      ro.observe(document.querySelector('.m34-header-stats') || header);
+    }
+    sync();
+  };
+  const mo = new MutationObserver(() => { sync(); });
+  if (document.documentElement) mo.observe(document.documentElement,{childList:true,subtree:true});
+  window.addEventListener('resize',sync,{passive:true});
+  attach();
+})();
+</script>
 </body>
 </html>
 
