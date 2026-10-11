@@ -5971,7 +5971,7 @@ END_WAYWARD_MOD_PARENT_3_25_EXTENSION_GUIDE -->
 }
 </style>
 <style id="wayward-mobile-landscape-v5">
-@media (max-width:1023px) and (orientation:landscape) {
+@media (max-width:1023px) and (orientation:landscape), (orientation:landscape) and (pointer:coarse) and (max-height:700px) {
   html,body,#root {height:100dvh!important;min-height:0!important;overflow:hidden!important;}
   .m34-header {
     box-sizing:border-box!important;display:grid!important;grid-template-columns:minmax(0,1fr)!important;
@@ -5987,7 +5987,7 @@ END_WAYWARD_MOD_PARENT_3_25_EXTENSION_GUIDE -->
   }
   .m34-header-stats>div:first-child {
     display:block!important;box-sizing:border-box!important;width:100%!important;max-width:100%!important;min-width:0!important;
-    height:38px!important;max-height:38px!important;overflow:hidden!important;padding:2px 6px!important;font-size:16px!important;
+    height:38px!important;max-height:38px!important;overflow:hidden!important;padding:2px 6px!important;font-size:clamp(12px,1.5vw,14px)!important;line-height:1.1!important;
   }
   .m34-header-stats>div:nth-child(2) {display:none!important;}
   .m34-header-tools {
@@ -6096,6 +6096,23 @@ END_WAYWARD_MOD_PARENT_3_25_EXTENSION_GUIDE -->
     box-sizing:border-box!important;min-width:0!important;max-width:100%!important;white-space:normal!important;
   }
   .mobile-action-panel .mobile-action-scroll [class*="desk:block"] {display:none!important;}
+}
+
+
+/* landscape-fix-v6: keep the four intended columns consistent in windowed and fullscreen modes. */
+.flex.flex-col.min-h-0.flex-1:has(> .mobile-layout) > .hidden[class~="lg:flex"] {display:none!important;}
+.mobile-main-panel > .shrink-0 {display:none!important;}
+.mobile-portrait-panel > .divide-y.divide-stone-800.pb-2 {
+  box-sizing:border-box!important;display:flex!important;flex-direction:column!important;
+  width:100%!important;max-width:100%!important;height:100%!important;max-height:100%!important;
+  min-width:0!important;min-height:0!important;margin:0!important;padding:0!important;overflow:hidden!important;
+}
+.mobile-portrait-panel > .divide-y.divide-stone-800.pb-2 > :first-child,
+.mobile-portrait-panel > .divide-y.divide-stone-800.pb-2 > :nth-child(n+3) {display:none!important;}
+.mobile-portrait-panel > .divide-y.divide-stone-800.pb-2 > :nth-child(2) {
+  box-sizing:border-box!important;display:flex!important;flex:1 1 auto!important;
+  width:100%!important;max-width:100%!important;height:100%!important;max-height:100%!important;
+  min-width:0!important;min-height:0!important;margin:0!important;padding:0!important;overflow:hidden!important;
 }
 </style>
 </body>
