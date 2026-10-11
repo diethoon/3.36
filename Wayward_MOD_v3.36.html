@@ -6099,6 +6099,8 @@ END_WAYWARD_MOD_PARENT_3_25_EXTENSION_GUIDE -->
 }
 
 
+
+@media (max-width:1023px) and (orientation:landscape), (orientation:landscape) and (pointer:coarse) and (max-height:700px) {
 /* landscape-fix-v6: keep the four intended columns consistent in windowed and fullscreen modes. */
 .flex.flex-col.min-h-0.flex-1:has(> .mobile-layout) > .hidden[class~="lg:flex"] {display:none!important;}
 .mobile-main-panel > .shrink-0 {display:none!important;}
@@ -6113,6 +6115,7 @@ END_WAYWARD_MOD_PARENT_3_25_EXTENSION_GUIDE -->
   box-sizing:border-box!important;display:flex!important;flex:1 1 auto!important;
   width:100%!important;max-width:100%!important;height:100%!important;max-height:100%!important;
   min-width:0!important;min-height:0!important;margin:0!important;padding:0!important;overflow:hidden!important;
+}
 }
 </style>
 </body>
