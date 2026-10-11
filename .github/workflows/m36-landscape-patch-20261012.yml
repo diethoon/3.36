@@ -56,7 +56,14 @@ jobs:
                   if len(ranges) != 2 or ranges[0][1] > ranges[1][0]:
                       raise SystemExit("LEGACY_STYLE_RANGES_INVALID")
                   print("SOURCE_BYTES", len(mm))
-                  print("SOURCE_NEWLINES", mm[:].count(b"\\n"))
+                  f.seek(0)
+                  newline_count = 0
+                  while True:
+                      block = f.read(65536)
+                      if not block: break
+                      newline_count += block.count(b"\\n")
+                  f.seek(0)
+                  print("SOURCE_NEWLINES", newline_count)
                   print("REMOVE_STYLE_RANGES", ranges)
                   print("INSERT_BEFORE_BODY", body_pos)
 
