@@ -1,0 +1,82 @@
+name: One-shot mobile choice and font layout audit
+on:
+  push:
+    branches:
+      - mobile-migration-v1
+    paths:
+      - .github/workflows/m36-mobile-choice-layout-audit.yml
+permissions:
+  contents: write
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 7
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: mobile-migration-v1
+          fetch-depth: 1
+      - name: Stream targeted choice and responsive layout contexts only
+        shell: bash
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const fs=require('fs'), path='Wayward_MOD_v3.36.html', fd=fs.openSync(path,'r');
+          const needles=[
+            'm36-mobile-next-ui-v1',
+            'data-m36-disabled-choice-label',
+            'mobile-action-scroll',
+            'm36-mobile-choice',
+            'fontScale',
+            'textScale',
+            'M36MobileStockStatus',
+            'm36-mobile-dialogue-fixed',
+            'm36-mobile-pleasure-fixed',
+            'mobile-action-panel'
+          ];
+          const hits=new Map(needles.map(n=>[n,[]]));
+          const maxNeedle=Math.max(...needles.map(n=>Buffer.byteLength(n)));
+          const buf=Buffer.allocUnsafe(65536); let carry=Buffer.alloc(0), offset=0;
+          const size=fs.fstatSync(fd).size;
+          while(true){
+            const n=fs.readSync(fd,buf,0,buf.length,offset); if(!n)break;
+            const chunk=Buffer.concat([carry,buf.subarray(0,n)]), base=offset-carry.length;
+            for(const term of needles){
+              const needle=Buffer.from(term); let from=0;
+              while(true){
+                const i=chunk.indexOf(needle,from); if(i<0)break;
+                const at=base+i, list=hits.get(term);
+                if(list.length<12&&!list.some(x=>Math.abs(x-at)<800))list.push(at);
+                from=i+1;
+              }
+            }
+            offset+=n; carry=Buffer.from(chunk.subarray(Math.max(0,chunk.length-maxNeedle+1)));
+          }
+          console.log('FILE_SIZE_BYTES='+size+'; streamed chunk scan only');
+          const all=[];
+          for(const [term,positions] of hits){
+            console.log('HITS '+term+' '+JSON.stringify(positions));
+            for(const at of positions.slice(0,4))
+              if(!all.some(x=>Math.abs(x.at-at)<1000))all.push({term,at});
+          }
+          all.sort((a,b)=>a.at-b.at);
+          for(const {term,at} of all.slice(0,22)){
+            const start=Math.max(0,at-1900), len=Math.min(4300,size-start), out=Buffer.alloc(len);
+            fs.readSync(fd,out,0,len,start);
+            console.log('\n--- '+term+' @ '+at+' ---\n'+out.toString('utf8').replace(/\n/g,' ').slice(0,4300));
+          }
+          fs.closeSync(fd);
+          NODE
+      - name: Remove temporary audit workflow
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          git rm -f .github/workflows/m36-mobile-choice-layout-audit.yml || true
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -u
+          if ! git diff --cached --quiet; then
+            git commit -m "chore: remove temporary mobile choice layout audit"
+            git push origin HEAD:mobile-migration-v1
+          fi
