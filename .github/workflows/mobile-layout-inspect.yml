@@ -28,7 +28,7 @@ jobs:
           for i in $(seq 1 30); do curl -fsS http://127.0.0.1:8080/Wayward_MOD_v3.36.html >/dev/null && exit 0; sleep 1; done
           cat /tmp/m36-static.log
           exit 1
-      - name: Enter game and measure responsive layout
+      - name: Enter playable scene and measure layout
         run: |
           node --input-type=module <<'JS'
           import { chromium } from 'playwright';
@@ -36,26 +36,28 @@ jobs:
           const cases=[{name:'portrait-390x844',width:390,height:844},{name:'landscape-900x400',width:900,height:400},{name:'landscape-1280x720',width:1280,height:720},{name:'landscape-1920x1080',width:1920,height:1080},{name:'landscape-2560x1080',width:2560,height:1080}];
           for(const c of cases){
             const page=await browser.newPage({viewport:{width:c.width,height:c.height}});
-            const errors=[];page.on('pageerror',e=>errors.push(String(e)));page.on('console',m=>{if(m.type()==='error')errors.push(m.text().slice(0,160));});
+            const errors=[];page.on('pageerror',e=>errors.push(String(e)));page.on('console',m=>{if(m.type()==='error')errors.push(m.text().slice(0,150));});
             await page.goto('http://127.0.0.1:8080/Wayward_MOD_v3.36.html',{waitUntil:'domcontentloaded',timeout:30000});
-            for(let step=0;step<8;step++){
-              await page.waitForTimeout(350);
-              const texts=await page.locator('button').allTextContents();
-              const labels=texts.map(t=>t.trim());
-              let target=null;
-              if(labels.includes('예'))target='예';
-              else if(labels.includes('이해하고 동의합니다'))target='이해하고 동의합니다';
-              else if(labels.includes('새 게임'))target='새 게임';
-              else if(labels.includes('계속'))target='계속';
-              else if(labels.includes('시작'))target='시작';
-              else if(labels.includes('확인'))target='확인';
-              if(!target)break;
-              await page.getByRole('button',{name:target,exact:true}).first().click({timeout:3000}).catch(()=>{});
+            for(let step=0;step<14;step++){
+              await page.waitForTimeout(300);
+              const labels=(await page.locator('button').allTextContents()).map(t=>t.trim());
+              let idx=-1;
+              if(labels.includes('예'))idx=labels.indexOf('예');
+              else if(labels.includes('이해하고 동의합니다'))idx=labels.indexOf('이해하고 동의합니다');
+              else if(labels.includes('새 게임'))idx=labels.indexOf('새 게임');
+              else if(labels.includes('아내'))idx=labels.indexOf('아내');
+              else if(labels.some(t=>t.startsWith('엘레나')))idx=labels.findIndex(t=>t.startsWith('엘레나'));
+              else if(labels.some(t=>t.includes('함께할 아내를 선택하세요')))idx=labels.findIndex(t=>t.includes('함께할 아내를 선택하세요'));
+              else if(labels.some(t=>t.includes('계속')))idx=labels.findIndex(t=>t.includes('계속'));
+              else if(labels.some(t=>t.includes('시작')))idx=labels.findIndex(t=>t.includes('시작'));
+              if(idx<0)break;
+              console.log('CLICK '+c.name+' step='+step+' '+JSON.stringify(labels[idx]));
+              await page.locator('button').nth(idx).click({timeout:3000}).catch(e=>console.log('CLICK_ERROR '+String(e).slice(0,150)));
             }
-            await page.waitForTimeout(1800);
+            await page.waitForTimeout(1500);
             const m=await page.evaluate(()=>{
               const rect=s=>{const e=document.querySelector(s);if(!e)return null;const r=e.getBoundingClientRect();return {x:Math.round(r.x),y:Math.round(r.y),w:Math.round(r.width),h:Math.round(r.height),scrollW:e.scrollWidth,clientW:e.clientWidth,scrollH:e.scrollHeight,clientH:e.clientHeight,display:getComputedStyle(e).display,overflow:getComputedStyle(e).overflow};};
-              return {body:document.body.innerText.slice(0,350),buttons:[...document.querySelectorAll('button')].map(b=>b.innerText.trim()).slice(0,18),viewport:{w:innerWidth,h:innerHeight,docW:document.documentElement.scrollWidth,docH:document.documentElement.scrollHeight},header:rect('.m34-header'),stats:rect('.m34-header-stats'),tools:rect('.m34-header-tools'),layout:rect('.mobile-layout'),portrait:rect('.mobile-portrait-panel'),main:rect('.mobile-main-panel'),actions:rect('.mobile-action-panel'),choiceScroll:rect('.mobile-action-scroll'),landscapeStyles:[...document.querySelectorAll('style[id]')].filter(e=>/landscape/i.test(e.id)).map(e=>({id:e.id,len:e.textContent.length}))};
+              return {body:document.body.innerText.slice(0,500),buttons:[...document.querySelectorAll('button')].map(b=>b.innerText.trim()).slice(0,25),viewport:{w:innerWidth,h:innerHeight,docW:document.documentElement.scrollWidth,docH:document.documentElement.scrollHeight},header:rect('.m34-header'),stats:rect('.m34-header-stats'),tools:rect('.m34-header-tools'),layout:rect('.mobile-layout'),portrait:rect('.mobile-portrait-panel'),main:rect('.mobile-main-panel'),actions:rect('.mobile-action-panel'),choiceScroll:rect('.mobile-action-scroll')};
             });
             console.log('CASE '+c.name+' '+JSON.stringify({metrics:m,errors:errors.slice(0,8)}));
             await page.close();
