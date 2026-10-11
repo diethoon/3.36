@@ -1470,3 +1470,38 @@ Cloudflare Worker는 D1/R2 바인딩에 대해 다음 end-to-end API 테스트�
       변경하지 않았다. 실제 게임 저장/불러오기 round-trip은 별도 검증 대상이다.
     - 일회용 workflow 제거 후에는 검사 workflow가 일반 작업 브랜치에 남지 않도록 한다.
 
+### 31. 2026-10-11: 3.36 landscape CSS repair via self-removing Actions runner
+
+목적:
+    - 단일 HTML blob 전체를 connector 요청 본문으로 다시 업로드할 때 HTTP/2 body 전송 오류가 발생하는 경우,
+      원본 파일 전체를 대화로 출력하지 않고 runner에서 정확한 CSS 구간만 교체한다.
+    - 임시 workflow는 최종 게임 코드 커밋에 포함하지 않고 같은 runner 실행 중 삭제한다.
+
+절차:
+    1. 기준 HEAD `3ec5c60255954fd1b297cc8a4f6f26ad80d639b1`에서 현재 HTML blob SHA를 확인한다.
+    2. `.github/workflows/landscape-cleanup.yml` 임시 workflow를 작업 브랜치에 추가한다.
+    3. runner에서 `Wayward_MOD_v3.36.html`을 로컬로 읽되 내용을 로그로 출력하지 않는다.
+    4. 시작 앵커 `<style id="wayward-mobile-landscape-v1">`와 끝 앵커인
+       `wayward-landscape-header-fit-v10` script의 닫는 태그를 각각 정확히 1개 확인한다.
+    5. 두 앵커 사이의 중복 landscape override 묶음만 교체한다. 교체 전후의 대상 구간 바깥 prefix/suffix가
+       완전히 동일한지 assert하고, CSS 중괄호 수 및 `git diff --check`를 확인한다.
+    6. 임시 workflow 파일을 삭제하고 HTML 변경만 최종 커밋으로 push한다.
+
+실행/검증 기록:
+    - 최초 workflow 실행: https://github.com/diethoon/3.36/actions/runs/38147441117
+      YAML heredoc 들여쓰기 오류로 job 생성 없이 실패. 게임 HTML은 변경되지 않았다.
+    - 들여쓰기 수정 후 실행: https://github.com/diethoon/3.36/actions/runs/38147494562
+      Job conclusion=success.
+    - 최종 코드 커밋: `4d0ea03171f2b7f9d0786877e723b852903d22c5`
+      `fix(mobile): simplify landscape layout flow and header wrapping`
+    - HTML 변경 통계: 33 additions / 564 deletions; 구형 landscape v1/v5/v7/v8/v9/v10 override 묶음을
+      하나의 v11 stylesheet로 교체. save/load, dispatch, state/economy/action 로직은 수정하지 않았다.
+    - 임시 workflow는 최종 커밋에서 삭제되어 브랜치에 남아 있지 않다.
+    - Render static service `srv-db3g9i59fdbs73dlsp80`, deploy
+      `dep-db5prbbhu5js73e08ft0`: status=live, commit SHA가 최종 HTML 수정 커밋과 일치한다.
+
+검증 한계:
+    - CSS 블록 경계, 변경 범위 외 원문 동일성, brace balance, `git diff --check`, workflow 성공,
+      Render 배포 상태는 확인했다.
+    - 실제 모바일 브라우저에서 landscape/portrait 전환, fullscreen 진입·해제 및 서로 다른 화면비 이미지의
+      시각 QA는 수행하지 않았다. Render live는 브라우저 레이아웃 PASS를 의미하지 않는다.
