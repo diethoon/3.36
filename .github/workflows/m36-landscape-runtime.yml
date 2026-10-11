@@ -39,11 +39,17 @@ jobs:
             page.on('pageerror', e => errors.push(String(e)));
             await page.goto('http://127.0.0.1:4173/Wayward_MOD_v3.36.html',{waitUntil:'domcontentloaded',timeout:120000});
             await page.waitForTimeout(1200);
-            for (const pattern of [/^예$/, /^(새 게임|새로 시작)$/, /^(시작|계속|이어하기)$/]) {
+            const tryClick = async pattern => {
               const button=page.getByRole('button').filter({hasText:pattern});
-              if (await button.count()) { try { await button.first().click({timeout:1500}); await page.waitForTimeout(1200); } catch {} }
-            }
-            await page.waitForTimeout(3500);
+              if (await button.count()) { try { await button.first().click({timeout:2500}); await page.waitForTimeout(1400); return true; } catch {} }
+              return false;
+            };
+            await tryClick(/이해하고 동의합니다/);
+            await page.waitForTimeout(1800);
+            await tryClick(/새 게임|새로 시작/);
+            await page.waitForTimeout(1200);
+            await tryClick(/게임 시작|시작|계속|이어하기/);
+            await page.waitForTimeout(5000);
             const report = await page.evaluate(() => {
               const slim = (el) => {
                 const r=el.getBoundingClientRect(), cs=getComputedStyle(el);
