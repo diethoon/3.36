@@ -22,6 +22,12 @@ jobs:
         run: |
           npm install --no-save playwright
           npx playwright install --with-deps chromium
+      - name: Start local static server
+        run: |
+          python3 -m http.server 8080 --bind 127.0.0.1 >/tmp/m36-static.log 2>&1 &
+          for i in $(seq 1 30); do curl -fsS http://127.0.0.1:8080/Wayward_MOD_v3.36.html >/dev/null && exit 0; sleep 1; done
+          cat /tmp/m36-static.log
+          exit 1
       - name: Inspect character setup continuation controls
         run: |
           node --input-type=module <<'JS'
