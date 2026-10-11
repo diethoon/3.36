@@ -1,0 +1,1 @@
+Temporary trigger only: normalize the newly appended landscape documentation section. Do not merge.
