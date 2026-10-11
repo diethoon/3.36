@@ -1552,3 +1552,48 @@ Cloudflare Worker는 D1/R2 바인딩에 대해 다음 end-to-end API 테스트�
       모든 상태 정보를 한 번에 보이게 하는 시각 QA와 실제 모바일 기기 fullscreen 진입/해제 검증은 아직 남아 있다.
     - Render `live`는 배포 성공만 의미하며 실제 사용자 기기의 시각 QA PASS로 간주하지 않는다.
 
+\n\n### 31. 2026-10-12 mobile landscape four-column UI patch
+
+대상:
+    repository: diethoon/3.36
+    branch: mobile-migration-v1
+    source: Wayward_MOD_v3.36.html (19.6 MB)
+
+대형 HTML은 전체 파일을 tool/context로 출력하지 않는다. 해당 작업에서는 mmap으로 style ID / 고유 앵커의 byte offset만 찾고, 파일 변경은 최대 64 KiB 스트리밍 복사로 수행했다.
+
+실제 변경:
+    - 기존 wayward-landscape-header-unified-v12 / wayward-mobile-landscape-clean-v11 스타일 블록을 제거
+    - 단일 CSS 블록 wayward-mobile-landscape-four-column-v15로 대체
+    - landscape mobile header의 크기·줄바꿈을 세로형 UI 기준으로 맞추고 중복 desktop summary 숨김
+    - viewport 아래 빈 영역을 제거하고 높이 제한된 landscape에서 4열 grid 사용
+    - 1열 초상화가 사용 가능한 높이/너비를 채우고 대기 공간 숨김
+    - 2열은 나레이션, 3열은 대화/게이지, 4열은 스크롤 선택지
+    - 3/4열 너비는 동일하게 분할
+    - 준비 화면의 고정 백분율 row 크기를 fr 단위로 바꾸어 좁은 가로화면에서도 선택지 스크롤 높이를 확보
+    - 변경 범위는 HTML 내 CSS만이며 게임 상태/dispatch/저장 데이터 로직은 수정하지 않음
+
+검증 흐름:
+    1. temporary pull_request_target runner는 temporary trigger PR head에서 시작한다.
+    2. runner가 origin/mobile-migration-v1을 명시적으로 fetch/checkout하고 실제 target HEAD를 로그로 남긴다.
+    3. mmap으로 고유 style marker / 바이트 offset을 확인한다. 전체 HTML을 stdout으로 출력하지 않는다.
+    4. 필요한 구간만 offset 기반으로 교체하고, 나머지 원본은 64 KiB씩 streaming copy한다.
+    5. git diff --check를 실행한다.
+    6. Playwright Chromium에서 900x400, 1280x720, 1920x1080 viewport를 확인한다.
+    7. 런타임 측정값(doc width/height, header height, grid tracks, column heights, hidden waiting area, choice scroller)을 보고하고 success 때만 HTML patch를 commit/push한다.
+    8. one-shot workflow, trigger branch/PR을 정리하고 작업 브랜치 HEAD를 다시 조회한다.
+
+최종 확인된 landscape geometry (2026-10-12):
+    commit: d3da655a1f15112fcaeba4220cf7a94acc958e71
+    900x400: header 59px; four tracks 180/276/216/216px; viewport overflow 없음
+    1280x720: header 59px; four tracks 256/468/272/272px; viewport overflow 없음
+    portrait panel / narration panel / action area 모두 layout 높이에 맞게 채움
+    3/4열 내부 폭이 동일하며 waiting-space element는 display:none
+    선택지 scroller: 900x400에서 106px, 1280x720에서 230px
+    Playwright layout assertion: RUNTIME_LAYOUT_VALIDATION_PASS
+    temporary runner job: success
+    검증 뒤 temporary workflow와 PR은 자동 정리됨
+
+주의/한계:
+    - Playwright runtime에서 layout geometry는 PASS였지만, runner 로그에는 선택적 script/image resource 404/connection-refused 메시지도 있었다. 이를 모든 외부 asset의 정상 로딩 증거로 간주하지 않는다.
+    - 1920x1080은 desktop breakpoint에 있어 mobile 4-column grid가 숨겨지는 것이 정상이며 viewport overflow는 없었다.
+    - 다음 변경에서도 원본 전체를 읽지 말고 고유 marker 및 byte ranges를 먼저 검사하고, 변경 후 EOF/marker/diff/test evidence를 기록한다.\n
