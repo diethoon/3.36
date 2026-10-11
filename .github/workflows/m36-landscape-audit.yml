@@ -15,57 +15,55 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: mobile-migration-v1
-      - name: Stream-scan relevant markup and selectors in bounded chunks
+      - name: Stream-scan layout code in 64 KB chunks
         shell: bash
         run: |
           python3 - <<'PY'
           import os, re
-          p = 'Wayward_MOD_v3.36.html'
-          size = os.path.getsize(p)
-          needles = [
-            b'<body', b'id="m36-mobile-next-ui-script"', b'id="m36-mobile-space-layout-v2"',
-            b'm36-mobile-store-status', b'm36-mobile-dialogue-fixed', b'mobile-action-scroll',
-            b'orientation: landscape', b'@media (orientation: landscape)', b'@media(orientation: landscape)',
-          ]
-          hits = {n: [] for n in needles}
-          keys = re.compile(r'(status|portrait|character|dialog|choice|story|layout|header|menu|main|tab|action|panel|nav|screen|sidebar|image|left|right|landscape)', re.I)
-          attrs = {}
-          pos = 0
-          carry = b''
-          with open(p, 'rb') as f:
+          p='Wayward_MOD_v3.36.html'
+          needles=[b'mobile-layout',b'mobile-narration',b'mobile-action-scroll',b'mobile-character',b'mobile-nav',b'm36-mobile-status-panel',b'm36-mobile-dialogue-fixed',b'm36-mobile-store-status',b'm36-mobile-prep-compact',b'orientation:landscape',b'orientation: landscape']
+          hits={n:[] for n in needles}; classes={}; ids={}
+          pos=0; carry=b''
+          pat=re.compile(rb'(className|id):"([^"]{1,240})"')
+          with open(p,'rb') as f:
             while True:
-              chunk = f.read(65536)
-              if not chunk: break
-              data = carry + chunk
-              base = pos - len(carry)
+              ch=f.read(65536)
+              if not ch: break
+              data=carry+ch; base=pos-len(carry)
               for n in needles:
-                start = 0
+                start=0
                 while True:
-                  j = data.find(n, start)
-                  if j < 0: break
-                  at = base + j
-                  if at >= 0 and len(hits[n]) < 30 and (not hits[n] or hits[n][-1] != at):
-                    hits[n].append(at)
-                  start = j + 1
-              for m in re.finditer(rb'\b(id|class)=[\"\']([^\"\']{1,300})[\"\']', data):
-                val = m.group(2).decode('utf-8','replace')
-                if keys.search(val):
-                  key = (m.group(1).decode(), val)
-                  attrs.setdefault(key, base + m.start())
-              pos += len(chunk)
-              carry = data[-4096:]
-          with open('/tmp/m36-landscape-audit.txt','w',encoding='utf-8') as out:
-            out.write(f'FILE_SIZE={size}\n')
-            for n, arr in hits.items():
-              out.write(f'\n## NEEDLE {n.decode()} offsets={arr}\n')
-              for at in arr[:8]:
-                with open(p,'rb') as f:
-                  f.seek(max(0,at-850)); context=f.read(1900).decode('utf-8','replace')
-                out.write(f'--- offset {at} ---\n{context}\n')
-            out.write('\n## MATCHING id/class ATTRIBUTES (offset, attribute, value)\n')
-            for (typ,val), at in sorted(attrs.items(), key=lambda x:x[1]):
-              out.write(f'{at}\t{typ}\t{val}\n')
-          print(open('/tmp/m36-landscape-audit.txt',encoding='utf-8').read()[:26000])
+                  j=data.find(n,start)
+                  if j<0: break
+                  at=base+j
+                  if at>=0 and (not hits[n] or hits[n][-1]!=at) and len(hits[n])<20: hits[n].append(at)
+                  start=j+1
+              for m in pat.finditer(data):
+                typ=m.group(1).decode(); val=m.group(2).decode('utf-8','replace')
+                if re.search(r'(mobile|portrait|landscape|narration|action|choice|sidebar|character|status|panel|header|navigation|menu|tab|dialogue|image|screen|fixed)',val,re.I):
+                  d=classes if typ=='className' else ids
+                  d.setdefault(val,base+m.start())
+              pos+=len(ch); carry=data[-4096:]
+          out=[]
+          out.append('FILE_SIZE='+str(os.path.getsize(p)))
+          out.append('\n## MARKER OFFSETS')
+          for n,arr in hits.items(): out.append(n.decode()+': '+str(arr))
+          out.append('\n## UNIQUE RELEVANT className VALUES AND OFFSETS')
+          out += [f'{at}\t{val}' for val,at in sorted(classes.items(),key=lambda x:x[1])]
+          out.append('\n## IDS')
+          out += [f'{at}\t{val}' for val,at in sorted(ids.items(),key=lambda x:x[1])]
+          out.append('\n## CONTEXTS (bounded 1700-byte windows)')
+          seen=set()
+          with open(p,'rb') as f:
+            for n,arr in hits.items():
+              if n in (b'mobile-layout',b'mobile-narration',b'mobile-action-scroll',b'm36-mobile-dialogue-fixed',b'm36-mobile-status-panel') or n.startswith(b'orientation'):
+                for at in arr[:3]:
+                  if at in seen: continue
+                  seen.add(at); f.seek(max(0,at-700)); ctx=f.read(1700).decode('utf-8','replace')
+                  out.append(f'--- {n.decode()} offset {at} ---\n{ctx}')
+          report='\n'.join(out)
+          open('/tmp/m36-landscape-audit.txt','w',encoding='utf-8').write(report)
+          print(report[:36000])
           PY
       - uses: actions/upload-artifact@v4
         with:
