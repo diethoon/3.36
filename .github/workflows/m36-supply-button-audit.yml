@@ -1,0 +1,52 @@
+name: One-shot supply button flow audit
+on:
+  push:
+    branches:
+      - mobile-migration-v1
+    paths:
+      - .github/workflows/m36-supply-button-audit.yml
+permissions:
+  contents: write
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 7
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: mobile-migration-v1
+          fetch-depth: 1
+      - name: Read only bounded supply code regions
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --depth=1 origin main:refs/remotes/origin/main
+          git show origin/main:Wayward_MOD_v3.36.html > /tmp/main-v336.html
+          python3 - <<'PY'
+          from pathlib import Path
+          regions={
+            'mobile stock component':('Wayward_MOD_v3.36.html',18956078,9500),
+            'mobile stock target/buy action':('Wayward_MOD_v3.36.html',18527500,5400),
+            'mobile stock button text':('Wayward_MOD_v3.36.html',18958000,5200),
+            'main stock UI':('/tmp/main-v336.html',19148000,6500),
+          }
+          for label,(path,start,length) in regions.items():
+            p=Path(path); size=p.stat().st_size
+            with p.open('rb') as f:
+              f.seek(start); data=f.read(length)
+            print('\n===',label,'offset',start,'length',len(data),'fileBytes',size,'===')
+            print(data.decode('utf-8','replace').replace('\n',' ')[:length])
+          PY
+      - name: Remove temporary button audit
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          git rm -f .github/workflows/m36-supply-button-audit.yml || true
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -u
+          if ! git diff --cached --quiet; then
+            git commit -m "chore: remove temporary supply button audit"
+            git push origin HEAD:mobile-migration-v1
+          fi
