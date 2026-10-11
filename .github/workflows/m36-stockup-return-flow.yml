@@ -1,0 +1,89 @@
+name: One-shot stock-up return-flow forensic audit
+on:
+  push:
+    branches:
+      - mobile-migration-v1
+    paths:
+      - .github/workflows/m36-stockup-return-flow.yml
+permissions:
+  contents: write
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 7
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: mobile-migration-v1
+          fetch-depth: 1
+      - name: Stream search; read only small matched contexts
+        shell: bash
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const fs = require('fs');
+          const path = 'Wayward_MOD_v3.36.html';
+          const fd = fs.openSync(path, 'r');
+          const size = fs.fstatSync(fd).size;
+          const terms = [
+            'function v7(', 'function QM(', 'function Rw(',
+            'marketTrip', 'purchase.cart', 'purchase?.cart',
+            'type:"stock_up"', 'stock_up', 'purchase:{cart:',
+            'supplyTargets??Ew'
+          ];
+          const hits = new Map(terms.map(t => [t, []]));
+          const maxNeedle = Math.max(...terms.map(t => Buffer.byteLength(t)));
+          const readBuffer = Buffer.allocUnsafe(65536);
+          let carry = Buffer.alloc(0), offset = 0;
+          while (true) {
+            const n = fs.readSync(fd, readBuffer, 0, readBuffer.length, offset);
+            if (!n) break;
+            const chunk = Buffer.concat([carry, readBuffer.subarray(0, n)]);
+            const base = offset - carry.length;
+            for (const term of terms) {
+              const needle = Buffer.from(term);
+              let from = 0;
+              while (true) {
+                const i = chunk.indexOf(needle, from);
+                if (i < 0) break;
+                const at = base + i;
+                const arr = hits.get(term);
+                if (arr.length < 8 && !arr.some(p => Math.abs(p-at) < 500)) arr.push(at);
+                from = i + 1;
+              }
+            }
+            offset += n;
+            carry = Buffer.from(chunk.subarray(Math.max(0, chunk.length - maxNeedle + 1)));
+          }
+          console.log('FILE_BYTES=' + size + ' (stream-scanned; no full-file copy/output)');
+          for (const term of terms) console.log('HITS ' + JSON.stringify(term) + ': ' + JSON.stringify(hits.get(term)));
+          const candidates = [];
+          for (const term of terms) {
+            for (const at of hits.get(term)) {
+              if (!candidates.some(x => Math.abs(x.at - at) < 900)) candidates.push({term, at});
+            }
+          }
+          candidates.sort((a,b) => a.at-b.at);
+          for (const {term,at} of candidates.slice(0,18)) {
+            const start = Math.max(0, at - 1800);
+            const len = Math.min(5200, size - start);
+            const small = Buffer.alloc(len);
+            fs.readSync(fd, small, 0, len, start);
+            console.log('\n--- ' + term + ' @ byte ' + at + ' ---');
+            console.log(small.toString('utf8').replace(/\n/g, ' ').slice(0, 5200));
+          }
+          fs.closeSync(fd);
+          NODE
+      - name: Remove one-shot audit workflow
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          git rm -f .github/workflows/m36-stockup-return-flow.yml || true
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -u
+          if ! git diff --cached --quiet; then
+            git commit -m "chore: remove temporary stock-up return-flow audit"
+            git push origin HEAD:mobile-migration-v1
+          fi
