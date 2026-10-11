@@ -45,6 +45,8 @@ jobs:
               return false;
             };
             await tryClick(/이해하고 동의합니다/);
+            await page.waitForTimeout(1000);
+            await tryClick(/^예$/);
             await page.waitForTimeout(1800);
             await tryClick(/새 게임|새로 시작/);
             await page.waitForTimeout(1200);
