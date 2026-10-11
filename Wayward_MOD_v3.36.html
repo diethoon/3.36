@@ -6310,6 +6310,31 @@ END_WAYWARD_MOD_PARENT_3_25_EXTENSION_GUIDE -->
   }
 }
 </style>
+
+<style id="wayward-mobile-landscape-v9">
+/* On wide horizontal screens flatten both status wrappers into one line of compact items.
+   Below 1400px, v7's natural flex-wrap preserves the portrait-style two-row fallback. */
+@media (orientation:landscape) and (max-height:900px) and (min-width:1400px) {
+  .m34-header-stats {
+    flex-wrap:nowrap!important;align-items:center!important;max-height:38px!important;height:38px!important;
+    overflow:hidden!important;gap:0!important;
+  }
+  .m34-header-stats>div:first-child,.m34-header-stats>div:nth-child(2) {
+    display:contents!important;
+  }
+  .m34-header-stats>div:first-child>*,.m34-header-stats>div:nth-child(2)>* {
+    box-sizing:border-box!important;display:flex!important;flex:0 1 auto!important;
+    width:auto!important;min-width:max-content!important;max-width:none!important;
+    height:38px!important;min-height:38px!important;max-height:38px!important;
+    align-items:center!important;white-space:nowrap!important;overflow:hidden!important;
+    margin:0!important;padding:0 4px!important;
+    font-size:12px!important;line-height:1.1!important;
+  }
+  .m34-header-stats>div:first-child>*>*,.m34-header-stats>div:nth-child(2)>*>* {
+    font-size:12px!important;line-height:1.1!important;
+  }
+}
+</style>
 </body>
 </html>
 
