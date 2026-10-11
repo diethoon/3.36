@@ -6118,6 +6118,181 @@ END_WAYWARD_MOD_PARENT_3_25_EXTENSION_GUIDE -->
 }
 }
 </style>
+
+<style id="wayward-mobile-landscape-v7">
+/* Landscape responsive mode for devices whose CSS viewport is desktop-sized but short. Portrait stays unchanged. */
+@media (orientation:landscape) and (max-height:900px) {
+  html,body,#root {height:100dvh!important;min-height:0!important;overflow:hidden!important;}
+  .m34-header {
+    box-sizing:border-box!important;display:flex!important;flex-direction:row!important;flex-wrap:nowrap!important;
+    align-items:stretch!important;justify-content:stretch!important;
+    width:100%!important;height:auto!important;min-height:38px!important;max-height:76px!important;
+    flex:0 0 auto!important;overflow:visible!important;padding:0!important;gap:0!important;
+    position:sticky!important;top:0!important;z-index:40!important;
+  }
+  .m34-header-stats {
+    box-sizing:border-box!important;display:flex!important;flex:1 1 auto!important;
+    flex-direction:row!important;flex-wrap:wrap!important;align-content:flex-start!important;align-items:stretch!important;
+    width:auto!important;min-width:0!important;max-width:100%!important;
+    height:auto!important;min-height:38px!important;max-height:76px!important;overflow:hidden!important;
+    padding:0!important;gap:0!important;
+  }
+  /* Put both portrait-style status groups on the same row when their intrinsic widths fit.
+     Flex-wrap naturally moves the second group to row two on narrower platform viewports. */
+  .m34-header-stats>div:first-child,
+  .m34-header-stats>div:nth-child(2) {
+    box-sizing:border-box!important;display:flex!important;flex:0 1 max-content!important;
+    width:max-content!important;min-width:0!important;max-width:100%!important;
+    height:38px!important;min-height:38px!important;max-height:38px!important;
+    overflow:hidden!important;padding:2px 6px!important;align-items:center!important;
+  }
+  .m34-header-stats>div:first-child>*,
+  .m34-header-stats>div:nth-child(2)>* {flex-shrink:0!important;min-width:max-content!important;}
+  .m34-header-stats>div:nth-child(2) {display:flex!important;}
+  /* The whole menu rail sits at the physical left edge, outside all four content columns. */
+  .m34-header-tools {
+    position:fixed!important;left:0!important;right:auto!important;
+    top:var(--m36-landscape-header-height,38px)!important;bottom:6px!important;
+    box-sizing:border-box!important;display:flex!important;flex:0 0 30px!important;
+    flex-direction:column!important;align-items:center!important;justify-content:flex-start!important;
+    gap:2px!important;width:30px!important;min-width:30px!important;max-width:30px!important;
+    height:auto!important;min-height:0!important;max-height:none!important;
+    overflow-x:hidden!important;overflow-y:auto!important;padding:2px 1px!important;margin:0!important;
+    background:rgba(28,25,23,.96)!important;border-right:1px solid rgba(120,113,108,.65)!important;
+    z-index:80!important;flex-wrap:nowrap!important;
+  }
+  .m33-launchers,.m34-system-tools {
+    display:flex!important;flex:0 0 auto!important;flex-direction:column!important;
+    align-items:center!important;justify-content:flex-start!important;gap:2px!important;
+    width:26px!important;min-width:26px!important;max-width:26px!important;
+    height:auto!important;min-height:0!important;max-height:none!important;overflow:visible!important;flex-wrap:nowrap!important;
+  }
+  .m33-launchers>button:has(svg),.m33-launchers>button.m33-editor-launch {
+    position:relative!important;box-sizing:border-box!important;display:flex!important;flex:0 0 26px!important;
+    width:26px!important;min-width:26px!important;max-width:26px!important;
+    height:26px!important;min-height:26px!important;max-height:26px!important;
+    padding:0!important;margin:0!important;gap:0!important;align-items:center!important;justify-content:center!important;
+    overflow:hidden!important;font-size:0!important;border-radius:4px!important;
+  }
+  .m33-launchers>button:has(svg) svg {width:18px!important;height:18px!important;flex:0 0 18px!important;}
+  .m33-launchers>button:has(svg) small,.m33-launchers>button:has(svg) span,
+  .m33-launchers>button.m33-editor-launch small {display:none!important;}
+  .m33-launchers>button.m33-editor-launch:before {
+    content:"✎";display:block!important;font-size:16px!important;line-height:1!important;color:#e7e5e4!important;
+  }
+  .m34-system-tools .m33-theme-holder,.m34-system-tools .m33-theme-button,
+  .m34-system-tools .m34-header-control {
+    box-sizing:border-box!important;display:flex!important;flex:0 0 26px!important;
+    width:26px!important;min-width:26px!important;max-width:26px!important;
+    height:26px!important;min-height:26px!important;max-height:26px!important;
+    margin:0!important;padding:0!important;align-items:center!important;justify-content:center!important;
+    overflow:hidden!important;border-radius:4px!important;
+  }
+  /* Hide the legacy duplicate desktop strip. The first column remains portrait-only. */
+  .flex.flex-col.min-h-0.flex-1:has(> .mobile-layout) > .hidden[class~="lg:flex"] {display:none!important;}
+  .mobile-main-panel > .shrink-0 {display:none!important;}
+  .mobile-layout {
+    display:grid!important;
+    grid-template-columns:minmax(92px,.7fr) minmax(150px,1fr) minmax(118px,.95fr) minmax(140px,1.2fr)!important;
+    grid-template-rows:minmax(0,1fr)!important;gap:2px!important;
+    width:calc(100% - 30px)!important;height:100%!important;min-width:0!important;min-height:0!important;
+    margin:0 0 0 30px!important;box-sizing:border-box!important;
+    overflow:hidden!important;position:relative!important;flex:1 1 0%!important;
+  }
+  .mobile-portrait-panel {
+    grid-column:1!important;grid-row:1!important;position:relative!important;
+    display:flex!important;min-width:0!important;min-height:0!important;width:auto!important;
+    max-width:none!important;height:100%!important;overflow:hidden!important;
+  }
+  .mobile-main-panel {
+    grid-column:2!important;grid-row:1!important;position:relative!important;
+    display:flex!important;flex-direction:column!important;box-sizing:border-box!important;
+    width:auto!important;max-width:none!important;min-width:0!important;min-height:0!important;height:100%!important;
+    padding-left:0!important;overflow:hidden!important;
+  }
+  .mobile-main-panel>.flex-1 {min-width:0!important;min-height:0!important;overflow-x:hidden!important;overflow-y:auto!important;}
+  .mobile-main-panel .m36-mobile-tabs {
+    position:absolute!important;left:0!important;right:auto!important;top:auto!important;bottom:0!important;
+    display:flex!important;flex-direction:column!important;align-items:stretch!important;justify-content:flex-end!important;
+    box-sizing:border-box!important;width:28px!important;min-width:28px!important;max-width:28px!important;
+    height:78px!important;min-height:78px!important;max-height:78px!important;
+    overflow:hidden!important;padding:0 1px 2px!important;margin:0!important;gap:0!important;
+    border-right:1px solid rgba(120,113,108,.65)!important;background:rgba(28,25,23,.96)!important;z-index:25!important;
+  }
+  .mobile-main-panel .m36-mobile-tabs>* {
+    box-sizing:border-box!important;display:flex!important;flex:0 0 25px!important;
+    width:26px!important;min-width:26px!important;max-width:26px!important;
+    height:25px!important;min-height:25px!important;max-height:25px!important;
+    padding:0!important;margin:0!important;align-items:center!important;justify-content:center!important;
+    overflow:hidden!important;white-space:nowrap!important;font-size:0!important;
+  }
+  .mobile-action-panel {
+    grid-column:3 / span 2!important;grid-row:1!important;position:relative!important;
+    display:block!important;box-sizing:border-box!important;width:100%!important;max-width:none!important;min-width:0!important;
+    min-height:0!important;height:100%!important;max-height:100%!important;overflow:hidden!important;
+  }
+  .mobile-action-panel>* {box-sizing:border-box!important;width:44%!important;max-width:44%!important;min-width:0!important;}
+  .mobile-action-panel>.flex-1.min-h-0.flex.flex-col {display:contents!important;}
+  .mobile-action-panel>.shrink-0.flex.items-center {display:none!important;}
+  .mobile-action-panel .m36-mobile-store-status,
+  .mobile-action-panel .m36-mobile-stock-status,
+  .mobile-action-panel .m36-mobile-status-panel,
+  .mobile-action-panel .m36-mobile-prep-compact,
+  .mobile-action-panel .m36-mobile-facility-only,
+  .mobile-action-panel .m36-mobile-facility-upgrade,
+  .mobile-action-panel .m36-mobile-dialogue-fixed,
+  .mobile-action-panel .m36-mobile-pleasure-fixed {
+    box-sizing:border-box!important;width:44%!important;max-width:44%!important;min-width:0!important;
+  }
+  .mobile-action-panel .m36-mobile-store-status,
+  .mobile-action-panel .m36-mobile-prep-compact {overflow-x:hidden!important;overflow-y:auto!important;}
+  .mobile-action-panel .mobile-action-scroll {
+    position:absolute!important;left:44%!important;right:0!important;top:0!important;bottom:0!important;
+    box-sizing:border-box!important;display:block!important;
+    width:56%!important;min-width:0!important;max-width:56%!important;height:auto!important;max-height:none!important;
+    min-height:0!important;margin:0!important;padding:2px!important;overflow-x:hidden!important;overflow-y:auto!important;
+  }
+  .mobile-action-panel .mobile-action-scroll>div {
+    box-sizing:border-box!important;width:100%!important;min-width:0!important;max-width:100%!important;
+  }
+  .mobile-action-panel .mobile-action-scroll button {
+    box-sizing:border-box!important;min-width:0!important;max-width:100%!important;white-space:normal!important;
+  }
+  .mobile-action-panel .mobile-action-scroll [class*="desk:block"] {display:none!important;}
+}
+@media (orientation:landscape) and (max-height:900px) and (max-width:560px) {
+  .mobile-layout {
+    grid-template-columns:minmax(70px,.65fr) minmax(100px,.95fr) minmax(95px,.85fr) minmax(105px,1fr)!important;
+  }
+}
+</style>
+<script id="wayward-landscape-header-height-sync-v1">
+(() => {
+  let observed = null;
+  let resizeObserver = null;
+  const sync = () => {
+    const header = document.querySelector('.m34-header');
+    if (!header) return;
+    const height = Math.max(38, Math.round(header.getBoundingClientRect().height));
+    document.documentElement.style.setProperty('--m36-landscape-header-height', height + 'px');
+  };
+  const attach = () => {
+    const header = document.querySelector('.m34-header');
+    if (!header || header === observed) { sync(); return; }
+    observed = header;
+    if (resizeObserver) resizeObserver.disconnect();
+    if (typeof ResizeObserver !== 'undefined') {
+      resizeObserver = new ResizeObserver(sync);
+      resizeObserver.observe(header);
+    }
+    sync();
+  };
+  const mutationObserver = new MutationObserver(attach);
+  if (document.documentElement) mutationObserver.observe(document.documentElement, {childList:true,subtree:true});
+  window.addEventListener('resize', sync, {passive:true});
+  attach();
+})();
+</script>
 </body>
 </html>
 
