@@ -5834,11 +5834,8 @@ END_WAYWARD_MOD_PARENT_3_25_EXTENSION_GUIDE -->
   .mobile-action-scroll button.select-none .flex{flex-wrap:nowrap!important;min-width:0!important;gap:.3rem!important;}
   .mobile-action-scroll button.select-none span{min-width:0!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important;}
 }
-</style><style id="wayward-mobile-landscape-clean-v11">
-/* Landscape: portrait-style responsive header, three natural-flow columns, no nested scroll panes. */
-@media (orientation:landscape) and (max-height:900px) {
-  html,body {height:auto!important;min-height:100%!important;max-height:none!important;overflow-x:hidden!important;overflow-y:auto!important;}
-  #root,#root>div {height:auto!important;min-height:100dvh!important;max-height:none!important;overflow:visible!important;}
+</style><style id="wayward-landscape-header-unified-v12">
+@media (orientation:landscape) {
   .m34-header {box-sizing:border-box!important;display:flex!important;flex-flow:row wrap!important;align-items:center!important;justify-content:flex-start!important;width:100%!important;height:auto!important;min-height:38px!important;max-height:none!important;flex:0 0 auto!important;position:sticky!important;top:0!important;z-index:40!important;overflow:visible!important;padding:2px max(6px,env(safe-area-inset-right)) 2px max(6px,env(safe-area-inset-left))!important;gap:0 6px!important;}
   .m34-header-stats {box-sizing:border-box!important;display:flex!important;flex:1 1 max-content!important;flex-flow:row wrap!important;align-items:center!important;width:auto!important;min-width:0!important;max-width:100%!important;height:auto!important;min-height:34px!important;max-height:none!important;overflow:visible!important;padding:0!important;gap:0!important;}
   .m34-header-stats>div:first-child,.m34-header-stats>div:nth-child(2) {box-sizing:border-box!important;display:flex!important;flex:0 1 max-content!important;width:max-content!important;min-width:0!important;max-width:100%!important;height:34px!important;min-height:34px!important;max-height:none!important;overflow:visible!important;padding:2px 5px!important;align-items:center!important;}
@@ -5849,6 +5846,16 @@ END_WAYWARD_MOD_PARENT_3_25_EXTENSION_GUIDE -->
   .m33-launchers>button:has(svg) svg {width:18px!important;height:18px!important;flex:0 0 18px!important;}
   .m33-launchers>button:has(svg) small,.m33-launchers>button:has(svg) span,.m33-launchers>button.m33-editor-launch small {display:revert!important;}
   .m33-launchers>button.m33-editor-launch:before {content:none!important;}
+  .m34-header {padding:2px max(4px,env(safe-area-inset-right)) 2px max(4px,env(safe-area-inset-left))!important;gap:0 2px!important;}
+  .m34-header-stats {flex-flow:row nowrap!important;height:34px!important;min-height:34px!important;max-height:34px!important;overflow-x:auto!important;overflow-y:hidden!important;scrollbar-width:none!important;}
+  .m34-header-stats::-webkit-scrollbar {display:none!important;}
+}
+</style>
+<style id="wayward-mobile-landscape-clean-v11">
+/* Landscape: portrait-style responsive header, three natural-flow columns, no nested scroll panes. */
+@media (orientation:landscape) and (max-height:900px) {
+  html,body {height:auto!important;min-height:100%!important;max-height:none!important;overflow-x:hidden!important;overflow-y:auto!important;}
+  #root,#root>div {height:auto!important;min-height:100dvh!important;max-height:none!important;overflow:visible!important;}
   .flex.flex-col.min-h-0.flex-1:has(> .mobile-layout) > .hidden[class~="lg:flex"] {display:none!important;}
   .mobile-layout {box-sizing:border-box!important;position:relative!important;display:grid!important;grid-template-columns:minmax(0,.72fr) minmax(0,1fr) minmax(0,1.3fr)!important;grid-template-rows:auto!important;align-items:start!important;gap:4px!important;width:100%!important;height:auto!important;min-width:0!important;min-height:0!important;max-height:none!important;margin:0!important;overflow:visible!important;flex:0 0 auto!important;}
   .mobile-portrait-panel {grid-column:1!important;grid-row:1!important;position:relative!important;display:flex!important;align-items:flex-start!important;justify-content:center!important;box-sizing:border-box!important;width:100%!important;height:auto!important;min-width:0!important;min-height:0!important;max-width:100%!important;max-height:none!important;overflow:visible!important;}
