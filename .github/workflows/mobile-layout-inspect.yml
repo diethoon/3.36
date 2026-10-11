@@ -135,6 +135,7 @@ jobs:
           print("TARGETED_ANCHORS_PASS")
           PY
           node --check /tmp/wayward-main-check.mjs
+          rm -rf node_modules
           git status --short
           if git status --short | grep -v "Wayward_MOD_v3.36.html"; then echo "Unexpected workspace changes; refusing to commit"; exit 1; fi
           git config user.name "github-actions[bot]"
