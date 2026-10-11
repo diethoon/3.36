@@ -1505,3 +1505,50 @@ Cloudflare Worker는 D1/R2 바인딩에 대해 다음 end-to-end API 테스트�
       Render 배포 상태는 확인했다.
     - 실제 모바일 브라우저에서 landscape/portrait 전환, fullscreen 진입·해제 및 서로 다른 화면비 이미지의
       시각 QA는 수행하지 않았다. Render live는 브라우저 레이아웃 PASS를 의미하지 않는다.
+
+### 32. 2026-10-11: Landscape header scope repair and reusable browser smoke test
+
+목적:
+    - Vercel Sandbox가 scope 권한 오류로 막히고, 로컬 컨테이너에서 외부 네트워크가 작동하지 않을 때
+      GitHub Actions runner에서 대형 HTML을 안전하게 부분 수정하고 실제 Chromium 레이아웃을 측정한다.
+    - 원본 HTML 전체를 채팅 로그에 출력하거나 GitHub connector에 19MB 본문을 다시 업로드하지 않는다.
+
+수정 내용:
+    - 기준 작업 브랜치: `mobile-migration-v1`
+    - 수정 파일: `Wayward_MOD_v3.36.html`만
+    - 최종 소스 커밋: `1c82b9b9c6b2548f8df126c4d4633c89f665bfa0`
+      `fix(mobile): unify landscape header across viewport heights`
+    - 기존 `wayward-mobile-landscape-clean-v11` 안에 묶여 있던 헤더 CSS를 분리했다.
+      3열 모바일 landscape 본문 규칙은 기존 `max-height:900px` 범위에 그대로 두고,
+      헤더 규칙만 `@media (orientation:landscape)`로 옮겨 높은 landscape viewport에도 적용한다.
+    - landscape 헤더는 상태줄을 한 줄로 유지하고, 상태줄 자체가 가용 폭보다 길면 내부 가로 스크롤을 사용하며,
+      툴바는 다음 줄로 이동한다. 문서 전체의 가로 overflow는 발생하지 않도록 검사한다.
+    - 저장/불러오기, 턴 진행, 이동, 액션, 재고/경제 등 게임 로직은 변경하지 않았다.
+
+실행 및 검증:
+    - 최초 source patch 실행에서 검증 단계가 임시 `node_modules/` 폴더 때문에 중단되었다.
+      HTML 수정은 해당 실행에서 커밋되지 않았다.
+    - 임시 의존성 폴더 정리 후 실행: https://github.com/diethoon/3.36/actions/runs/38150086953
+      patch script, 브라우저 검사, `git diff --check`, main module `node --check`가 통과했고 HTML만 커밋되었다.
+    - Read-only 브라우저 회귀 workflow 실행: https://github.com/diethoon/3.36/actions/runs/38150242117
+      Chromium에서 연령 확인 → 새 게임 → 엘레나 선택 → 시작 → 도입부 건너뛰기 후 실제 영업 준비 화면까지 진입했다.
+    - 테스트 viewport: 900×400, 1280×720, 1920×1080.
+      각 viewport에서 header 높이 80px 이하, 문서 전체 가로 overflow 없음 확인.
+      900×400 및 1280×720에서는 기존 3열 `.mobile-layout`이 grid로 표시되었다.
+      1920×1080에서는 기존 v11 본문 미디어 조건에 따라 `.mobile-layout`은 숨겨진 상태였지만,
+      분리한 landscape 헤더 규칙은 적용되었다.
+    - Render static service `srv-db3g9i59fdbs73dlsp80` 자동 배포:
+      deploy `dep-db5qdip5efls73atm2k0`, source commit `1c82b9b9c6b2548f8df126c4d4633c89f665bfa0`,
+      status=`live`, URL https://static-3-36.onrender.com
+    - 일회성 patch/commit 단계는 제거했다. `.github/workflows/mobile-layout-inspect.yml`은
+      이제 소스 변경 없이 Chromium 검사만 수행하는 read-only workflow다.
+
+검증 범위와 남은 제한:
+    - 실제 게임 UI까지 진입한 headless Chromium 검사이며, 이미지 팩은 runner에 없어 이미지 요청 404와
+      `/api/image/health` 연결 거부 로그가 남는다. 이는 이 정적 HTML 레이아웃 검사의 외부 자원 제한이다.
+    - 페이지 전체의 가로 overflow는 없지만 상태줄의 intrinsic width가 viewport보다 크다.
+      측정값: 900px viewport에서 stats scrollWidth=1651/clientWidth=888,
+      1280px에서 1845/1268, 1920px에서 2125/1908. 따라서 상태줄 안에서 가로 스크롤이 필요하다.
+      모든 상태 정보를 한 번에 보이게 하는 시각 QA와 실제 모바일 기기 fullscreen 진입/해제 검증은 아직 남아 있다.
+    - Render `live`는 배포 성공만 의미하며 실제 사용자 기기의 시각 QA PASS로 간주하지 않는다.
+
