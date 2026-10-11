@@ -55,7 +55,7 @@ jobs:
               else if(labels.includes('다음')){label='다음';}
               else break;
               console.log('FLOW '+c.name+' '+JSON.stringify(label));
-              await p.getByRole('button',{name:label,exact:true}).click({timeout:2500}).catch(()=>{});
+              await p.locator('button').nth(labels.indexOf(label)).click({timeout:2500}).catch(()=>{});
             }
             await p.waitForTimeout(1800);
             const m=await p.evaluate(()=>{
