@@ -5690,16 +5690,36 @@ END_WAYWARD_MOD_PARENT_3_25_EXTENSION_GUIDE -->
   const categoryOpen = new Map();
 
   function categoryKey(heading) {
-    const title = norm(heading.textContent).replace(/[▸▾]/g, "").trim();
+    const title = norm(heading.textContent).replace(/[▸▾]/g, "").replace(/·\s*비활성\s*\d+개/g, "").trim();
     if (title === "외출") return "outside";
     if (title.indexOf("마을 둘러보기") === 0) return "village";
     return null;
   }
-
+  function restoreFold(button) {
+    if (!button.hasAttribute("data-m36-folded")) return;
+    const value = button.getAttribute("data-m36-display-before") || "";
+    const priority = button.getAttribute("data-m36-priority-before") || "";
+    button.style.removeProperty("display");
+    if (value) button.style.setProperty("display", value, priority);
+    button.removeAttribute("data-m36-folded");
+    button.removeAttribute("data-m36-display-before");
+    button.removeAttribute("data-m36-priority-before");
+  }
+  function foldChoice(button, folded) {
+    if (!folded) { restoreFold(button); return; }
+    if (!button.hasAttribute("data-m36-folded")) {
+      button.setAttribute("data-m36-display-before", button.style.getPropertyValue("display"));
+      button.setAttribute("data-m36-priority-before", button.style.getPropertyPriority("display"));
+      button.setAttribute("data-m36-folded", "1");
+    }
+    button.style.setProperty("display", "none", "important");
+  }
   function syncCategory(heading, key) {
     const list = heading.nextElementSibling;
     if (!list) return;
-    if (!mq.matches) {
+    const disabled = [...list.querySelectorAll("button:disabled")];
+    if (!mq.matches || disabled.length === 0) {
+      list.querySelectorAll("[data-m36-folded]").forEach(restoreFold);
       list.style.display = "";
       const oldArrow = heading.querySelector(".m36-category-arrow");
       if (oldArrow) oldArrow.remove();
@@ -5708,24 +5728,18 @@ END_WAYWARD_MOD_PARENT_3_25_EXTENSION_GUIDE -->
       heading.removeAttribute("aria-expanded");
       return;
     }
-
     if (!categoryOpen.has(key)) categoryOpen.set(key, false);
     const open = categoryOpen.get(key) === true;
+    disabled.forEach(button => foldChoice(button, !open));
     let arrow = heading.querySelector(".m36-category-arrow");
-    if (!arrow) {
-      arrow = document.createElement("span");
-      arrow.className = "m36-category-arrow";
-      heading.appendChild(arrow);
-    }
-    const arrowText = open ? " ▾" : " ▸";
+    if (!arrow) { arrow = document.createElement("span"); arrow.className = "m36-category-arrow"; heading.appendChild(arrow); }
+    const arrowText = " · 비활성 " + disabled.length + "개 " + (open ? "▾" : "▸");
     if (arrow.textContent !== arrowText) arrow.textContent = arrowText;
-    const display = open ? "" : "none";
-    if (list.style.display !== display) list.style.display = display;
+    list.style.display = "";
     heading.style.cursor = "pointer";
     heading.style.userSelect = "none";
     heading.setAttribute("aria-expanded", open ? "true" : "false");
   }
-
   function bindCategories() {
     const container = root();
     if (!container) return;
@@ -5734,21 +5748,17 @@ END_WAYWARD_MOD_PARENT_3_25_EXTENSION_GUIDE -->
       if (key) syncCategory(heading, key);
     });
   }
-
-  // Delegation deliberately resolves heading.nextElementSibling at click
-  // time so a rerendered list cannot leave a handler pointing at stale DOM.
+  // The heading toggles only unavailable choices; enabled choices always stay visible.
   document.addEventListener("click", event => {
     const target = event.target;
     if (!mq.matches || !target || typeof target.closest !== "function") return;
     const heading = target.closest(".mobile-layout h4");
     if (!heading) return;
-    const key = categoryKey(heading);
-    const list = heading.nextElementSibling;
-    if (!key || !list) return;
+    const key = categoryKey(heading), list = heading.nextElementSibling;
+    if (!key || !list || !list.querySelector("button:disabled")) return;
     event.preventDefault();
     event.stopPropagation();
-    const open = !(categoryOpen.get(key) === true);
-    categoryOpen.set(key, open);
+    categoryOpen.set(key, categoryOpen.get(key) !== true);
     syncCategory(heading, key);
   }, true);
 
@@ -5773,7 +5783,58 @@ END_WAYWARD_MOD_PARENT_3_25_EXTENSION_GUIDE -->
   mq.addEventListener?.("change", sync);
   sync();
 })();
-</script></body>
+</script><style id="m36-mobile-space-layout-v2">
+@media(max-width:1023px){
+  .m36-mobile-store-status{
+    box-sizing:border-box!important;flex:0 1 auto!important;min-height:0!important;max-height:18vh!important;
+    overflow-x:hidden!important;overflow-y:auto!important;overscroll-behavior:contain!important;
+  }
+  .m36-mobile-status-panel{
+    box-sizing:border-box!important;flex:0 1 auto!important;min-height:0!important;max-height:18vh!important;
+    overflow-x:hidden!important;overflow-y:auto!important;overscroll-behavior:contain!important;
+  }
+  .m36-mobile-prep-compact{
+    box-sizing:border-box!important;flex:0 1 auto!important;min-height:0!important;max-height:18vh!important;
+    overflow-x:hidden!important;overflow-y:auto!important;overscroll-behavior:contain!important;
+  }
+  .m36-mobile-dialogue-fixed{
+    box-sizing:border-box!important;display:flex!important;flex-direction:column!important;
+    flex:0 1 auto!important;min-height:0!important;max-height:26vh!important;overflow:hidden!important;
+  }
+  .m36-mobile-dialogue-box{
+    box-sizing:border-box!important;flex:1 1 auto!important;min-height:0!important;
+    max-height:calc(26vh - 2.2rem)!important;overflow-x:hidden!important;overflow-y:auto!important;
+    overscroll-behavior:contain!important;scrollbar-width:thin!important;
+  }
+  .m36-mobile-dialogue-box p{overflow-wrap:anywhere!important;}
+  .m36-mobile-pleasure-fixed{
+    box-sizing:border-box!important;flex:0 1 auto!important;min-height:0!important;max-height:10vh!important;
+    overflow-x:hidden!important;overflow-y:auto!important;overscroll-behavior:contain!important;
+  }
+  .m36-mobile-store-status-line{min-width:0!important;gap:.2rem!important;}
+  .m36-mobile-store-label,.m36-mobile-store-value{
+    min-width:0!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important;
+  }
+  .m36-mobile-prep-compact .grid>div:first-child{min-width:0!important;flex-wrap:nowrap!important;gap:.25rem!important;}
+  .m36-mobile-prep-compact .grid>div:first-child>span:first-child{
+    max-width:clamp(2.8rem,16vw,4.1rem)!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important;
+  }
+  .m36-mobile-prep-compact .grid>div:last-child{white-space:nowrap!important;}
+  .m36-mobile-facility-only>.m36-facility-upgrade button{min-width:0!important;gap:.25rem!important;}
+  .m36-mobile-facility-only>.m36-facility-upgrade button>span:first-child{
+    min-width:0!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important;
+  }
+  .mobile-action-scroll{
+    flex:1 1 0!important;height:0!important;min-height:clamp(3.5rem,12vh,5.5rem)!important;
+    max-height:100%!important;overflow-x:hidden!important;overflow-y:auto!important;overscroll-behavior:contain!important;
+  }
+  .mobile-action-scroll h4{min-width:0!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important;}
+  .mobile-action-scroll button{min-width:0!important;max-width:100%!important;box-sizing:border-box!important;}
+  .mobile-action-scroll button.select-none{white-space:nowrap!important;min-width:0!important;gap:.3rem!important;}
+  .mobile-action-scroll button.select-none .flex{flex-wrap:nowrap!important;min-width:0!important;gap:.3rem!important;}
+  .mobile-action-scroll button.select-none span{min-width:0!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important;}
+}
+</style></body>
 </html>
 
 <!-- WAYWARD_MOD_PARENT_3_26_MAP
