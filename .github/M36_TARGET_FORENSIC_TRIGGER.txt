@@ -3,3 +3,4 @@ Refresh trigger after PR was opened.
 Rerun with consolidated scroll-owner patch and clean diff.
 Retry after bringing browser boot path in line with validated startup choices.
 Retry after consolidating nested status overflow into the primary scroll owner.
+Rerun with explicit z-index ownership after hit-testing showed sibling touch interception.
