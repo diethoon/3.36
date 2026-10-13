@@ -166,9 +166,13 @@ jobs:
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add Wayward_MOD_v3.36.html
-          git commit -m "fix(mobile): force touch scrolling in landscape info column"
-          git push origin HEAD:mobile-migration-v1
+          if ! git diff --quiet -- Wayward_MOD_v3.36.html; then
+            git add Wayward_MOD_v3.36.html
+            git commit -m "fix(mobile): force touch scrolling in landscape info column"
+            git push origin HEAD:mobile-migration-v1
+          else
+            echo "HTML already contains the tested touch-scroll fallback; no new commit needed."
+          fi
 
       - name: Upload actual DOM screenshots
         if: always()
