@@ -33,6 +33,10 @@ jobs:
               for(let k=0;k<await next.count();k++){
                 try{const b=next.nth(k);if(await b.isVisible()&&await b.isEnabled()){await b.evaluate(e=>e.click());await pause(200);clicked=true;break}}catch{}
               }
+              const elena=page.getByRole('button',{name:/^엘레나/});
+              if(!clicked&&await elena.count()){
+                try{await elena.first().evaluate(e=>e.click());await pause(200);clicked=true}catch{}
+              }
               if(!clicked)break;
             }
           }
