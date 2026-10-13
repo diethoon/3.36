@@ -6705,79 +6705,6 @@ END_WAYWARD_MOD_PARENT_3_25_EXTENSION_GUIDE -->
 
 <style id="wayward-landscape-visual-fix-v2">
 @media (orientation:landscape) {
-  /* High contrast: light physical buttons with dark glyphs, including SVG paths and raster icons. */
-  .m34-header .m33-launchers button,
-  .m34-header .m34-system-tools button,
-  .m34-header .m34-system-tools .m33-theme-button,
-  .m34-header .m34-system-tools .m34-header-control {
-    background:#fef3c7!important;
-    color:#1c1917!important;
-    -webkit-text-fill-color:#1c1917!important;
-    opacity:1!important; visibility:visible!important; filter:none!important;
-    border:1px solid #fff7ed!important; border-radius:4px!important;
-    box-shadow:0 0 0 1px #57534e,0 1px 3px rgba(0,0,0,.95)!important;
-  }
-  .m34-header .m33-launchers button::before,
-  .m34-header .m33-launchers button::after,
-  .m34-header .m34-system-tools button::before,
-  .m34-header .m34-system-tools button::after {
-    color:#1c1917!important; -webkit-text-fill-color:#1c1917!important;
-    opacity:1!important; visibility:visible!important; filter:none!important;
-    text-shadow:none!important;
-  }
-  .m34-header .m33-launchers button > *,
-  .m34-header .m34-system-tools button > *,
-  .m34-header .m34-system-tools .m33-theme-button > * {
-    display:inline-flex!important; align-items:center!important; justify-content:center!important;
-    color:#1c1917!important; -webkit-text-fill-color:#1c1917!important;
-    opacity:1!important; visibility:visible!important; font-size:16px!important;
-    line-height:1!important; filter:none!important;
-  }
-  .m34-header .m33-launchers button svg,
-  .m34-header .m34-system-tools button svg,
-  .m34-header .m34-system-tools .m33-theme-button svg,
-  .m34-header .m34-system-tools .m34-header-control svg {
-    display:block!important; visibility:visible!important; opacity:1!important;
-    width:16px!important;height:16px!important;min-width:16px!important;min-height:16px!important;
-    max-width:16px!important;max-height:16px!important;
-    color:#1c1917!important;fill:#1c1917!important;stroke:#1c1917!important;filter:none!important;
-  }
-  .m34-header .m33-launchers button svg *,
-  .m34-header .m34-system-tools button svg * {
-    color:#1c1917!important;fill:#1c1917!important;stroke:#1c1917!important;
-    opacity:1!important;visibility:visible!important;filter:none!important;
-  }
-  .m34-header .m33-launchers button svg [fill="none"],
-  .m34-header .m34-system-tools button svg [fill="none"] {fill:none!important;}
-  .m34-header .m33-launchers button svg [stroke="none"],
-  .m34-header .m34-system-tools button svg [stroke="none"] {stroke:none!important;}
-  .m34-header .m33-launchers button img,
-  .m34-header .m34-system-tools button img {
-    display:block!important;visibility:visible!important;opacity:1!important;
-    width:16px!important;height:16px!important;object-fit:contain!important;
-    filter:brightness(0) saturate(100%)!important;
-  }
-  .m34-header .m33-launchers button[aria-label*="치트 에디터"] {
-    font-size:0!important;color:#1c1917!important;-webkit-text-fill-color:#1c1917!important;
-  }
-  .m34-header .m33-launchers button[aria-label*="치트 에디터"]::before {
-    content:"⚙"!important;display:block!important;
-    color:#1c1917!important;-webkit-text-fill-color:#1c1917!important;
-    font-size:16px!important;line-height:1!important;font-family:system-ui,sans-serif!important;
-  }
-  .m34-header .m34-system-tools .m33-theme-button > span,
-  .m34-header .m34-system-tools button[aria-label="테마 선택"] > span {
-    display:block!important;box-sizing:border-box!important;
-    width:12px!important;height:12px!important;min-width:12px!important;min-height:12px!important;
-    max-width:12px!important;max-height:12px!important;flex:0 0 12px!important;
-    border:2px solid #1c1917!important;outline:1px solid #fff7ed!important;
-    border-radius:2px!important;opacity:1!important;visibility:visible!important;
-    box-shadow:0 0 0 1px rgba(28,25,23,.7)!important;
-  }
-  .m34-header .m33-launchers button:focus-visible,
-  .m34-header .m34-system-tools button:focus-visible {
-    outline:2px solid #f59e0b!important;outline-offset:1px!important;
-  }
   /* Keep the portrait panel dominant; the change summary only consumes its text height. */
   .mobile-main-panel>.shrink-0:first-child {
     display:flex!important;flex-direction:column!important;align-items:stretch!important;
@@ -6860,6 +6787,62 @@ END_WAYWARD_MOD_PARENT_3_25_EXTENSION_GUIDE -->
   }
 }
 </style>
+<style id="m36-landscape-work-choice-width-20261014">
+@media (orientation:landscape) {
+  /* Restore the portrait launcher silhouette while preserving the fixed left rail. */
+  .m34-header .m33-launchers button { border-radius:8px!important; }
+  /* The 5-minute control is the second button in a split action row. It must stay
+     content-sized; the generic landscape rule makes all action buttons 100% wide. */
+  .mobile-action-panel .mobile-action-scroll button[title*="동안 자동으로 일하기"] {
+    box-sizing:border-box!important;
+    display:inline-flex!important;
+    align-items:center!important;
+    justify-content:center!important;
+    width:auto!important;
+    min-width:2.25rem!important;
+    max-width:none!important;
+    flex:0 0 auto!important;
+    padding:0 6px!important;
+    white-space:nowrap!important;
+    overflow-wrap:normal!important;
+    text-align:center!important;
+    font-size:11px!important;
+    line-height:1.2!important;
+  }
+  /* The disabled-choice marker is intended for the main action, not its 5-minute
+     duration control. Undo only that marker's label/pseudo-element treatment here. */
+  .mobile-action-panel .mobile-action-scroll button[title*="동안 자동으로 일하기"].m36-mobile-disabled-choice {
+    position:relative!important;
+    width:auto!important;
+    min-width:2.25rem!important;
+    max-width:none!important;
+    flex:0 0 auto!important;
+    margin:0!important;
+    padding:0 6px!important;
+    border:0!important;
+    border-left:1px solid #44403c!important;
+    border-radius:0!important;
+    background:#292524!important;
+    color:#d6d3d1!important;
+    -webkit-text-fill-color:#d6d3d1!important;
+    font-size:11px!important;
+    line-height:1.2!important;
+    opacity:1!important;
+    white-space:nowrap!important;
+    overflow-wrap:normal!important;
+    text-align:center!important;
+  }
+  .mobile-action-panel .mobile-action-scroll button[title*="동안 자동으로 일하기"].m36-mobile-disabled-choice > * {
+    display:revert!important;
+  }
+  .mobile-action-panel .mobile-action-scroll button[title*="동안 자동으로 일하기"].m36-mobile-disabled-choice::before,
+  .mobile-action-panel .mobile-action-scroll button[title*="동안 자동으로 일하기"].m36-mobile-disabled-choice::after {
+    content:none!important;
+    display:none!important;
+  }
+}
+</style>
+
 </body>
 </html>
 
