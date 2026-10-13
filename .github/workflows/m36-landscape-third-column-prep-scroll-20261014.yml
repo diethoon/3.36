@@ -1,0 +1,334 @@
+name: M36 landscape third-column placement and full prep scroll v2
+on:
+  push:
+    branches: [mobile-migration-v1]
+    paths: [".github/workflows/m36-landscape-third-column-prep-scroll-20261014.yml"]
+permissions:
+  contents: write
+jobs:
+  patch-and-check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: mobile-migration-v1
+          fetch-depth: 1
+      - name: Apply targeted streaming patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import os
+
+          path=Path("Wayward_MOD_v3.36.html")
+          css = b"""<style id="m36-landscape-third-column-prep-scroll-20261014">
+          /* Landscape request/reason controls go in column three, apart from choices. */
+          .m36-landscape-info-scroll { display:contents; }
+          .m36-narrow-landscape-choice-control-slot,
+          .m36-wide-landscape-choice-control-slot {
+            box-sizing:border-box;width:100%;max-width:100%;min-width:0;overflow-wrap:anywhere;
+          }
+          .m36-landscape-choice-controls {
+            box-sizing:border-box;display:flex;flex-direction:column;gap:3px;width:100%;
+            max-width:100%;min-width:0;margin:3px 0;padding:6px;
+            border:1px solid rgba(68,64,60,.72);border-radius:4px;
+            background:rgba(28,25,23,.78);overflow-wrap:anywhere;
+          }
+          .m36-landscape-choice-controls .m36-responsive-request {
+            display:flex;flex-wrap:wrap!important;gap:4px!important;margin:0 0 3px!important;
+          }
+          .m36-landscape-choice-controls .m36-responsive-reasons {
+            display:flex;flex-wrap:wrap!important;gap:4px!important;margin:0!important;
+          }
+          .m36-landscape-choice-controls .m36-responsive-request button,
+          .m36-landscape-choice-controls .m36-responsive-reasons button {
+            min-width:0!important;max-width:100%!important;white-space:normal!important;overflow-wrap:anywhere!important;
+          }
+          @media (orientation:landscape) and (max-width:1023px) {
+            .mobile-action-panel>.m36-landscape-info-scroll {
+              display:flex!important;flex-direction:column!important;flex:1 1 0%!important;
+              height:0!important;min-height:0!important;max-height:100%!important;
+              overflow-x:hidden!important;overflow-y:auto!important;overscroll-behavior:contain!important;
+              scrollbar-width:thin!important;
+            }
+            .mobile-action-panel>.m36-landscape-info-scroll>.m36-narrow-landscape-choice-control-slot {
+              display:block!important;flex:0 0 auto!important;
+            }
+            .mobile-action-panel>.m36-landscape-info-scroll .m36-mobile-prep-compact,
+            .mobile-action-panel>.m36-landscape-info-scroll .m36-mobile-facility-only,
+            .mobile-action-panel>.m36-landscape-info-scroll .m36-facility-upgrade {
+              flex:0 0 auto!important;height:auto!important;min-height:0!important;max-height:none!important;overflow:visible!important;
+            }
+            .mobile-action-panel>.m36-landscape-info-scroll .m36-mobile-prep-compact [class*="max-h-"],
+            .mobile-action-panel>.m36-landscape-info-scroll .m36-mobile-prep-compact [class*="overflow-y-auto"],
+            .mobile-action-panel>.m36-landscape-info-scroll .m36-mobile-facility-only [class*="max-h-"],
+            .mobile-action-panel>.m36-landscape-info-scroll .m36-mobile-facility-only [class*="overflow-y-auto"] {
+              height:auto!important;max-height:none!important;overflow-y:visible!important;
+            }
+            .mobile-action-panel>.m36-landscape-info-scroll .m36-mobile-dialogue-box {
+              max-height:none!important;overflow:visible!important;
+            }
+            .mobile-action-panel>.flex-1.min-h-0.flex.flex-col {
+              flex:0 0 0!important;height:0!important;min-height:0!important;max-height:0!important;
+              margin:0!important;padding:0!important;overflow:visible!important;
+            }
+          }
+          @media (orientation:landscape) and (min-width:1024px) {
+            .divide-y.divide-stone-800.pb-2:has(>.m36-wide-landscape-choice-control-slot) {
+              min-height:0!important;max-height:100%!important;overflow-x:hidden!important;overflow-y:auto!important;
+              overscroll-behavior:contain!important;scrollbar-width:thin!important;
+            }
+            .m36-wide-landscape-choice-control-slot {display:block!important;flex:0 0 auto!important;}
+            .m36-wide-landscape-choice-control-slot .m36-landscape-choice-controls {margin:5px 0;padding:8px;}
+          }
+          @media (orientation:portrait) {
+            .m36-narrow-landscape-choice-control-slot,.m36-wide-landscape-choice-control-slot {display:none!important;}
+          }
+          </style>"""
+
+          function_old=b"function HD(){"
+          function_new=(
+            'function HD({landscapeControlPane="none"}={}){'
+            'const [m36ControlPortalTarget,setM36ControlPortalTarget]=Z.useState(null);'
+            'Z.useEffect(()=>{const update=()=>{const landscape=window.matchMedia("(orientation:landscape)").matches,'
+            'wide=window.innerWidth>=1024,selector=landscape&&landscapeControlPane==="desktop"&&wide?'
+            '".m36-wide-landscape-choice-control-slot":landscape&&landscapeControlPane==="mobile"&&!wide?'
+            '".m36-narrow-landscape-choice-control-slot":null;'
+            'setM36ControlPortalTarget(selector?document.querySelector(selector):null)};'
+            'update();window.addEventListener("resize",update);window.addEventListener("orientationchange",update);'
+            'return()=>{window.removeEventListener("resize",update);window.removeEventListener("orientationchange",update)}'
+            '},[landscapeControlPane]);'
+          ).encode()
+          desktop_old=b'actions:{body:u.jsx(HD,{}),className:"p-2 xl:p-3"}'
+          desktop_new=b'actions:{body:u.jsx(HD,{landscapeControlPane:"desktop"}),className:"p-2 xl:p-3"}'
+
+          parent_old=(
+            'children:[u.jsx(M36MobileStoreStatus,{showAllRooms:!0}),'
+            'b&&!b.playerEngaged&&et(e)===vt(e)&&u.jsx(uOe,{customerName:b.customerName,crowdNames:w,wifeName:d.name,'
+            'stage:b.stage,primarySlot:b.primarySlot,goldEarned:b.goldEarned??0,dispatch:t}),'
+            'u.jsx(M36MobileStockStatus,{}),e.phase==="prep"&&u.jsx(x3e,{facilityOnly:!0}),'
+            'u.jsxs("div",{className:"flex-1 min-h-0 flex flex-col",children:['
+            'u.jsx(M36MobileDialogueFixed,{event:e.pendingEvent,wifeName:d.name}),'
+            'u.jsx(M36MobilePleasureFixed,{state:e}),'
+            'u.jsx("div",{className:"mobile-action-scroll flex-1 min-h-0 overflow-y-auto py-1 text-[0.72rem]",children:u.jsx(HD,{})})]})'
+          ).encode()
+          parent_new=(
+            'children:[u.jsxs("div",{className:"m36-landscape-info-scroll",children:['
+            'u.jsx(M36MobileStoreStatus,{showAllRooms:!0}),'
+            'b&&!b.playerEngaged&&et(e)===vt(e)&&u.jsx(uOe,{customerName:b.customerName,crowdNames:w,wifeName:d.name,'
+            'stage:b.stage,primarySlot:b.primarySlot,goldEarned:b.goldEarned??0,dispatch:t}),'
+            'u.jsx(M36MobileStockStatus,{}),e.phase==="prep"&&u.jsx(x3e,{facilityOnly:!0}),'
+            'u.jsx("div",{className:"m36-narrow-landscape-choice-control-slot"}),'
+            'u.jsx(M36MobileDialogueFixed,{event:e.pendingEvent,wifeName:d.name}),'
+            'u.jsx(M36MobilePleasureFixed,{state:e})]}),'
+            'u.jsxs("div",{className:"flex-1 min-h-0 flex flex-col",children:['
+            'u.jsx("div",{className:"mobile-action-scroll flex-1 min-h-0 overflow-y-auto py-1 text-[0.72rem]",'
+            'children:u.jsx(HD,{landscapeControlPane:"mobile"})})]})'
+          ).encode()
+
+          wide_old='p&&u.jsx(lOe,{}),D&&u.jsxs("div",{className:"px-3 py-2 bg-stone-900/30"'.encode()
+          wide_new=(
+            'p&&u.jsx(lOe,{}),!l&&i==="inline"&&u.jsx("div",{className:"m36-wide-landscape-choice-control-slot"}),'
+            'D&&u.jsxs("div",{className:"px-3 py-2 bg-stone-900/30"'
+          ).encode()
+
+          status_old=b'(U||K||ee||d.type==="flirt")&&u.jsx(M331ActionStatus,{state:t,surface:"panel",proximity:V}),'
+          status_new=b'!m36ControlPortalTarget&&(U||K||ee||d.type==="flirt")&&u.jsx(M331ActionStatus,{state:t,surface:"panel",proximity:V}),'
+          subtitle_old=b'_t&&u.jsx("div",{className:"text-xs text-violet-300/80 mb-2",children:_t}),'
+          subtitle_new=b'!m36ControlPortalTarget&&_t&&u.jsx("div",{className:"text-xs text-violet-300/80 mb-2",children:_t}),'
+          question_old=b'd.question&&u.jsx(fDe,{question:d.question,onPick:dt}),'
+          question_new=b'!m36ControlPortalTarget&&d.question&&u.jsx(fDe,{question:d.question,onPick:dt}),'
+          request_old=b'(It==null?void 0:It.startsWith("dare"))&&u.jsx(p3e,{current:w.demeanor??"ask",onPick:we=>e({type:"set_demeanor",demeanor:we})}),'
+          request_new=b'!m36ControlPortalTarget&&(It==null?void 0:It.startsWith("dare"))&&u.jsx(p3e,{current:w.demeanor??"ask",onPick:we=>e({type:"set_demeanor",demeanor:we})}),'
+          reason_old=(
+            'je&&u.jsx(_3e,{current:w.dareReason,onPick:we=>e({type:"set_dare_reason",dareReason:we})}),'
+            'U&&I&&u.jsxs("div",{className:"mb-3 space-y-1.5 m36-mobile-choice-gauge",'
+          ).encode()
+          portal_group=(
+            'm36ControlPortalTarget&&oF.createPortal(u.jsxs("div",{className:"m36-landscape-choice-controls",children:['
+            '(U||K||ee||d.type==="flirt")&&u.jsx(M331ActionStatus,{state:t,surface:"panel",proximity:V}),'
+            '_t&&u.jsx("div",{className:"text-xs text-violet-300/80 mb-2",children:_t}),'
+            'd.question&&u.jsx(fDe,{question:d.question,onPick:dt}),'
+            '(It==null?void 0:It.startsWith("dare"))&&u.jsx(p3e,{current:w.demeanor??"ask",'
+            'onPick:we=>e({type:"set_demeanor",demeanor:we})}),'
+            'je&&u.jsx(_3e,{current:w.dareReason,onPick:we=>e({type:"set_dare_reason",dareReason:we})}'
+            ']}),m36ControlPortalTarget,"m36-landscape-choice-controls"),'
+          ).encode()
+          reason_new=(
+            '!m36ControlPortalTarget&&je&&u.jsx(_3e,{current:w.dareReason,onPick:we=>e({type:"set_dare_reason",dareReason:we})}),'
+          ).encode()+portal_group+(
+            'U&&I&&u.jsxs("div",{className:"mb-3 space-y-1.5 m36-mobile-choice-gauge",'
+          ).encode()
+
+          body=b"</body>"
+          marker=b'm36-landscape-third-column-prep-scroll-20261014'
+          patches=[
+            (function_old,function_new,1,"HD function portal support"),
+            (desktop_old,desktop_new,1,"desktop action-pane portal target"),
+            (parent_old,parent_new,1,"separate whole-info scroller and choice column"),
+            (wide_old,wide_new,1,"third-column wide-layout portal slot"),
+            (status_old,status_new,1,"move current action/partner status"),
+            (subtitle_old,subtitle_new,1,"move request description"),
+            (question_old,question_new,1,"move question chooser"),
+            (request_old,request_new,1,"move request style buttons"),
+            (reason_old,reason_new,1,"move reason buttons and portal group"),
+            (body,css+body,1,"append scoped landscape layout CSS")
+          ]
+          all_targets=[p[0] for p in patches]+[marker]
+          locations={t:set() for t in all_targets}; overlap=b""; offset=0
+          with path.open("rb") as f:
+            while True:
+              chunk=f.read(256*1024)
+              if not chunk: break
+              buf=overlap+chunk; base=offset-len(overlap)
+              for target in all_targets:
+                pos=0
+                while True:
+                  i=buf.find(target,pos)
+                  if i<0: break
+                  absolute=base+i
+                  if absolute>=offset: locations[target].add(absolute)
+                  pos=i+1
+              offset+=len(chunk); overlap=buf[-8192:]
+          if locations[marker]: raise SystemExit("Patch style marker already exists; refusing duplicate insertion")
+          for target,_,expected,label in patches:
+            actual=len(locations[target])
+            if actual!=expected: raise SystemExit(f"{label}: expected {expected} match(es), found {actual}")
+          edits=[]
+          for old,new,_,label in patches:
+            start=next(iter(locations[old])); edits.append((start,start+len(old),new,label))
+          edits.sort(key=lambda item:item[0])
+          for left,right in zip(edits,edits[1:]):
+            if left[1]>right[0]: raise SystemExit(f"Overlapping source patches: {left[3]} / {right[3]}")
+          tmp=path.with_name(path.name+".m36tmp")
+          def copy_n(src,dst,amount):
+            while amount:
+              chunk=src.read(min(128*1024,amount))
+              if not chunk: raise EOFError("Unexpected EOF in bounded copy")
+              dst.write(chunk); amount-=len(chunk)
+          with path.open("rb") as src,tmp.open("wb") as dst:
+            cursor=0
+            for start,end,data,label in edits:
+              src.seek(cursor);copy_n(src,dst,start-cursor);dst.write(data);cursor=end
+            src.seek(cursor)
+            while True:
+              chunk=src.read(128*1024)
+              if not chunk: break
+              dst.write(chunk)
+          os.replace(tmp,path)
+
+          verify=[
+            b'm36-landscape-third-column-prep-scroll-20261014',
+            b'm36-narrow-landscape-choice-control-slot',
+            b'm36-wide-landscape-choice-control-slot',
+            b'landscapeControlPane:"desktop"',
+            b'landscapeControlPane:"mobile"',
+            b'm36ControlPortalTarget&&oF.createPortal',
+            b'className:"m36-landscape-info-scroll"'
+          ]
+          counts={v:0 for v in verify}; old_patterns={p[0]:0 for p in patches if p[0]!=body}; overlap=b""
+          with path.open("rb") as f:
+            while True:
+              chunk=f.read(256*1024)
+              if not chunk: break
+              buf=overlap+chunk
+              for token in verify: counts[token]+=buf.count(token)
+              for token in old_patterns: old_patterns[token]+=buf.count(token)
+              overlap=buf[-8192:]
+          if any(counts[token]<1 for token in verify):
+            raise SystemExit(f"Missing new marker(s): {counts}")
+          expected_remaining={status_old:1,subtitle_old:1,question_old:1,request_old:1}
+          bad={token:(count,expected_remaining.get(token,0)) for token,count in old_patterns.items() if count!=expected_remaining.get(token,0)}
+          if bad: raise SystemExit(f"Unexpected old markup counts (status/question snippets should occur only in portal group): {bad}")
+          print("PATCH_OK_BYTES",path.stat().st_size)
+          print("NEW_MARKERS",counts)
+          Path("/tmp/m36-third-column-patch-ok").write_text("ok")
+          PY
+          git diff --check
+      - name: Browser-check landscape columns and prep scrolling
+        if: success()
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm init -y >/dev/null
+          npm install --no-audit --no-fund playwright >/dev/null
+          npx playwright install chromium >/dev/null
+          python3 -m http.server 4173 >/tmp/m36-http.log 2>&1 &
+          node <<'JS'
+          const {chromium}=require('playwright');
+          const wait=ms=>new Promise(resolve=>setTimeout(resolve,ms));
+          (async()=>{
+            const browser=await chromium.launch({headless:true});
+            const page=await browser.newPage({viewport:{width:820,height:480},deviceScaleFactor:1});
+            const errors=[];
+            page.on('pageerror',e=>errors.push(String(e)));
+            await page.goto('http://127.0.0.1:4173/Wayward_MOD_v3.36.html',{waitUntil:'domcontentloaded',timeout:90000});
+            for(let i=0;i<40;i++){
+              const body=await page.locator('body').innerText().catch(()=> '');
+              if(body.includes('물자 채우기')&&body.includes('대출')) break;
+              const next=page.getByRole('button',{name:/^예$|이해하고 동의합니다|다음|계속|시작|확인|완료|진행|게임 시작|새 게임/});
+              let clicked=false;
+              for(let j=0;j<await next.count();j++){
+                try{const b=next.nth(j);if(await b.isVisible()&&await b.isEnabled()){await b.evaluate(e=>e.click());await wait(180);clicked=true;break}}catch{}
+              }
+              if(!clicked) await wait(220);
+            }
+            await wait(700);
+            const narrow=await page.evaluate(()=>{
+              const info=document.querySelector('.m36-landscape-info-scroll');
+              const choices=document.querySelector('.mobile-action-scroll');
+              const rect=e=>{if(!e)return null;const r=e.getBoundingClientRect();return{x:Math.round(r.x),y:Math.round(r.y),width:Math.round(r.width),height:Math.round(r.height)}};
+              const style=e=>e?{display:getComputedStyle(e).display,overflowY:getComputedStyle(e).overflowY,scrollHeight:e.scrollHeight,clientHeight:e.clientHeight}:null;
+              const prep=info?.querySelector('.m36-mobile-prep-compact'),facility=info?.querySelector('.m36-mobile-facility-only');
+              const nested=[...(info?.querySelectorAll('.m36-mobile-prep-compact *, .m36-mobile-facility-only *')??[])].filter(e=>['auto','scroll'].includes(getComputedStyle(e).overflowY)&&e.scrollHeight>e.clientHeight+4).map(e=>({cls:String(e.className||'').slice(0,80),overflowY:getComputedStyle(e).overflowY,scrollHeight:e.scrollHeight,clientHeight:e.clientHeight})).slice(0,8);
+              return{viewport:{w:innerWidth,h:innerHeight},info:rect(info),infoStyle:style(info),choice:rect(choices),prep:prep?{style:style(prep),maxHeight:getComputedStyle(prep).maxHeight}:null,facility:facility?{style:style(facility),maxHeight:getComputedStyle(facility).maxHeight}:null,nestedPrepScrollers:nested,body:document.body.innerText.slice(0,300)};
+            });
+            console.log('M36_NARROW_LANDSCAPE',JSON.stringify(narrow));
+            if(!narrow.info||narrow.info.width<20||narrow.info.height<100||narrow.infoStyle.display!=='flex'||narrow.infoStyle.overflowY!=='auto')throw new Error('Landscape info column does not own the full-height scroll');
+            if(!narrow.choice||narrow.choice.width<20||narrow.choice.height<100)throw new Error('Landscape choices column was lost');
+            if(narrow.prep&&narrow.prep.maxHeight!=='none')throw new Error('Supply preparation remains constrained by a nested max-height');
+            if(narrow.facility&&narrow.facility.maxHeight!=='none')throw new Error('Facility preparation remains constrained by a nested max-height');
+            await page.setViewportSize({width:1280,height:720});await wait(500);
+            const wide=await page.evaluate(()=>{
+              const slot=document.querySelector('.m36-wide-landscape-choice-control-slot');
+              const r=slot?.getBoundingClientRect(),root=slot?.parentElement;
+              return{viewport:{w:innerWidth,h:innerHeight},slot:slot?{x:Math.round(r.x),y:Math.round(r.y),width:Math.round(r.width),height:Math.round(r.height),display:getComputedStyle(slot).display}:null,rootClass:root?.className,rootOverflow:root?getComputedStyle(root).overflowY:null};
+            });
+            console.log('M36_WIDE_LANDSCAPE',JSON.stringify(wide));
+            if(!wide.slot||wide.slot.width<40||wide.slot.display==='none')throw new Error('Wide-layout third-column target is missing');
+            await page.setViewportSize({width:390,height:844});await wait(450);
+            const portrait=await page.evaluate(()=>{
+              const info=document.querySelector('.m36-landscape-info-scroll');
+              return{viewport:{w:innerWidth,h:innerHeight},infoDisplay:info?getComputedStyle(info).display:null,portraitPanel:!!document.querySelector('.mobile-action-panel')};
+            });
+            console.log('M36_PORTRAIT_REGRESSION',JSON.stringify(portrait));
+            if(portrait.infoDisplay!=='contents')throw new Error('Portrait layout wrapper is not neutral');
+            if(errors.some(e=>/SyntaxError|Unexpected token|ReferenceError: m36ControlPortalTarget/i.test(e)))throw new Error('Critical browser runtime error: '+errors.join(' | '));
+            console.log('M36_LANDSCAPE_THIRD_COLUMN_AND_SCROLL_CHECKS_PASSED');
+            await browser.close();
+          })().catch(e=>{console.error(e);process.exit(1)});
+          JS
+          touch /tmp/m36-third-column-browser-ok
+      - name: Commit patch and remove temporary workflow
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          rm -f .github/workflows/m36-landscape-third-column-prep-scroll-20261014.yml
+          did_commit=0
+          if [ -f /tmp/m36-third-column-patch-ok ] && [ -f /tmp/m36-third-column-browser-ok ]; then
+            git add Wayward_MOD_v3.36.html .github/workflows
+            git commit -m "fix(mobile): move landscape controls to third column and unify prep scroll"
+            did_commit=1
+          else
+            git add -A .github/workflows
+            if ! git diff --cached --quiet; then
+              git commit -m "chore: remove temporary landscape layout patch runner"
+              did_commit=1
+            fi
+          fi
+          if [ "$did_commit" = "1" ]; then git push origin mobile-migration-v1; fi
