@@ -1,0 +1,162 @@
+name: M36 landscape third-column scroll fix
+
+on:
+  push:
+    branches:
+      - mobile-migration-v1
+    paths:
+      - .github/workflows/m36-landscape-scroll-hotfix.yml
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  patch-and-browser-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout the exact triggering branch
+        uses: actions/checkout@v4
+        with:
+          ref: mobile-migration-v1
+          fetch-depth: 0
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Inspect, patch only the EOF landscape scroll override, and validate
+        shell: bash
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const fs = require('fs');
+          const p = 'Wayward_MOD_v3.36.html';
+          const marker = 'm36-landscape-third-column-scroll-touch-fix-20261014';
+          const src = fs.readFileSync(p, 'utf8');
+          console.log('SOURCE_BYTES=' + Buffer.byteLength(src));
+          console.log('EXISTING_MARKER=' + (src.includes(marker) ? 'yes' : 'no'));
+          for (const token of ['.m36-landscape-info-scroll', 'touchmove', 'preventDefault()', 'overflow-y:auto', 'overflow-y: auto']) {
+            let count = 0, at = -1;
+            while ((at = src.indexOf(token, at + 1)) !== -1) count++;
+            console.log('TOKEN ' + JSON.stringify(token) + ' count=' + count);
+            const first = src.indexOf(token);
+            if (first >= 0 && (token === '.m36-landscape-info-scroll' || token === 'touchmove' || token === 'preventDefault()')) {
+              console.log('CONTEXT ' + JSON.stringify(token) + ': ' + src.slice(Math.max(0, first - 180), Math.min(src.length, first + 600)).replace(/\s+/g, ' ').slice(0, 800));
+            }
+          }
+          if (!src.includes(marker)) {
+            const css = `
+          <style id="${marker}">
+          @media (orientation: landscape) and (min-width: 600px) {
+            /* The info/status/prep/facility column must be the actual touch scroll owner. */
+            .m36-landscape-info-scroll {
+              box-sizing: border-box !important;
+              min-width: 0 !important;
+              min-height: 0 !important;
+              height: 100% !important;
+              max-height: 100% !important;
+              flex: 1 1 0px !important;
+              overflow-x: hidden !important;
+              overflow-y: scroll !important;
+              -webkit-overflow-scrolling: touch !important;
+              overscroll-behavior-y: contain !important;
+              touch-action: pan-y !important;
+              pointer-events: auto !important;
+              scrollbar-width: thin !important;
+            }
+            .m36-landscape-info-scroll * {
+              touch-action: pan-y;
+            }
+            .m36-landscape-info-scroll > * {
+              min-width: 0;
+            }
+          }
+          </style>
+          `;
+            const bodyEnd = src.toLowerCase().lastIndexOf('</body>');
+            if (bodyEnd < 0) throw new Error('Cannot safely locate </body> for bounded append');
+            const patched = src.slice(0, bodyEnd) + css + String.fromCharCode(10) + src.slice(bodyEnd);
+            fs.writeFileSync(p, patched, 'utf8');
+            console.log('PATCH_APPLIED=yes');
+          } else {
+            console.log('PATCH_APPLIED=no (already present)');
+          }
+          const out = fs.readFileSync(p, 'utf8');
+          if (!out.includes(marker) || !out.includes('overflow-y: scroll !important') || !out.includes('touch-action: pan-y !important')) throw new Error('CSS invariant failed');
+          if (out.toLowerCase().split('<body').length !== 2 || out.toLowerCase().split('</body>').length !== 2) throw new Error('body boundary invariant failed');
+          console.log('HTML_BYTES_AFTER=' + Buffer.byteLength(out));
+          NODE
+          git diff --check
+          git diff --stat
+
+      - name: Install browser and test actual scroll input on mobile landscape viewport
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install --no-save playwright
+          npx playwright install --with-deps chromium
+          node <<'NODE'
+          const { chromium } = require('playwright');
+          (async () => {
+            const browser = await chromium.launch({ headless: true, args: ['--allow-file-access-from-files'] });
+            const page = await browser.newPage({ viewport: { width: 820, height: 360 }, isMobile: true, hasTouch: true, deviceScaleFactor: 1 });
+            const errors = [];
+            page.on('pageerror', e => errors.push(String(e)));
+            await page.goto('file://' + process.cwd() + '/Wayward_MOD_v3.36.html', { waitUntil: 'domcontentloaded', timeout: 120000 });
+            await page.waitForTimeout(12000);
+            let info = await page.locator('.m36-landscape-info-scroll').first().evaluate(el => ({
+              rect: (() => { const r = el.getBoundingClientRect(); return {x:r.x,y:r.y,width:r.width,height:r.height}; })(),
+              clientHeight: el.clientHeight, scrollHeight: el.scrollHeight, scrollTop: el.scrollTop,
+              overflowY: getComputedStyle(el).overflowY, touchAction: getComputedStyle(el).touchAction,
+              parent: {tag:el.parentElement?.tagName, cls:String(el.parentElement?.className || ''), height:el.parentElement?.clientHeight, overflowY:el.parentElement ? getComputedStyle(el.parentElement).overflowY : null}
+            })).catch(() => null);
+            if (!info) throw new Error('Could not find the actual landscape third-column scroll container');
+            console.log('INITIAL_SCROLL_METRICS=' + JSON.stringify(info));
+            /* Add a temporary tall sentinel only to the live DOM so scroll input is testable
+               even if startup content happens to fit the viewport. */
+            await page.locator('.m36-landscape-info-scroll').first().evaluate(el => {
+              const sentinel = document.createElement('div');
+              sentinel.dataset.testSentinel = 'scroll-test';
+              sentinel.style.cssText = 'height:1800px;min-height:1800px;display:block;pointer-events:none;';
+              el.appendChild(sentinel);
+              el.scrollTop = 0;
+            });
+            const b = await page.locator('.m36-landscape-info-scroll').first().boundingBox();
+            await page.mouse.move(b.x + b.width / 2, b.y + Math.min(100, b.height / 2));
+            await page.mouse.wheel(0, 550);
+            await page.waitForTimeout(350);
+            const afterWheel = await page.locator('.m36-landscape-info-scroll').first().evaluate(el => ({scrollTop:el.scrollTop, max:el.scrollHeight-el.clientHeight}));
+            console.log('AFTER_WHEEL=' + JSON.stringify(afterWheel));
+            /* Native-style touch drag via CDP to verify mobile gesture rather than only DOM assignment. */
+            const cdp = await page.context().newCDPSession(page);
+            const x = Math.round(b.x + b.width / 2), y = Math.round(b.y + Math.min(180, b.height - 10));
+            await cdp.send('Input.dispatchTouchEvent', {type:'touchStart', touchPoints:[{x,y}]});
+            await cdp.send('Input.dispatchTouchEvent', {type:'touchMove', touchPoints:[{x,y:y-120}]});
+            await cdp.send('Input.dispatchTouchEvent', {type:'touchMove', touchPoints:[{x,y:y-220}]});
+            await cdp.send('Input.dispatchTouchEvent', {type:'touchEnd', touchPoints:[]});
+            await page.waitForTimeout(350);
+            const afterTouch = await page.locator('.m36-landscape-info-scroll').first().evaluate(el => ({scrollTop:el.scrollTop, max:el.scrollHeight-el.clientHeight}));
+            console.log('AFTER_TOUCH=' + JSON.stringify(afterTouch));
+            if (afterWheel.scrollTop <= 0) throw new Error('Wheel gesture did not scroll the third column');
+            if (afterTouch.scrollTop <= afterWheel.scrollTop) throw new Error('Touch drag did not advance the third-column scroll');
+            if (errors.length) throw new Error('Browser page errors: ' + errors.join(' | '));
+            console.log('M36_THIRD_COLUMN_WHEEL_AND_TOUCH_SCROLL_PASSED');
+            await browser.close();
+          })().catch(e => { console.error(e); process.exit(1); });
+          NODE
+
+      - name: Commit only the targeted HTML fix and remove temporary workflow
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add Wayward_MOD_v3.36.html
+          git rm .github/workflows/m36-landscape-scroll-hotfix.yml
+          git commit -m "fix(mobile): restore touch scrolling in landscape third column"
+          git push origin HEAD:mobile-migration-v1
