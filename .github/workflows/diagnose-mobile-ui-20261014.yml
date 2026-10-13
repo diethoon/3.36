@@ -1,0 +1,65 @@
+name: Temporary mobile UI diagnosis (2026-10-14)
+on:
+  push:
+    branches: [mobile-migration-v1]
+    paths: [".github/workflows/diagnose-mobile-ui-20261014.yml"]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Measure portrait and landscape DOM without changing the HTML
+        shell: bash
+        run: |
+          npm init -y >/dev/null
+          npm install --no-audit --no-fund playwright
+          npx playwright install chromium
+          python3 -m http.server 4173 >/tmp/wayward-http.log 2>&1 &
+          node <<'JS'
+          const {chromium}=require('playwright');
+          const pause=ms=>new Promise(r=>setTimeout(r,ms));
+          async function startGame(page){
+            await page.goto('http://127.0.0.1:4173/Wayward_MOD_v3.36.html',{waitUntil:'domcontentloaded',timeout:60000});
+            await pause(500);
+            for(let i=0;i<28;i++){
+              const body=await page.locator('body').innerText().catch(()=> '');
+              if(body.includes('물자 채우기')&&body.includes('대출')) return;
+              let clicked=false;
+              const next=page.getByRole('button',{name:/^예$|이해하고 동의합니다|다음|계속|시작|확인|완료|진행|게임 시작|새 게임/});
+              for(let k=0;k<await next.count();k++){
+                try{const b=next.nth(k);if(await b.isVisible()&&await b.isEnabled()){await b.evaluate(e=>e.click());await pause(200);clicked=true;break}}catch{}
+              }
+              if(!clicked)break;
+            }
+          }
+          async function inspect(page,label){
+            return await page.evaluate((label)=>{
+              const rect=e=>{if(!e)return null;const r=e.getBoundingClientRect();return {x:+r.x.toFixed(1),y:+r.y.toFixed(1),w:+r.width.toFixed(1),h:+r.height.toFixed(1),right:+r.right.toFixed(1),bottom:+r.bottom.toFixed(1)}};
+              const short=e=>{if(!e)return null;const s=getComputedStyle(e);return {tag:e.tagName,cls:typeof e.className==='string'?e.className:String(e.className||''),id:e.id||'',text:(e.innerText||e.textContent||'').trim().replace(/\\s+/g,' ').slice(0,120),rect:rect(e),display:s.display,position:s.position,boxSizing:s.boxSizing,gridColumn:s.gridColumn,gridRow:s.gridRow,flex:s.flex,minWidth:s.minWidth,width:s.width,maxWidth:s.maxWidth,height:s.height,minHeight:s.minHeight,overflowX:s.overflowX,overflowY:s.overflowY,gap:s.gap,padding:s.padding,margin:s.margin,fontSize:s.fontSize,lineHeight:s.lineHeight,whiteSpace:s.whiteSpace,alignItems:s.alignItems,justifyContent:s.justifyContent,background:s.backgroundColor,color:s.color,border:s.border,borderRadius:s.borderRadius}};
+              const layout=document.querySelector('.mobile-layout');
+              const head=document.querySelector('.m34-header');
+              const launchers=[...document.querySelectorAll('.m34-header .m33-launchers button,.m34-header .m34-system-tools button')].map(e=>({self:short(e),html:e.innerHTML.slice(0,180),icon:short(e.querySelector('svg,img,i,[class*=icon],span'))}));
+              const target=[...document.querySelectorAll('button,[role=button],a,.cursor-pointer')].filter(e=>/선술집에서 일하기|5분/.test((e.innerText||e.textContent||'').trim())).map(e=>{const chain=[];let p=e;for(let i=0;p&&i<6;i++,p=p.parentElement)chain.push(short(p));return {self:short(e),html:e.outerHTML.slice(0,650),chain}});
+              const body=document.body.innerText||'';
+              const keys=['선술집에서 일하기','5분'].map(k=>({key:k,index:body.indexOf(k),context:body.indexOf(k)>=0?body.slice(Math.max(0,body.indexOf(k)-100),body.indexOf(k)+180):''}));
+              const action=document.querySelector('.mobile-action-panel'),scroll=document.querySelector('.mobile-action-panel .mobile-action-scroll');
+              return {label,viewport:{w:innerWidth,h:innerHeight,scrollWidth:document.documentElement.scrollWidth},layout:short(layout),gridTemplateColumns:layout?getComputedStyle(layout).gridTemplateColumns:null,header:short(head),action:short(action),actionScroll:short(scroll),icons:launchers,target,bodyKeys:keys};
+            },label);
+          }
+          (async()=>{
+            const browser=await chromium.launch({headless:true,args:['--no-sandbox']});
+            const page=await browser.newPage({viewport:{width:390,height:844},deviceScaleFactor:1});
+            page.on('pageerror',e=>console.log('PAGE_ERROR '+e.message));
+            await startGame(page);
+            console.log('BODY_READY '+JSON.stringify((await page.locator('body').innerText().catch(()=>'' )).slice(0,500)));
+            for(const [w,h,label] of [[390,844,'PORTRAIT'],[900,400,'LANDSCAPE'],[1024,600,'LANDSCAPE_WIDE']]){
+              await page.setViewportSize({width:w,height:h});await pause(250);
+              console.log('UI_DIAG_'+label+' '+JSON.stringify(await inspect(page,label)));
+            }
+            await browser.close();
+          })().catch(e=>{console.error('DIAG_FAILED '+e.stack);process.exit(1)});
+          JS
