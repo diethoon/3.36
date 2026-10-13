@@ -23,7 +23,7 @@ jobs:
           needle=b'u.jsx(rI,{compact:!0})'
           replacement=(b'u.jsxs(u.Fragment,{children:[u.jsx(rI,{compact:!0}),'
                        b'u.jsx("div",{className:"m36-landscape-last-action-delta",'
-                       b'children:u.jsx(nOe,{delta:d.lastActionDelta,ageSlot:e.slot})})]})')
+                       b'children:d.lastActionDelta?u.jsx(nOe,{delta:d.lastActionDelta,ageSlot:e.slot}):null})]})')
           fd,tmp_name=tempfile.mkstemp(prefix="wayward-html-patch-",dir=str(p.parent))
           tmp=Path(tmp_name); count=0; carry=b""
           with p.open("rb") as src, os.fdopen(fd,"wb") as out:
