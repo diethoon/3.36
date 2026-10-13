@@ -6,6 +6,9 @@ on:
       - mobile-migration-v1
     paths:
       - .github/workflows/m36-landscape-scroll-hotfix.yml
+  pull_request:
+    branches:
+      - mobile-migration-v1
 
 permissions:
   contents: write
