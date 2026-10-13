@@ -1,0 +1,71 @@
+name: M36 portal and prep scroll inspection
+on:
+  push:
+    branches: [mobile-migration-v1]
+    paths: [".github/workflows/m36-portal-prep-scroll-inspection-20261014.yml"]
+permissions:
+  contents: write
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: mobile-migration-v1
+          fetch-depth: 1
+      - name: Inspect portal support, status panel and prep scroll in bounded windows
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path("Wayward_MOD_v3.36.html")
+          terms=[
+            "createPortal",
+            "ReactDOM",
+            "function eOe",
+            "function NOe",
+            "m36-responsive-request",
+            "m36-responsive-reasons",
+            "function x3e",
+            "m36-mobile-prep-detail",
+            "m36-mobile-prep",
+            "overflow-y:auto!important",
+            "max-height:"
+          ]
+          counts={t:0 for t in terms}; overlap=b""; offset=0
+          with p.open("rb") as f:
+            while True:
+              chunk=f.read(256*1024)
+              if not chunk: break
+              buf=overlap+chunk; base=offset-len(overlap)
+              for term in terms:
+                needle=term.encode("utf-8"); pos=0
+                while True:
+                  i=buf.find(needle,pos)
+                  if i<0: break
+                  absolute=base+i
+                  if absolute>=offset:
+                    counts[term]+=1
+                    limit=6 if term in ("function eOe","function NOe","createPortal","function x3e") else 5
+                    if counts[term]<=limit:
+                      a=max(0,i-900); z=min(len(buf),i+len(needle)+1800)
+                      print(f"\n--- {term} #{counts[term]} OFFSET={absolute} ---")
+                      print(buf[a:z].decode("utf-8","replace").replace("\\n"," ")[:2700])
+                  pos=i+len(needle)
+              offset+=len(chunk); overlap=buf[-4096:]
+          print("\nCOUNTS")
+          for t,n in counts.items(): print(t,n)
+          PY
+      - name: Remove temporary inspection workflow
+        if: always()
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          rm -f .github/workflows/m36-portal-prep-scroll-inspection-20261014.yml
+          git add -A .github/workflows
+          if ! git diff --cached --quiet; then
+            git commit -m "chore: remove temporary portal inspection"
+            git push origin mobile-migration-v1
+          fi
