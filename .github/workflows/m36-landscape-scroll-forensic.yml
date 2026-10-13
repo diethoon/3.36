@@ -1,0 +1,100 @@
+name: M36 forensic — real third-column touch scroll
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  forensic:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout exact target branch, not PR source
+        uses: actions/checkout@v4
+        with:
+          ref: mobile-migration-v1
+          fetch-depth: 1
+
+      - name: Install browser and inspect real game DOM without sentinel
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm init -y >/dev/null
+          npm install --no-audit --no-fund playwright >/dev/null
+          npx playwright install --with-deps chromium >/dev/null
+          python3 -m http.server 4173 >/tmp/m36-http.log 2>&1 &
+          node <<'NODE'
+          const { chromium } = require('playwright');
+          const wait = ms => new Promise(r => setTimeout(r, ms));
+          async function boot(page) {
+            await page.waitForFunction(() => document.body && document.body.innerText.trim().length > 10, null, {timeout:60000}).catch(()=>{});
+            for (let i=0;i<45;i++) {
+              const body = await page.locator('body').innerText().catch(()=> '');
+              if (body.includes('물자 채우기') && body.includes('대출')) return;
+              const next = page.getByRole('button', {name:/^예$|이해하고 동의합니다|다음|계속|시작|확인|완료|진행|게임 시작|새 게임/});
+              let clicked=false;
+              for (let j=0;j<await next.count();j++) {
+                try { const b=next.nth(j); if(await b.isVisible()&&await b.isEnabled()){await b.evaluate(e=>e.click());await wait(180);clicked=true;break;} } catch {}
+              }
+              const body2 = await page.locator('body').innerText().catch(()=> '');
+              if (!clicked && body2.includes('그녀는 당신에게 어떤 존재인가요')) {
+                const a=page.getByRole('button',{name:/^아내$/});
+                if(await a.count()&&await a.first().isVisible()&&await a.first().isEnabled()){await a.first().evaluate(e=>e.click());await wait(220);clicked=true;}
+                const w=page.getByRole('button',{name:/^(엘레나|마라|피파)/});
+                if(await w.count()&&await w.first().isVisible()&&await w.first().isEnabled()){await w.first().evaluate(e=>e.click());await wait(220);clicked=true;}
+              }
+              if(!clicked) await wait(250);
+            }
+          }
+          async function runOne(url, label, browser) {
+            const context = await browser.newContext({viewport:{width:820,height:360},deviceScaleFactor:1,isMobile:true,hasTouch:true});
+            const page = await context.newPage();
+            const errors=[];
+            page.on('pageerror',e=>errors.push(String(e)));
+            const response = await page.goto(url,{waitUntil:'domcontentloaded',timeout:120000});
+            await wait(1000); await boot(page); await wait(500);
+            const info=page.locator('.m36-landscape-info-scroll').first();
+            const count=await info.count();
+            if(!count){console.log(label+'_NO_INFO_NODE',JSON.stringify({status:response?.status(),url:page.url(),text:(await page.locator('body').innerText().catch(()=> '')).slice(0,700)}));await context.close();return;}
+            const before=await info.evaluate(el=>{
+              const r=el.getBoundingClientRect(),s=getComputedStyle(el);
+              const chain=[];let p=el;
+              for(let i=0;p&&i<6;i++,p=p.parentElement){const cs=getComputedStyle(p),b=p.getBoundingClientRect();chain.push({tag:p.tagName,cls:String(p.className||'').slice(0,120),x:Math.round(b.x),y:Math.round(b.y),w:Math.round(b.width),h:Math.round(b.height),overflowY:cs.overflowY,touchAction:cs.touchAction,position:cs.position,clientHeight:p.clientHeight,scrollHeight:p.scrollHeight,scrollTop:p.scrollTop});}
+              const kids=[...el.children].slice(0,12).map(k=>{const b=k.getBoundingClientRect(),cs=getComputedStyle(k);return{tag:k.tagName,cls:String(k.className||'').slice(0,120),x:Math.round(b.x),y:Math.round(b.y),w:Math.round(b.width),h:Math.round(b.height),display:cs.display,flexShrink:cs.flexShrink,overflowY:cs.overflowY,scrollHeight:k.scrollHeight,clientHeight:k.clientHeight};});
+              return{rect:{x:Math.round(r.x),y:Math.round(r.y),w:Math.round(r.width),h:Math.round(r.height)},display:s.display,overflowY:s.overflowY,touchAction:s.touchAction,clientHeight:el.clientHeight,scrollHeight:el.scrollHeight,max:el.scrollHeight-el.clientHeight,scrollTop:el.scrollTop,chain,kids,body:(document.body.innerText||'').slice(0,350)};
+            });
+            console.log(label+'_BEFORE_NO_SENTINEL='+JSON.stringify({status:response?.status(),...before}));
+            const box=await info.boundingBox();
+            if(box && box.width>0 && box.height>0){
+              const x=Math.round(box.x+box.width/2), y=Math.round(box.y+Math.min(box.height-4,box.height*.78));
+              console.log(label+'_TOUCH_POINT='+JSON.stringify(await page.evaluate(({x,y})=>{const e=document.elementFromPoint(x,y);return {x,y,tag:e?.tagName,cls:String(e?.className||'').slice(0,120),text:(e?.innerText||e?.textContent||'').slice(0,100),targetCanScroll:!!e&&e.scrollHeight>e.clientHeight+1};},{x,y})));
+              const cdp=await context.newCDPSession(page);
+              await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x,y}]});
+              await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x,y:y-80}]});
+              await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x,y:y-160}]});
+              await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
+              await wait(450);
+              const after=await info.evaluate(el=>({scrollTop:el.scrollTop,max:el.scrollHeight-el.clientHeight,scrollHeight:el.scrollHeight,clientHeight:el.clientHeight}));
+              console.log(label+'_AFTER_REAL_TOUCH_NO_SENTINEL='+JSON.stringify(after));
+              await page.screenshot({path:'/tmp/'+label+'.png',fullPage:false}).catch(()=>{});
+            }
+            console.log(label+'_PAGE_ERRORS='+JSON.stringify(errors));
+            await context.close();
+          }
+          (async()=>{
+            const browser=await chromium.launch({headless:true});
+            await runOne('http://127.0.0.1:4173/Wayward_MOD_v3.36.html','LOCAL',browser);
+            await runOne('https://static-3-36.onrender.com/Wayward_MOD_v3.36.html','LIVE',browser);
+            await browser.close();
+          })().catch(e=>{console.error(e);process.exit(1)});
+          NODE
+      - name: Upload actual DOM screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: m36-landscape-scroll-forensic
+          path: /tmp/*.png
+          if-no-files-found: warn
