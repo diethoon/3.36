@@ -61,15 +61,30 @@ jobs:
           let style = html.slice(styleStart, styleEnd + '</style>'.length);
           const selector = /\.mobile-action-panel>\.m36-landscape-info-scroll\s*\{[^}]*\}/;
           if (!selector.test(style)) throw new Error('Cannot locate the authoritative third-column selector');
-          const authoritative = `.mobile-action-panel>.m36-landscape-info-scroll {
-            position:absolute!important;left:0!important;right:auto!important;top:0!important;bottom:0!important;
-            z-index:2!important;
-            box-sizing:border-box!important;width:48%!important;max-width:48%!important;
-            display:flex!important;flex-direction:column!important;flex:none!important;
+          const authoritative = `.mobile-action-panel {
+            display:grid!important;grid-template-columns:minmax(0,48%) minmax(0,52%)!important;
+            grid-template-rows:minmax(0,1fr) auto!important;position:relative!important;
+            min-width:0!important;min-height:0!important;overflow:hidden!important;
+          }
+          .mobile-action-panel>.m36-landscape-info-scroll {
+            position:relative!important;inset:auto!important;z-index:auto!important;
+            grid-column:1!important;grid-row:1!important;box-sizing:border-box!important;
+            width:auto!important;max-width:none!important;display:flex!important;flex-direction:column!important;flex:none!important;
             height:auto!important;min-width:0!important;min-height:0!important;max-height:none!important;
             overflow-x:hidden!important;overflow-y:auto!important;
             -webkit-overflow-scrolling:touch!important;overscroll-behavior-y:contain!important;touch-action:pan-y!important;
             scrollbar-width:thin!important;
+          }
+          .mobile-action-panel>.flex-1.min-h-0.flex.flex-col {
+            grid-column:2!important;grid-row:1!important;width:auto!important;min-width:0!important;
+            min-height:0!important;max-height:none!important;overflow:hidden!important;
+          }
+          .mobile-action-panel>.flex-1.min-h-0.flex.flex-col>.mobile-action-scroll {
+            width:100%!important;min-width:0!important;min-height:0!important;overflow-x:hidden!important;overflow-y:auto!important;
+          }
+          .mobile-action-panel>button {
+            grid-column:1 / span 2!important;grid-row:2!important;width:100%!important;
+            min-width:0!important;min-height:14px!important;max-height:20px!important;padding:0!important;justify-content:center!important;
           }`;
           style = style.replace(selector, authoritative);
           const statusOverflow = `.mobile-action-panel>.m36-landscape-info-scroll>.m36-mobile-store-status {
@@ -148,7 +163,7 @@ jobs:
                 directChildren:[...el.children].map(n=>String(n.className||n.tagName).slice(0,80)).slice(0,8)};
             });
             console.log('ACTUAL_TARGET_WRAPPER_BEFORE='+JSON.stringify(before));
-            if(before.width<40||before.height<100||before.position!=='absolute'||!['auto','scroll'].includes(before.overflowY)) throw new Error('Target wrapper geometry/scroll owner is invalid');
+            if(before.width<40||before.height<100||before.position!=='relative'||!['auto','scroll'].includes(before.overflowY)) throw new Error('Target wrapper geometry/scroll owner is invalid');
             if(!before.containsStatus) throw new Error('Location/gauge status is not inside the target wrapper');
             if(before.statusOverflow!=='visible') throw new Error('Nested status box still clips the guest list instead of letting the third-column parent own scrolling');
             if(before.scrollHeight<=before.clientHeight) throw new Error('Target wrapper has no natural overflow to test');
