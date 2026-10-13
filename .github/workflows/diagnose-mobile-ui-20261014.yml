@@ -144,10 +144,11 @@ jobs:
               const launch=[...document.querySelectorAll('.m34-header .m33-launchers button')];
               const tools=[...document.querySelectorAll('.m34-header .m34-system-tools button')];
               const icons=[...launch,...tools].map(e=>({self:s(e),icon:s(e.querySelector('svg,img,i,[class*=icon]')),swatch:s(e.querySelector('.m33-theme-button > span,span'))}));
-              const main=[...document.querySelectorAll('.mobile-action-panel .mobile-action-scroll button[data-m36-disabled-choice-label="선술집에서 일하기"]')].find(e=>r(e)?.w>0);
-              const row=main?.parentElement;
-              const timer=row?.querySelector('button[title*="동안 자동으로 일하기"]');
-              const rows={row:s(row),main:s(main),timer:s(timer),timerBefore:timer?getComputedStyle(timer,'::before').content:null,timerAfter:timer?getComputedStyle(timer,'::after').content:null};
+              const timers=[...document.querySelectorAll('button[title*="자동으로 일하기"]')].filter(e=>e.closest('.mobile-action-scroll'));
+              const timer=timers[0]||null;
+              const row=timer?.parentElement;
+              const main=row?.querySelector('button:first-child');
+              const rows={timerCount:timers.length,row:s(row),main:s(main),timer:s(timer),timerText:timer?(timer.textContent||'').trim():null,timerBefore:timer?getComputedStyle(timer,'::before').content:null,timerAfter:timer?getComputedStyle(timer,'::after').content:null};
               const layout=document.querySelector('.mobile-layout'),head=document.querySelector('.m34-header'),action=document.querySelector('.mobile-action-panel'),scroll=document.querySelector('.mobile-action-scroll');
               return{label,viewport:{w:innerWidth,h:innerHeight,scrollWidth:document.documentElement.scrollWidth},grid:layout?getComputedStyle(layout).gridTemplateColumns:null,layout:r(layout),header:r(head),action:r(action),scroll:r(scroll),railDirection:launch[0]?getComputedStyle(launch[0].parentElement).flexDirection:null,icons,rows};
             },label);
@@ -160,8 +161,8 @@ jobs:
               await startGame(p,file);
               await p.setViewportSize({width:w,height:h});await pause(200);
               await p.evaluate(()=>{
-                const main=[...document.querySelectorAll('.mobile-action-panel .mobile-action-scroll button[data-m36-disabled-choice-label="선술집에서 일하기"]')].find(e=>e.getBoundingClientRect().width>0);
-                main?.parentElement?.querySelector('button[title*="동안 자동으로 일하기"]')?.scrollIntoView({block:'center',inline:'nearest'});
+                const timer=[...document.querySelectorAll('button[title*="자동으로 일하기"]')].find(e=>e.closest('.mobile-action-scroll'));
+                timer?.scrollIntoView({block:'center',inline:'nearest'});
               });
               await pause(100);
               return {page:p,measure:await measure(p,file+' '+w+'x'+h)};
@@ -192,12 +193,12 @@ jobs:
               if(sys.some(x=>x.self.bg!=='rgb(41, 37, 36)'||x.self.color!=='rgb(231, 229, 228)'||x.self.borderRadius!=='7px'))failures.push(w+': system icon background/color/shape differs from portrait');
               if(m.icons[2]?.self.color!=='rgb(251, 191, 36)'||m.icons[2]?.self.border!=='1px solid rgb(245, 158, 11)')failures.push(w+': editor launcher accent differs from portrait');
               if(m.icons[4]?.swatch?.borderRadius!=='50%')failures.push(w+': theme swatch is not circular');
-              if(!m.rows.row||!m.rows.main||!m.rows.timer)failures.push(w+': tavern work/5-minute composite row missing');
+              if(!m.rows.row||!m.rows.main||!m.rows.timer)failures.push(w+': automatic-work timer button missing; count='+m.rows.timerCount);
               else{
                 if(m.rows.timer.rect.right>m.rows.row.rect.right+1)failures.push(w+': 5-minute control overflows its row');
                 if(m.rows.timer.rect.w>=m.rows.row.rect.w*.5)failures.push(w+': 5-minute control is not content-sized');
                 if(m.rows.main.rect.w<m.rows.row.rect.w*.5)failures.push(w+': tavern work label is squeezed too narrow');
-                if(m.rows.timer.text!=='5분')failures.push(w+': timer label is not 5분');
+                if(m.rows.timerText!=='5분')failures.push(w+': timer label is not 5분: '+m.rows.timerText);
                 if(parseFloat(m.rows.timer.fontSize)<9)failures.push(w+': timer text font size collapsed');
                 if(m.rows.timerBefore!=='none'||m.rows.timerAfter!=='none')failures.push(w+': disabled-choice pseudo labels still affect timer control');
               }
