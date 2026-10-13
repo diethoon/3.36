@@ -2587,7 +2587,7 @@ function M36MobileStockStatus(){
       u.jsxs("div",{className:"mt-1 text-[0.56rem] text-stone-600",children:["상환 후 빚 ",Math.max(0,debt-safeLoan),"골드"]})
     ]})
   ]})
-}function AOe(){var E;const e=re(R=>R.state),t=re(R=>R.dispatch),o=Rt(R=>R.proximityMode),n=Rt(R=>R.actionPanelSide)==="left",s=Rt(R=>R.set),[r,a]=Z.useState("story"),i=tF(Rt(R=>R.paneOrder)).filter(R=>jOe.includes(R)),h=e.phase==="prep"&&!Lt(e),d=g(e),m=be(e),p=St(e),y=o&&!p,b=G9(e),w=((E=b==null?void 0:b.crowdPatronIds)==null?void 0:E.map(R=>{var B;return(B=e.customers.find(D=>D.id===R))==null?void 0:B.name}).filter(R=>!!R))??[],k=(R,B=!0)=>u.jsx(eOe,{hideWifeColumn:y,wife:d,wifeLoc:m,slot:e.slot,activePatronInteraction:b,crowdNames:w,dispatch:t,portrait:R,stats:B}),x=k("inline",!1),T=u.jsxs("div",{className:"min-w-0",children:[h&&u.jsx("div",{className:"mb-3 m36-mobile-prep-detail",children:u.jsx(x3e,{})}),u.jsx(mDe,{})]}),I=T,N=u.jsxs("div",{className:`mobile-action-panel w-full max-w-[13rem] desk:w-[16rem] desk:max-w-none shrink-0 flex flex-col min-h-0 ${n?"mobile-action-left":""} ${n?"pl-[env(safe-area-inset-left)]":"pr-[env(safe-area-inset-right)]"}`,children:[u.jsx(M36MobileStoreStatus,{showAllRooms:!0}),b&&!b.playerEngaged&&et(e)===vt(e)&&u.jsx(uOe,{customerName:b.customerName,crowdNames:w,wifeName:d.name,stage:b.stage,primarySlot:b.primarySlot,goldEarned:b.goldEarned??0,dispatch:t}),u.jsx(M36MobileStockStatus,{}),e.phase==="prep"&&u.jsx(x3e,{facilityOnly:!0}),u.jsxs("div",{className:"flex-1 min-h-0 flex flex-col",children:[u.jsx(M36MobileDialogueFixed,{event:e.pendingEvent,wifeName:d.name}),u.jsx(M36MobilePleasureFixed,{state:e}),u.jsx("div",{className:"mobile-action-scroll flex-1 min-h-0 overflow-y-auto py-1 text-[0.72rem]",children:u.jsx(HD,{})})]}),u.jsx("button",{onClick:()=>s({actionPanelSide:n?"right":"left"}),title:"행동 버튼을 반대쪽으로 이동","aria-label":n?"행동 버튼을 오른쪽으로 이동":"행동 버튼을 왼쪽으로 이동",className:`shrink-0 flex items-center border-t border-stone-700 text-stone-500 hover:text-stone-200 active:text-stone-100 text-lg leading-none pt-1 pb-[max(0.3rem,env(safe-area-inset-bottom))] px-3 ${n?"justify-end":"justify-start"}`,children:u.jsx("span",{"aria-hidden":!0,children:n?"⇥":"⇤"})})]});return u.jsx(P3e,{children:u.jsxs("div",{className:"flex flex-col min-h-0 flex-1",children:[u.jsx("div",{className:"hidden lg:flex flex-1 min-h-0",children:u.jsx(NOe,{panes:{story:{body:I,className:"px-3 py-3"},house:{body:u.jsx(s3,{stats:!0}),className:"p-2",fill:!0},focus:{body:x},actions:{body:u.jsx(HD,{}),className:"p-2 xl:p-3"}}})}),u.jsxs("div",{className:"mobile-layout lg:hidden flex-1 min-h-0",children:[n&&N,u.jsxs("div",{className:`mobile-main-panel flex-1 min-w-0 flex flex-col min-h-0 ${n?"border-l border-stone-700":"border-r border-stone-700"}`,children:[!y&&u.jsx("div",{className:"shrink-0 border-b border-stone-700",children:u.jsxs(u.Fragment,{children:[u.jsx(rI,{compact:!0}),u.jsx("div",{className:"m36-landscape-last-action-delta",children:d.lastActionDelta?u.jsx(nOe,{delta:d.lastActionDelta,ageSlot:e.slot}):null})]})}),,u.jsxs("div",{className:"flex-1 min-h-0 overflow-y-auto p-2 text-[0.78rem]",children:[r==="story"&&u.jsxs(u.Fragment,{children:[u.jsx(qF,{limit:3}),T]}),r==="house"&&u.jsx("div",{className:"h-full",children:u.jsx(s3,{})}),r==="focus"&&u.jsx(LF,{inline:!0,hideStats:!1,forceVisibility:!0})]}),u.jsx("div",{className:"m36-mobile-tabs flex shrink-0 border-t border-stone-700 bg-stone-800/80",children:i.map(R=>u.jsx("button",{onClick:()=>a(R),className:`flex-1 py-1 min-h-[32px] text-[0.6rem] uppercase tracking-widest border-r last:border-r-0 border-stone-700 ${r===R?"text-amber-300 shadow-[inset_0_2px_0_theme(colors.amber.400)]":"text-stone-500"}`,children:(R==="focus"?d.name:u.koLabel("pane",R))},R))})]}),!n&&N]})]})})}const M36_SAVE_SHARE_API="https://wayward-save-share.trpgengine.workers.dev";
+}function AOe(){var E;const e=re(R=>R.state),t=re(R=>R.dispatch),o=Rt(R=>R.proximityMode),n=Rt(R=>R.actionPanelSide)==="left",s=Rt(R=>R.set),[r,a]=Z.useState("story"),i=tF(Rt(R=>R.paneOrder)).filter(R=>jOe.includes(R)),h=e.phase==="prep"&&!Lt(e),d=g(e),m=be(e),p=St(e),y=o&&!p,b=G9(e),w=((E=b==null?void 0:b.crowdPatronIds)==null?void 0:E.map(R=>{var B;return(B=e.customers.find(D=>D.id===R))==null?void 0:B.name}).filter(R=>!!R))??[],k=(R,B=!0)=>u.jsx(eOe,{hideWifeColumn:y,wife:d,wifeLoc:m,slot:e.slot,activePatronInteraction:b,crowdNames:w,dispatch:t,portrait:R,stats:B}),x=k("inline",!1),T=u.jsxs("div",{className:"min-w-0",children:[h&&u.jsx("div",{className:"mb-3 m36-mobile-prep-detail",children:u.jsx(x3e,{})}),u.jsx(mDe,{})]}),I=T,N=u.jsxs("div",{className:`mobile-action-panel w-full max-w-[13rem] desk:w-[16rem] desk:max-w-none shrink-0 flex flex-col min-h-0 ${n?"mobile-action-left":""} ${n?"pl-[env(safe-area-inset-left)]":"pr-[env(safe-area-inset-right)]"}`,children:[u.jsx(M36MobileStoreStatus,{showAllRooms:!0}),b&&!b.playerEngaged&&et(e)===vt(e)&&u.jsx(uOe,{customerName:b.customerName,crowdNames:w,wifeName:d.name,stage:b.stage,primarySlot:b.primarySlot,goldEarned:b.goldEarned??0,dispatch:t}),u.jsx(M36MobileStockStatus,{}),e.phase==="prep"&&u.jsx(x3e,{facilityOnly:!0}),u.jsxs("div",{className:"flex-1 min-h-0 flex flex-col",children:[u.jsx(M36MobileDialogueFixed,{event:e.pendingEvent,wifeName:d.name}),u.jsx(M36MobilePleasureFixed,{state:e}),u.jsx("div",{className:"mobile-action-scroll flex-1 min-h-0 overflow-y-auto py-1 text-[0.72rem]",children:u.jsx(HD,{})})]}),u.jsx("button",{onClick:()=>s({actionPanelSide:n?"right":"left"}),title:"행동 버튼을 반대쪽으로 이동","aria-label":n?"행동 버튼을 오른쪽으로 이동":"행동 버튼을 왼쪽으로 이동",className:`shrink-0 flex items-center border-t border-stone-700 text-stone-500 hover:text-stone-200 active:text-stone-100 text-lg leading-none pt-1 pb-[max(0.3rem,env(safe-area-inset-bottom))] px-3 ${n?"justify-end":"justify-start"}`,children:u.jsx("span",{"aria-hidden":!0,children:n?"⇥":"⇤"})})]});return u.jsx(P3e,{children:u.jsxs("div",{className:"flex flex-col min-h-0 flex-1",children:[u.jsx("div",{className:"hidden lg:flex flex-1 min-h-0",children:u.jsx(NOe,{panes:{story:{body:I,className:"px-3 py-3"},house:{body:u.jsx(s3,{stats:!0}),className:"p-2",fill:!0},focus:{body:x},actions:{body:u.jsx(HD,{}),className:"p-2 xl:p-3"}}})}),u.jsxs("div",{className:"mobile-layout lg:hidden flex-1 min-h-0",children:[n&&N,u.jsxs("div",{className:`mobile-main-panel flex-1 min-w-0 flex flex-col min-h-0 ${n?"border-l border-stone-700":"border-r border-stone-700"}`,children:[!y&&u.jsx("div",{className:"shrink-0 border-b border-stone-700",children:u.jsxs(u.Fragment,{children:[u.jsx(rI,{compact:!0}),d.lastActionDelta?.changes?.length>0&&u.jsx("div",{className:"m36-landscape-last-action-delta",children:u.jsx(nOe,{delta:d.lastActionDelta,ageSlot:e.slot})})]})}),,u.jsxs("div",{className:"flex-1 min-h-0 overflow-y-auto p-2 text-[0.78rem]",children:[r==="story"&&u.jsxs(u.Fragment,{children:[u.jsx(qF,{limit:3}),T]}),r==="house"&&u.jsx("div",{className:"h-full",children:u.jsx(s3,{})}),r==="focus"&&u.jsx(LF,{inline:!0,hideStats:!1,forceVisibility:!0})]}),u.jsx("div",{className:"m36-mobile-tabs flex shrink-0 border-t border-stone-700 bg-stone-800/80",children:i.map(R=>u.jsx("button",{onClick:()=>a(R),className:`flex-1 py-1 min-h-[32px] text-[0.6rem] uppercase tracking-widest border-r last:border-r-0 border-stone-700 ${r===R?"text-amber-300 shadow-[inset_0_2px_0_theme(colors.amber.400)]":"text-stone-500"}`,children:(R==="focus"?d.name:u.koLabel("pane",R))},R))})]}),!n&&N]})]})})}const M36_SAVE_SHARE_API="https://wayward-save-share.trpgengine.workers.dev";
 const M36_SAVE_TITLE_KEY="wayward-save-title-slot-";
 function m36CloudSavedTitle(slot){
   try{return String(localStorage.getItem(M36_SAVE_TITLE_KEY+slot)||"").trim().slice(0,80);}
@@ -6467,7 +6467,7 @@ END_WAYWARD_MOD_PARENT_3_25_EXTENSION_GUIDE -->
     const h = layout.clientHeight || Math.max(120, window.innerHeight - 44);
     const choiceW = clamp(w * 0.19, 110, 270);
     const minColW = clamp(w * 0.18, 60, 240);
-    const maxPortraitW = Math.max(0, w - choiceW - 2 * minColW);
+    const maxPortraitW = Math.max(0, w - 2 * choiceW - minColW);
     const img = [...frame.querySelectorAll('img')].find(el => el.complete && el.naturalWidth > 0 && el.naturalHeight > 0);
     const ratio = img ? Math.min(img.naturalWidth / img.naturalHeight, 0.78) : (2 / 3);
     const portraitW = clamp(h * ratio, Math.min(72, maxPortraitW), maxPortraitW);
@@ -6662,137 +6662,197 @@ END_WAYWARD_MOD_PARENT_3_25_EXTENSION_GUIDE -->
 })();
 </script>
 
-<style id="wayward-landscape-menu-portrait-status-v1">
-.m36-landscape-last-action-delta {display:none;}
+
+<style id="wayward-landscape-visual-fix-v2">
 @media (orientation:landscape) {
-  body::before {
-    background:rgba(15,12,10,.98)!important;
-    border-right:1px solid #d6d3d1!important;
-  }
+  /* High-contrast icons: keep the existing controls, only make their glyphs visible. */
   .m34-header .m33-launchers button,
-  .m34-header .m34-system-tools>button,
+  .m34-header .m34-system-tools button,
   .m34-header .m34-system-tools .m33-theme-button,
   .m34-header .m34-system-tools .m34-header-control {
-    background:#44403c!important;
+    background:#292524!important;
     color:#fff7ed!important;
-    border:1px solid #d6d3d1!important;
-    border-radius:4px!important;
     opacity:1!important;
+    visibility:visible!important;
     filter:none!important;
-    box-shadow:0 1px 4px rgba(0,0,0,.9)!important;
+    border:1px solid #e7e5e4!important;
+    border-radius:4px!important;
+    box-shadow:0 1px 3px rgba(0,0,0,.9)!important;
   }
-  .m34-header .m33-launchers button *,
-  .m34-header .m34-system-tools button *,
-  .m34-header .m34-system-tools .m33-theme-button * {
+  .m34-header .m33-launchers button > *,
+  .m34-header .m34-system-tools button > *,
+  .m34-header .m34-system-tools .m33-theme-button > * {
+    display:inline-flex!important;
+    align-items:center!important;
+    justify-content:center!important;
     color:#fff7ed!important;
     opacity:1!important;
-    filter:drop-shadow(0 0 1px rgba(0,0,0,.95))!important;
+    visibility:visible!important;
+    font-size:16px!important;
+    line-height:1!important;
+    filter:none!important;
   }
   .m34-header .m33-launchers button svg,
-  .m34-header .m34-system-tools svg {
+  .m34-header .m34-system-tools button svg,
+  .m34-header .m34-system-tools .m33-theme-button svg,
+  .m34-header .m34-system-tools .m34-header-control svg {
+    display:block!important;
+    visibility:visible!important;
     opacity:1!important;
-    filter:drop-shadow(0 0 1px #000)!important;
+    width:16px!important;height:16px!important;
+    min-width:16px!important;min-height:16px!important;
+    max-width:16px!important;max-height:16px!important;
+    color:#fff7ed!important;
+    filter:brightness(0) invert(1)!important;
   }
-  .m34-header .m33-launchers button:hover,
-  .m34-header .m34-system-tools>button:hover,
-  .m34-header .m34-system-tools .m33-theme-button:hover,
-  .m34-header .m34-system-tools .m34-header-control:hover {
-    background:#57534e!important;
-    border-color:#facc15!important;
+  .m34-header .m33-launchers button img,
+  .m34-header .m34-system-tools button img {
+    display:block!important;visibility:visible!important;opacity:1!important;
+    width:16px!important;height:16px!important;object-fit:contain!important;
+    filter:brightness(0) invert(1)!important;
+  }
+  .m34-header .m33-launchers button[aria-label*="치트 에디터"] {
+    font-size:0!important;color:#fff7ed!important;
+  }
+  .m34-header .m33-launchers button[aria-label*="치트 에디터"]::before {
+    content:"⚙"!important;display:block!important;
+    color:#fff7ed!important;font-size:16px!important;line-height:1!important;
+    font-family:system-ui,sans-serif!important;
+  }
+  .m34-header .m34-system-tools .m33-theme-button > span,
+  .m34-header .m34-system-tools button[aria-label="테마 선택"] > span {
+    display:block!important;box-sizing:border-box!important;
+    width:12px!important;height:12px!important;min-width:12px!important;min-height:12px!important;
+    max-width:12px!important;max-height:12px!important;flex:0 0 12px!important;
+    border:2px solid #fff7ed!important;outline:1px solid #1c1917!important;
+    border-radius:2px!important;opacity:1!important;visibility:visible!important;
+    box-shadow:0 0 0 1px rgba(255,247,237,.7)!important;
   }
   .m34-header .m33-launchers button:focus-visible,
   .m34-header .m34-system-tools button:focus-visible {
-    outline:2px solid #facc15!important;
-    outline-offset:1px!important;
+    outline:2px solid #facc15!important;outline-offset:1px!important;
   }
+  /* Keep the portrait panel dominant; the change summary only consumes its text height. */
   .mobile-main-panel>.shrink-0:first-child {
-    display:flex!important;
-    flex-direction:column!important;
-    align-items:stretch!important;
-    height:100%!important;
-    min-height:0!important;
-    max-height:none!important;
+    display:flex!important;flex-direction:column!important;align-items:stretch!important;
+    grid-row:1 / span 2!important;
+    height:100%!important;min-height:0!important;max-height:none!important;
     overflow:hidden!important;
   }
   .mobile-main-panel>.shrink-0:first-child>.w-full {
-    box-sizing:border-box!important;
-    display:flex!important;
-    flex:1 1 0!important;
-    flex-direction:column!important;
-    width:100%!important;
-    height:auto!important;
-    min-height:0!important;
-    max-height:none!important;
-    overflow:hidden!important;
+    box-sizing:border-box!important;display:flex!important;flex:1 1 0!important;
+    flex-direction:column!important;width:100%!important;height:auto!important;
+    min-height:0!important;max-height:none!important;overflow:hidden!important;
   }
   .mobile-main-panel>.shrink-0:first-child>.w-full>.relative.overflow-hidden.bg-stone-800.cursor-pointer {
-    box-sizing:border-box!important;
-    display:flex!important;
-    position:relative!important;
-    flex:1 1 0!important;
-    width:100%!important;
-    height:auto!important;
-    min-height:0!important;
-    max-height:none!important;
-    aspect-ratio:auto!important;
-    align-items:stretch!important;
-    justify-content:stretch!important;
-    overflow:hidden!important;
+    box-sizing:border-box!important;display:flex!important;position:relative!important;
+    flex:1 1 0!important;width:100%!important;height:auto!important;
+    min-height:0!important;max-height:none!important;aspect-ratio:auto!important;
+    align-items:stretch!important;justify-content:stretch!important;overflow:hidden!important;
   }
   .mobile-main-panel>.shrink-0:first-child .relative.overflow-hidden.bg-stone-800.cursor-pointer>.w-full.flex.items-center.justify-center.h-32 {
-    box-sizing:border-box!important;
-    display:flex!important;
-    flex:1 1 0!important;
-    width:100%!important;
-    height:100%!important;
-    min-height:0!important;
-    max-height:none!important;
-    align-items:stretch!important;
-    justify-content:stretch!important;
+    box-sizing:border-box!important;display:flex!important;flex:1 1 0!important;
+    width:100%!important;height:100%!important;min-height:0!important;max-height:none!important;
+    align-items:stretch!important;justify-content:stretch!important;
   }
   .mobile-main-panel>.shrink-0:first-child .relative.overflow-hidden.bg-stone-800.cursor-pointer img {
-    display:block!important;
-    width:100%!important;
-    height:100%!important;
-    min-width:0!important;
-    min-height:0!important;
-    max-width:100%!important;
-    max-height:100%!important;
-    object-fit:contain!important;
+    display:block!important;width:100%!important;height:100%!important;
+    min-width:0!important;min-height:0!important;max-width:100%!important;max-height:100%!important;
+    object-fit:cover!important;object-position:center center!important;
   }
   .mobile-main-panel>.shrink-0:first-child .border-t.border-stone-700[class~="bg-stone-800/80"] {
     display:none!important;
   }
   .mobile-main-panel>.shrink-0:first-child>.m36-landscape-last-action-delta {
-    display:block!important;
-    box-sizing:border-box!important;
-    flex:0 0 auto!important;
-    max-height:96px!important;
-    min-width:0!important;
-    overflow-x:hidden!important;
-    overflow-y:auto!important;
-    padding:2px 3px!important;
-    border-top:1px solid rgba(168,162,158,.65)!important;
-    background:rgba(28,25,23,.96)!important;
-    color:#e7e5e4!important;
-    font-size:10px!important;
-    line-height:1.25!important;
+    display:block!important;box-sizing:border-box!important;flex:0 0 auto!important;
+    width:100%!important;min-width:0!important;height:auto!important;max-height:3.4em!important;
+    margin:0!important;padding:1px 3px!important;overflow:hidden!important;
+    border-top:1px solid rgba(168,162,158,.55)!important;
+    background:rgba(28,25,23,.96)!important;color:#f5f5f4!important;
+    font-size:9px!important;line-height:1.12!important;
   }
-  .mobile-main-panel>.shrink-0:first-child>.m36-landscape-last-action-delta:empty {
-    display:none!important;
-  }
+  .mobile-main-panel>.shrink-0:first-child>.m36-landscape-last-action-delta:empty {display:none!important;}
   .mobile-main-panel>.shrink-0:first-child>.m36-landscape-last-action-delta>div {
-    max-height:90px!important;
-    overflow-y:auto!important;
-    padding:0!important;
-    background:transparent!important;
+    box-sizing:border-box!important;max-height:3.1em!important;overflow:hidden!important;
+    margin:0!important;padding:0!important;background:transparent!important;font-size:9px!important;
+    line-height:1.12!important;
   }
   .mobile-main-panel>.shrink-0:first-child>.m36-landscape-last-action-delta .font-mono {
-    font-size:10px!important;
-    color:#f5f5f4!important;
+    font-size:9px!important;line-height:1.12!important;white-space:normal!important;
+  }
+  /* Make column 3 the same width as column 4. Column 2 absorbs the saved width. */
+  .mobile-layout {
+    grid-template-columns:var(--m36-landscape-portrait-w,clamp(72px,34vh,280px)) minmax(0,1fr) clamp(110px,19vw,270px) clamp(110px,19vw,270px)!important;
+    grid-template-rows:minmax(0,1fr) auto!important;
+    align-items:stretch!important;
+  }
+  .mobile-main-panel>.flex-1.min-h-0.overflow-y-auto {
+    grid-column:2!important;grid-row:1!important;
+    min-width:0!important;min-height:0!important;overflow-x:hidden!important;overflow-y:auto!important;
+  }
+  /* Restore Story / Shop / character tabs beneath narration. */
+  .mobile-main-panel>.m36-mobile-tabs {
+    display:flex!important;position:relative!important;
+    grid-column:2!important;grid-row:2!important;align-self:stretch!important;
+    box-sizing:border-box!important;width:100%!important;min-width:0!important;min-height:29px!important;
+    height:auto!important;margin:0!important;padding:2px 3px!important;
+    gap:3px!important;overflow:hidden!important;
+    border-top:1px solid #57534e!important;background:#1c1917!important;
+    z-index:5!important;
+  }
+  .mobile-main-panel>.m36-mobile-tabs button {
+    display:flex!important;flex:1 1 0!important;align-items:center!important;justify-content:center!important;
+    min-width:0!important;min-height:24px!important;height:auto!important;margin:0!important;padding:3px 4px!important;
+    font-size:10px!important;line-height:1.1!important;white-space:nowrap!important;overflow:hidden!important;
+    text-overflow:ellipsis!important;
+  }
+  .mobile-action-panel {grid-column:3!important;grid-row:1 / span 2!important;min-width:0!important;}
+  .mobile-action-panel .mobile-action-scroll {
+    width:var(--m36-landscape-choice-w)!important;
+    min-width:var(--m36-landscape-choice-w)!important;
+    max-width:var(--m36-landscape-choice-w)!important;
   }
 }
 </style>
+          <script id="wayward-landscape-grid-inline-fix-v2">
+(() => {
+  const mq=window.matchMedia('(orientation: landscape)');
+  const saved=new WeakMap();
+  let pending=false;
+  function sync(){
+    pending=false;
+    const layout=document.querySelector('.mobile-layout');
+    if(!layout)return;
+    let before=saved.get(layout);
+    if(!mq.matches){
+      if(before){
+        if(before.columns.value)layout.style.setProperty('grid-template-columns',before.columns.value,before.columns.priority);
+        else layout.style.removeProperty('grid-template-columns');
+        if(before.rows.value)layout.style.setProperty('grid-template-rows',before.rows.value,before.rows.priority);
+        else layout.style.removeProperty('grid-template-rows');
+        saved.delete(layout);
+      }
+      return;
+    }
+    if(!before){
+      before={columns:{value:layout.style.getPropertyValue('grid-template-columns'),priority:layout.style.getPropertyPriority('grid-template-columns')},
+              rows:{value:layout.style.getPropertyValue('grid-template-rows'),priority:layout.style.getPropertyPriority('grid-template-rows')}};
+      saved.set(layout,before);
+    }
+    const choice=Math.round(Math.max(110,Math.min(window.innerWidth*.19,270))*100)/100;
+    layout.style.setProperty('grid-template-columns',
+      'var(--m36-landscape-portrait-w,clamp(72px,34vh,280px)) minmax(0,1fr) '+choice+'px '+choice+'px','important');
+    layout.style.setProperty('grid-template-rows','minmax(0,1fr) auto','important');
+  }
+  function queue(){if(pending)return;pending=true;requestAnimationFrame(sync)}
+  window.addEventListener('resize',queue,{passive:true});
+  window.addEventListener('orientationchange',queue,{passive:true});
+  document.addEventListener('fullscreenchange',queue);
+  if(window.matchMedia)mq.addEventListener?.('change',queue);
+  if(document.body)new MutationObserver(queue).observe(document.body,{childList:true,subtree:true});
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',queue,{once:true});else queue();
+})();
+</script>
 </body>
 </html>
 
