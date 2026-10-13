@@ -80,7 +80,7 @@ jobs:
           `;
             const bodyEnd = src.toLowerCase().lastIndexOf('</body>');
             if (bodyEnd < 0) throw new Error('Cannot safely locate </body> for bounded append');
-            const patched = src.slice(0, bodyEnd) + css + '\\n' + src.slice(bodyEnd);
+            const patched = src.slice(0, bodyEnd) + css + String.fromCharCode(10) + src.slice(bodyEnd);
             fs.writeFileSync(p, patched, 'utf8');
             console.log('PATCH_APPLIED=yes');
           } else {
