@@ -11,3 +11,4 @@ Rerun with choice scroller explicitly confined to grid cell.
 Rerun with non-overlapping absolute split for info and choices so neither pane can intercept touch.
 Retry idempotent non-overlapping info/choices layout patch.
 Retry with consolidated primary layout stylesheet moved after all legacy styles.
+Retry after increasing selector specificity for the sibling choices pane.
