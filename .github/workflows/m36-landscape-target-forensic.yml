@@ -63,6 +63,7 @@ jobs:
           if (!selector.test(style)) throw new Error('Cannot locate the authoritative third-column selector');
           const authoritative = `.mobile-action-panel>.m36-landscape-info-scroll {
             position:absolute!important;left:0!important;right:auto!important;top:0!important;bottom:0!important;
+            z-index:2!important;
             box-sizing:border-box!important;width:48%!important;max-width:48%!important;
             display:flex!important;flex-direction:column!important;flex:none!important;
             height:auto!important;min-width:0!important;min-height:0!important;max-height:none!important;
@@ -153,7 +154,9 @@ jobs:
             if(before.scrollHeight<=before.clientHeight) throw new Error('Target wrapper has no natural overflow to test');
             const box=await info.boundingBox();
             const x=Math.round(box.x+box.width/2), y=Math.round(box.y+Math.min(box.height-4,box.height*.78));
-            console.log('TOUCH_TARGET='+JSON.stringify(await page.evaluate(({x,y})=>{const e=document.elementFromPoint(x,y);return {tag:e?.tagName,cls:String(e?.className||'').slice(0,100),text:(e?.textContent||'').slice(0,80)};},{x,y})));
+            const hit=await page.evaluate(({x,y})=>{const e=document.elementFromPoint(x,y);return {tag:e?.tagName,cls:String(e?.className||'').slice(0,100),text:(e?.textContent||'').slice(0,80),insideInfo:!!e?.closest('.m36-landscape-info-scroll')};},{x,y});
+            console.log('TOUCH_TARGET='+JSON.stringify(hit));
+            if(!hit.insideInfo) throw new Error('Touch point is intercepted by the sibling choices scroller instead of the status/guest/narrative column');
             const cdp=await context.newCDPSession(page);
             await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x,y}]});
             await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x,y:y-90}]});
