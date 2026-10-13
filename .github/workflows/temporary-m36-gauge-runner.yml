@@ -1,100 +1,63 @@
-name: temporary-m36-gauge-pr-runner
-
+name: M36 landscape action pane and sidebar diagnostic
 on:
-  pull_request_target:
-    branches:
-      - mobile-migration-v1
-    types: [opened, synchronize, reopened]
-
+  push:
+    branches: [main]
+    paths: [".github/workflows/temporary-m36-gauge-runner.yml"]
 permissions:
-  contents: write
-  pull-requests: read
-
+  contents: read
 jobs:
-  patch:
-    if: github.event.pull_request.head.repo.full_name == github.repository
+  diagnose:
     runs-on: ubuntu-latest
+    timeout-minutes: 8
     steps:
-      - name: Checkout PR head
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.pull_request.head.ref }}
-          repository: ${{ github.event.pull_request.head.repo.full_name }}
-          fetch-depth: 0
-          token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Patch pleasure gauges outside choice scroll
+          ref: mobile-migration-v1
+          fetch-depth: 1
+      - name: Browser diagnostic of red action column and blue icon rail
         shell: bash
         run: |
           set -euo pipefail
-          python3 <<'PY'
-          from pathlib import Path
-          path=Path("Wayward_MOD_v3.36.html")
-          text=path.read_text(encoding="utf-8")
-          old_gauge='''U&&I&&u.jsxs("div",{className:"mb-3 space-y-1.5",children:[u.jsx(t_,{label:"당신",value:I.playerPleasure,color:"bg-blue-500"}),u.jsx(t_,{label:"그녀",value:I.elenaMoaning,color:"bg-pink-500"})]}),K&&(N==null?void 0:N.patronPleasure)!=null&&u.jsxs("div",{className:"mb-3 space-y-1.5",children:[u.jsx(t_,{label:"그 사내",value:N.patronPleasure,color:"bg-violet-500"}),u.jsx(t_,{label:"그녀",value:N.elenaPleasure??0,color:"bg-pink-500"})]}),'''
-          old_dialogue='''function M36MobileDialogueFixed({event:e,wifeName:t}){if(!e||["confrontation","outfit_reaction","back_room_interrupt"].includes(e.type))return null;const o=e.type==="wife_conversation",n=e.type==="sex_scene",r=e.type==="patron_interaction"&&e.customerName?e.customerName+" & "+t:o||n?t:"⚠ 돌발 상황";return u.jsxs("div",{className:"m36-mobile-dialogue-fixed",children:[u.jsx("div",{className:"m36-mobile-dialogue-label",children:o?"[대화] "+t+" <> 당신":"[이벤트] "+r}),u.jsx("div",{className:"m36-mobile-dialogue-box",children:u.jsx("p",{className:"text-sm text-stone-200 leading-relaxed whitespace-pre-wrap break-words",children:e.text})})]})}'''
-          new_dialogue='''function M36MobileDialogueFixed({event:e,wifeName:t}){if(!e||["confrontation","outfit_reaction","back_room_interrupt"].includes(e.type))return null;const o=e.type==="wife_conversation",n=e.type==="sex_scene",r=e.type==="patron_interaction"&&e.customerName?e.customerName+" & "+t:o||n?t:"⚠ 돌발 상황";return u.jsxs("div",{className:"m36-mobile-dialogue-fixed",children:[u.jsx("div",{className:"m36-mobile-dialogue-label",children:o?"[대화] "+t+" <> 당신":"[이벤트] "+r}),u.jsx("div",{className:"m36-mobile-dialogue-box",children:u.jsx("p",{className:"text-sm text-stone-200 leading-relaxed whitespace-pre-wrap break-words",children:e.text})})]})}
-function M36MobilePleasureFixed({state:e}){const t=e.pendingEvent,o=Ye(e),n=Y(e),r=t?.type==="sex_scene",a=t?.type==="patron_interaction";if(!r&&!a)return null;return r&&o?u.jsxs("div",{className:"m36-mobile-pleasure-fixed",children:[u.jsx(t_,{label:"당신",value:o.playerPleasure,color:"bg-blue-500"}),u.jsx(t_,{label:"그녀",value:o.elenaMoaning,color:"bg-pink-500"})]}):a&&n?.patronPleasure!=null?u.jsxs("div",{className:"m36-mobile-pleasure-fixed",children:[u.jsx(t_,{label:"그 사내",value:n.patronPleasure,color:"bg-violet-500"}),u.jsx(t_,{label:"그녀",value:n.elenaPleasure??0,color:"bg-pink-500"})]}):null}'''
-          old_aoe='''u.jsx(M36MobileDialogueFixed,{event:e.pendingEvent,wifeName:d.name}),u.jsx("div",{className:"mobile-action-scroll flex-1 min-h-0 overflow-y-auto py-1 text-[0.72rem]",children:u.jsx(HD,{})})'''
-          new_aoe='''u.jsx(M36MobileDialogueFixed,{event:e.pendingEvent,wifeName:d.name}),u.jsx(M36MobilePleasureFixed,{state:e}),u.jsx("div",{className:"mobile-action-scroll flex-1 min-h-0 overflow-y-auto py-1 text-[0.72rem]",children:u.jsx(HD,{})})'''
-          already=("function M36MobilePleasureFixed" in text and text.count('label:"당신",value:I.playerPleasure')==0 and text.count('u.jsx(M36MobilePleasureFixed,{state:e})')==1)
-          if not already:
-              assert text.count(old_dialogue)==1
-              assert text.count(old_gauge)==1
-              assert text.count(old_aoe)==1
-              text=text.replace(old_dialogue,new_dialogue,1).replace(old_gauge,"",1).replace(old_aoe,new_aoe,1)
-              style='''<style id="wayward-mobile-pleasure-fixed-v1">
-@media(max-width:1023px){
-  .m36-mobile-pleasure-fixed{
-    flex:0 0 auto;
-    position:relative;
-    z-index:29;
-    display:grid;
-    gap:.35rem;
-    padding:.25rem .45rem .4rem;
-    background:rgb(28 25 23);
-    border-bottom:1px solid rgba(68,64,60,.78);
-  }
-}
-@media(min-width:1024px){.m36-mobile-pleasure-fixed{display:none !important;}}
-</style>'''
-              assert text.count('id="wayward-mobile-pleasure-fixed-v1"')==0
-              assert text.count("</head>")==1
-              text=text.replace("</head>",style+"</head>",1)
-              path.write_text(text,encoding="utf-8")
-          PY
-
-      - name: Syntax and scope validation
-        shell: bash
-        run: |
-          set -euo pipefail
-          python3 <<'PY'
-          from pathlib import Path
-          text=Path("Wayward_MOD_v3.36.html").read_text(encoding="utf-8")
-          assert "function M36MobilePleasureFixed" in text
-          pos=text.index("function M36MobileDialogueFixed")
-          start=text.rfind("<script",0,pos)
-          close=text.index("</script>",pos)
-          gt=text.index(">",start)
-          Path("/tmp/m36-containing-script.js").write_text(text[gt+1:close],encoding="utf-8")
-          PY
-          node --check /tmp/m36-containing-script.js
-          git diff --check
-          echo "GAUGE_PATCH_STATIC_PASS"
-
-      - name: Commit patch and cleanup PR-head helper files
-        shell: bash
-        run: |
-          set -euo pipefail
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          rm -f __m36_pr_trigger.txt
-          git rm -f .github/workflows/temporary-m36-gauge-fixed.yml 2>/dev/null || true
-          if git diff --quiet && git diff --cached --quiet; then
-            echo "NO_CHANGES"
-            exit 0
-          fi
-          git add Wayward_MOD_v3.36.html
-          git diff --cached --check
-          git commit -m "fix(mobile): keep pleasure gauges outside choice scroll"
-          git push origin "HEAD:${{ github.event.pull_request.head.ref }}"
+          npm init -y >/dev/null
+          npm install --no-audit --no-fund playwright >/dev/null
+          npx playwright install --with-deps chromium >/dev/null
+          python3 -m http.server 4173 >/tmp/m36-http.log 2>&1 &
+          SERVER_PID=$!
+          trap 'kill "$SERVER_PID" 2>/dev/null || true' EXIT
+          node <<'NODE'
+          const { chromium } = require('playwright');
+          (async()=>{
+            const browser=await chromium.launch({headless:true});
+            const context=await browser.newContext({viewport:{width:900,height:400},deviceScaleFactor:1,isMobile:true,hasTouch:true});
+            const page=await context.newPage();
+            const errors=[];
+            page.on('pageerror',e=>errors.push(String(e)));
+            await page.goto('http://127.0.0.1:4173/Wayward_MOD_v3.36.html?m36-diag=action-pane',{waitUntil:'domcontentloaded',timeout:120000});
+            await page.waitForTimeout(5000);
+            const diag=await page.evaluate(()=>{
+              const summary=e=>{if(!e)return null;const r=e.getBoundingClientRect(),s=getComputedStyle(e);return {
+                tag:e.tagName,cls:String(e.className||'').slice(0,140),text:(e.innerText||e.textContent||'').trim().slice(0,110),
+                x:Math.round(r.x),y:Math.round(r.y),w:Math.round(r.width),h:Math.round(r.height),
+                position:s.position,display:s.display,overflowX:s.overflowX,overflowY:s.overflowY,
+                touchAction:s.touchAction,pointerEvents:s.pointerEvents,zIndex:s.zIndex,opacity:s.opacity,color:s.color,
+                background:s.backgroundColor,clientHeight:e.clientHeight,scrollHeight:e.scrollHeight,scrollTop:e.scrollTop
+              }};
+              const panel=document.querySelector('.mobile-action-panel');
+              const info=document.querySelector('.m36-landscape-info-scroll');
+              const choices=panel?.querySelector(':scope > div.flex-1.min-h-0.flex.flex-col');
+              const scroller=choices?.querySelector(':scope > .mobile-action-scroll') || panel?.querySelector('.mobile-action-scroll');
+              const touch=(e)=>{if(!e)return null;const r=e.getBoundingClientRect();const x=Math.min(innerWidth-2,Math.max(1,Math.round(r.left+Math.min(r.width*.5,25))));const y=Math.min(innerHeight-2,Math.max(1,Math.round(r.top+Math.min(r.height*.6,r.height-12))));const hit=document.elementFromPoint(x,y);return {x,y,hitTag:hit?.tagName,hitClass:String(hit?.className||'').slice(0,100),insideScroller:!!hit?.closest('.mobile-action-scroll'),insideInfo:!!hit?.closest('.m36-landscape-info-scroll')};};
+              const leftElements=[...document.querySelectorAll('button,[role="button"],a,svg')].map(e=>{
+                const r=e.getBoundingClientRect(),s=getComputedStyle(e);
+                if(r.width<=0||r.height<=0||r.left>70||r.top<20||r.top>innerHeight) return null;
+                const p=e.parentElement, ps=p?getComputedStyle(p):null,pr=p?.getBoundingClientRect();
+                return {el:summary(e),parent:p?{tag:p.tagName,cls:String(p.className||'').slice(0,100),x:Math.round(pr.x),y:Math.round(pr.y),w:Math.round(pr.width),h:Math.round(pr.height),color:ps.color,background:ps.backgroundColor,opacity:ps.opacity}:null,html:e.outerHTML.slice(0,240)};
+              }).filter(Boolean).slice(0,50);
+              return {viewport:{w:innerWidth,h:innerHeight},panel:summary(panel),info:summary(info),choices:summary(choices),scroller:summary(scroller),hit:touch(scroller),leftElements};
+            });
+            console.log('M36_RED_ACTION_PANE_DIAG='+JSON.stringify(diag));
+            console.log('M36_BROWSER_ERRORS='+JSON.stringify(errors));
+            if(!diag.scroller) throw new Error('Could not locate .mobile-action-scroll in the actual running page');
+            await browser.close();
+          })().catch(e=>{console.error(e);process.exit(1)});
+          NODE
