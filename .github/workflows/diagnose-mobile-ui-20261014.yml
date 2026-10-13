@@ -42,16 +42,14 @@ jobs:
           }
           async function inspect(page,label){
             return await page.evaluate((label)=>{
-              const rect=e=>{if(!e)return null;const r=e.getBoundingClientRect();return {x:+r.x.toFixed(1),y:+r.y.toFixed(1),w:+r.width.toFixed(1),h:+r.height.toFixed(1),right:+r.right.toFixed(1),bottom:+r.bottom.toFixed(1)}};
-              const short=e=>{if(!e)return null;const s=getComputedStyle(e);return {tag:e.tagName,cls:typeof e.className==='string'?e.className:String(e.className||''),id:e.id||'',text:(e.innerText||e.textContent||'').trim().replace(/\\s+/g,' ').slice(0,120),rect:rect(e),display:s.display,position:s.position,boxSizing:s.boxSizing,gridColumn:s.gridColumn,gridRow:s.gridRow,flex:s.flex,minWidth:s.minWidth,width:s.width,maxWidth:s.maxWidth,height:s.height,minHeight:s.minHeight,overflowX:s.overflowX,overflowY:s.overflowY,gap:s.gap,padding:s.padding,margin:s.margin,fontSize:s.fontSize,lineHeight:s.lineHeight,whiteSpace:s.whiteSpace,alignItems:s.alignItems,justifyContent:s.justifyContent,background:s.backgroundColor,color:s.color,border:s.border,borderRadius:s.borderRadius}};
+              const rect=e=>{if(!e)return null;const r=e.getBoundingClientRect();return{x:+r.x.toFixed(1),y:+r.y.toFixed(1),w:+r.width.toFixed(1),h:+r.height.toFixed(1),right:+r.right.toFixed(1),bottom:+r.bottom.toFixed(1)}};
+              const norm=s=>(s||'').trim().replace(/\\s+/g,' ').slice(0,100);
+              const style=e=>{if(!e)return null;const s=getComputedStyle(e);return{tag:e.tagName,cls:typeof e.className==='string'?e.className:String(e.className||''),text:norm(e.innerText||e.textContent),rect:rect(e),display:s.display,position:s.position,gridColumn:s.gridColumn,gridRow:s.gridRow,width:s.width,minWidth:s.minWidth,maxWidth:s.maxWidth,height:s.height,padding:s.padding,margin:s.margin,fontSize:s.fontSize,lineHeight:s.lineHeight,whiteSpace:s.whiteSpace,overflowX:s.overflowX,overflowY:s.overflowY,bg:s.backgroundColor,color:s.color,border:s.border,borderRadius:s.borderRadius}};
               const layout=document.querySelector('.mobile-layout');
-              const head=document.querySelector('.m34-header');
-              const launchers=[...document.querySelectorAll('.m34-header .m33-launchers button,.m34-header .m34-system-tools button')].map(e=>({self:short(e),html:e.innerHTML.slice(0,180),icon:short(e.querySelector('svg,img,i,[class*=icon],span'))}));
-              const target=[...document.querySelectorAll('button,[role=button],a,.cursor-pointer')].filter(e=>/선술집에서 일하기|5분/.test((e.innerText||e.textContent||'').trim())).map(e=>{const chain=[];let p=e;for(let i=0;p&&i<6;i++,p=p.parentElement)chain.push(short(p));return {self:short(e),html:e.outerHTML.slice(0,650),chain}});
-              const body=document.body.innerText||'';
-              const keys=['선술집에서 일하기','5분'].map(k=>({key:k,index:body.indexOf(k),context:body.indexOf(k)>=0?body.slice(Math.max(0,body.indexOf(k)-100),body.indexOf(k)+180):''}));
-              const action=document.querySelector('.mobile-action-panel'),scroll=document.querySelector('.mobile-action-panel .mobile-action-scroll');
-              return {label,viewport:{w:innerWidth,h:innerHeight,scrollWidth:document.documentElement.scrollWidth},layout:short(layout),gridTemplateColumns:layout?getComputedStyle(layout).gridTemplateColumns:null,header:short(head),action:short(action),actionScroll:short(scroll),icons:launchers,target,bodyKeys:keys};
+              const icons=[...document.querySelectorAll('.m34-header .m33-launchers button,.m34-header .m34-system-tools button')].map(e=>({self:style(e),html:e.innerHTML.slice(0,100),icon:style(e.querySelector('svg,img,i,[class*=icon],span'))}));
+              const candidates=[...document.querySelectorAll('button,[role=button],a,.cursor-pointer')].filter(e=>{const t=norm(e.innerText||e.textContent);return /선술집에서 일하기/.test(t)||/(^|\\s)5분($|\\s)/.test(t)}).slice(0,12).map(e=>{const chain=[];let p=e;for(let i=0;p&&i<5;i++,p=p.parentElement)chain.push(style(p));return{self:style(e),html:e.outerHTML.slice(0,450),chain}});
+              const body=document.body.innerText||'', idx=body.indexOf('선술집에서 일하기');
+              return{label,viewport:{w:innerWidth,h:innerHeight,scrollWidth:document.documentElement.scrollWidth},grid:layout?getComputedStyle(layout).gridTemplateColumns:null,layout:style(layout),header:style(document.querySelector('.m34-header')),action:style(document.querySelector('.mobile-action-panel')),scroll:style(document.querySelector('.mobile-action-scroll')),icons,candidates,bodyTarget:idx>=0?body.slice(Math.max(0,idx-100),idx+250):'NOT_FOUND'};
             },label);
           }
           (async()=>{
@@ -59,7 +57,10 @@ jobs:
             const page=await browser.newPage({viewport:{width:390,height:844},deviceScaleFactor:1});
             page.on('pageerror',e=>console.log('PAGE_ERROR '+e.message));
             await startGame(page);
-            console.log('BODY_READY '+JSON.stringify((await page.locator('body').innerText().catch(()=>'' )).slice(0,500)));
+            const nav=page.getByRole('button',{name:/홀로 내려가기/});
+            console.log('NAV_COUNT '+await nav.count());
+            if(await nav.count()){try{await nav.first().evaluate(e=>e.click());await pause(500)}catch(e){console.log('NAV_CLICK_ERROR '+e.message)}}
+            console.log('AFTER_NAV '+JSON.stringify((await page.locator('body').innerText().catch(()=>'' )).slice(-700)));
             for(const [w,h,label] of [[390,844,'PORTRAIT'],[900,400,'LANDSCAPE'],[1024,600,'LANDSCAPE_WIDE']]){
               await page.setViewportSize({width:w,height:h});await pause(250);
               console.log('UI_DIAG_'+label+' '+JSON.stringify(await inspect(page,label)));
