@@ -6,3 +6,4 @@ Retry after consolidating nested status overflow into the primary scroll owner.
 Rerun with explicit z-index ownership after hit-testing showed sibling touch interception.
 Rerun using a real grid split instead of overlapped absolute positioning.
 Rerun with parent/sibling geometry diagnostics; do not commit failed tests.
+Rerun grid hit-target diagnostics after syntax repair.
