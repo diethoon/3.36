@@ -1,0 +1,61 @@
+name: M36 bounded portrait status source probe
+on:
+  push:
+    branches: [mobile-migration-v1]
+    paths: [".github/workflows/m36-portrait-status-source-20261014.yml"]
+permissions:
+  contents: write
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: mobile-migration-v1
+          fetch-depth: 1
+      - name: Print narrow source contexts only
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path("Wayward_MOD_v3.36.html")
+          needles=[
+            b'border-t border-stone-700 bg-stone-800/80 grid grid-cols-[minmax(0,1fr)_auto] items-stretch overflow-hidden',
+            b'm36-mobile-store-status',b'm36-mobile-store-value',
+            b'growthRates',b'change-summary',b'changeSummary',b'statusDelta',
+            b'delta:',b'delta=',b'changes:'
+          ]
+          with p.open('rb') as f:
+            # Fixed-size streaming search. Retain a rolling window; never read the whole HTML into memory.
+            roll=b''; base=0; found={n:0 for n in needles}
+            while True:
+              chunk=f.read(256*1024)
+              if not chunk: break
+              buf=roll+chunk; bufbase=base-len(roll)
+              for needle in needles:
+                pos=0
+                while True:
+                  i=buf.find(needle,pos)
+                  if i<0: break
+                  off=bufbase+i
+                  if off>=base:
+                    found[needle]+=1
+                    if found[needle]<=5:
+                      a=max(0,i-2000); b=min(len(buf),i+len(needle)+2400)
+                      print(f"\n--- {needle.decode('utf-8','replace')} #{found[needle]} OFFSET {off} ---")
+                      print(buf[a:b].decode('utf-8','replace').replace('\\n',' ')[:4500])
+                  pos=i+len(needle)
+              base+=len(chunk); roll=buf[-4096:]
+          print('\n--- COUNTS ---')
+          for n,c in found.items(): print(n.decode('utf-8','replace'),c)
+          PY
+      - name: Remove temporary probe
+        if: always()
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          rm -f .github/workflows/m36-portrait-status-source-20261014.yml
+          git add -A .github/workflows
+          if ! git diff --cached --quiet; then git commit -m "chore: remove temporary portrait status source probe"; git push origin mobile-migration-v1; fi
