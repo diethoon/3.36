@@ -1,1 +1,2 @@
 Trigger one-shot real third-column touch scroll forensic; do not merge.
+Rerun after adding manual touch-scroll fallback to test on real, sentinel-free game content.
