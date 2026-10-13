@@ -52,8 +52,8 @@ jobs:
               if tail.count(equation)!=1:
                   raise SystemExit(f"expected one portrait-width sizing formula in bounded EOF, found {tail.count(equation)}")
               tail=tail.replace(equation,b'const maxPortraitW = Math.max(0, w - 2 * choiceW - minColW);',1)
-              tail=re.sub(rb'<style id="wayward-landscape-menu-portrait-status-v1">.*?</style>\\s*',b'',tail,count=1,flags=re.S)
-              tail=re.sub(rb'<style id="wayward-landscape-visual-fix-v2">.*?</style>\\s*',b'',tail,count=1,flags=re.S)
+              tail=re.sub(rb'<style id="wayward-landscape-menu-portrait-status-v1">.*?</style>\s*',b'',tail,count=1,flags=re.S)
+              tail=re.sub(rb'<style id="wayward-landscape-visual-fix-v2">.*?</style>\s*',b'',tail,count=1,flags=re.S)
               at=tail.rfind(b"</body>")
               if at<0: raise SystemExit("bounded EOF does not contain </body>")
               patch=r"""
@@ -104,6 +104,22 @@ jobs:
               display:block!important;visibility:visible!important;opacity:1!important;
               width:16px!important;height:16px!important;object-fit:contain!important;
               filter:brightness(0) invert(1)!important;
+            }
+            .m34-header .m33-launchers button[aria-label*="치트 에디터"] {
+              font-size:0!important;color:transparent!important;
+            }
+            .m34-header .m33-launchers button[aria-label*="치트 에디터"]::before {
+              content:"⚙"!important;display:block!important;
+              color:#fff7ed!important;font-size:16px!important;line-height:1!important;
+              font-family:system-ui,sans-serif!important;
+            }
+            .m34-header .m34-system-tools .m33-theme-button > span {
+              display:block!important;box-sizing:border-box!important;
+              width:12px!important;height:12px!important;min-width:12px!important;min-height:12px!important;
+              max-width:12px!important;max-height:12px!important;flex:0 0 12px!important;
+              border:2px solid #fff7ed!important;outline:1px solid #1c1917!important;
+              border-radius:2px!important;opacity:1!important;visibility:visible!important;
+              box-shadow:0 0 0 1px rgba(255,247,237,.7)!important;
             }
             .m34-header .m33-launchers button:focus-visible,
             .m34-header .m34-system-tools button:focus-visible {
@@ -159,11 +175,7 @@ jobs:
             }
             /* Make column 3 the same width as column 4. Column 2 absorbs the saved width. */
             .mobile-layout {
-              grid-template-columns:
-                var(--m36-landscape-portrait-w,clamp(72px,34vh,280px))
-                minmax(var(--m36-landscape-min-col),1fr)
-                var(--m36-landscape-choice-w)
-                var(--m36-landscape-choice-w)!important;
+              grid-template-columns:var(--m36-landscape-portrait-w,clamp(72px,34vh,280px)) minmax(0,1fr) clamp(110px,19vw,270px) clamp(110px,19vw,270px)!important;
               grid-template-rows:minmax(0,1fr) auto!important;
               align-items:stretch!important;
             }
