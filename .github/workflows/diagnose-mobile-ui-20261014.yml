@@ -24,6 +24,8 @@ jobs:
           icon_end = b'/* Keep the portrait panel dominant; the change summary only consumes its text height. */'
           css = """<style id="m36-landscape-work-choice-width-20261014">
           @media (orientation:landscape) {
+            /* Restore the portrait launcher silhouette while preserving the fixed left rail. */
+            .m34-header .m33-launchers button { border-radius:8px!important; }
             /* The 5-minute control is the second button in a split action row. It must stay
                content-sized; the generic landscape rule makes all action buttons 100% wide. */
             .mobile-action-panel .mobile-action-scroll button[title*="동안 자동으로 일하기"] {
@@ -142,9 +144,9 @@ jobs:
               const launch=[...document.querySelectorAll('.m34-header .m33-launchers button')];
               const tools=[...document.querySelectorAll('.m34-header .m34-system-tools button')];
               const icons=[...launch,...tools].map(e=>({self:s(e),icon:s(e.querySelector('svg,img,i,[class*=icon]')),swatch:s(e.querySelector('.m33-theme-button > span,span'))}));
-              const row=[...document.querySelectorAll('.mobile-action-panel .mobile-action-scroll .w-full.flex.rounded-lg.border.overflow-hidden')].find(e=>e.innerText.includes('선술집에서 일하기')&&r(e)?.w>0&&getComputedStyle(e).display!=='none');
+              const main=[...document.querySelectorAll('.mobile-action-panel .mobile-action-scroll button[data-m36-disabled-choice-label="선술집에서 일하기"]')].find(e=>r(e)?.w>0);
+              const row=main?.parentElement;
               const timer=row?.querySelector('button[title*="동안 자동으로 일하기"]');
-              const main=row?.querySelector('button:first-child');
               const rows={row:s(row),main:s(main),timer:s(timer),timerBefore:timer?getComputedStyle(timer,'::before').content:null,timerAfter:timer?getComputedStyle(timer,'::after').content:null};
               const layout=document.querySelector('.mobile-layout'),head=document.querySelector('.m34-header'),action=document.querySelector('.mobile-action-panel'),scroll=document.querySelector('.mobile-action-scroll');
               return{label,viewport:{w:innerWidth,h:innerHeight,scrollWidth:document.documentElement.scrollWidth},grid:layout?getComputedStyle(layout).gridTemplateColumns:null,layout:r(layout),header:r(head),action:r(action),scroll:r(scroll),railDirection:launch[0]?getComputedStyle(launch[0].parentElement).flexDirection:null,icons,rows};
@@ -158,8 +160,8 @@ jobs:
               await startGame(p,file);
               await p.setViewportSize({width:w,height:h});await pause(200);
               await p.evaluate(()=>{
-                const row=[...document.querySelectorAll('.mobile-action-panel .mobile-action-scroll .w-full.flex.rounded-lg.border.overflow-hidden')].find(e=>e.innerText.includes('선술집에서 일하기')&&e.getBoundingClientRect().width>0&&getComputedStyle(e).display!=='none');
-                row?.querySelector('button[title*="동안 자동으로 일하기"]')?.scrollIntoView({block:'center',inline:'nearest'});
+                const main=[...document.querySelectorAll('.mobile-action-panel .mobile-action-scroll button[data-m36-disabled-choice-label="선술집에서 일하기"]')].find(e=>e.getBoundingClientRect().width>0);
+                main?.parentElement?.querySelector('button[title*="동안 자동으로 일하기"]')?.scrollIntoView({block:'center',inline:'nearest'});
               });
               await pause(100);
               return {page:p,measure:await measure(p,file+' '+w+'x'+h)};
@@ -177,7 +179,7 @@ jobs:
               const got=await pageAt('Wayward_MOD_v3.36.html',w,h),m=got.measure;
               console.log('LANDSCAPE_RESULT '+JSON.stringify(m));
               if(m.viewport.scrollWidth>w)failures.push(w+': horizontal page overflow');
-              if(!m.grid||m.grid.trim().split(/\\s+/).length!==4)failures.push(w+': expected 4 landscape columns');
+              if(!m.grid||m.grid.trim().split(' ').filter(Boolean).length!==4)failures.push(w+': expected 4 landscape columns');
               if(m.railDirection!=='column')failures.push(w+': launcher icons are not vertically aligned');
               for(const b of m.icons){
                 const launch=b.self.cls.includes('m33-editor-launch')||b.self.rect&&b.self.rect.x<28&&b.self.borderRadius==='8px';
