@@ -1,0 +1,56 @@
+name: M36 last-action-delta renderer inspection v2
+on:
+  push:
+    branches: [mobile-migration-v1]
+    paths: [".github/workflows/m36-last-action-delta-inspection-v2-20261014.yml"]
+permissions:
+  contents: write
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: mobile-migration-v1
+          fetch-depth: 1
+      - name: Inspect existing state-change references
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path("Wayward_MOD_v3.36.html")
+          terms=["lastActionDelta","function sMe","tier===\"headline\"","data-m331-action-status","상태 변화","변화 수치","changes.map",".changes","change.delta","beforeValue","deltaText"]
+          counts={n:0 for n in terms}; seen=set()
+          with p.open("rb") as f:
+            roll=b""; base=0
+            while True:
+              chunk=f.read(256*1024)
+              if not chunk: break
+              buf=roll+chunk; origin=base-len(roll)
+              for term in terms:
+                needle=term.encode("utf-8"); pos=0
+                while True:
+                  i=buf.find(needle,pos)
+                  if i<0: break
+                  off=origin+i; key=(term,off)
+                  if off>=base and key not in seen:
+                    seen.add(key); counts[term]+=1
+                    if counts[term]<=8:
+                      a=max(0,i-650); z=min(len(buf),i+len(needle)+1100)
+                      print(f"\n--- {term} #{counts[term]} OFFSET {off} ---")
+                      print(buf[a:z].decode("utf-8","replace").replace("\\n"," ")[:1800])
+                  pos=i+len(needle)
+              base+=len(chunk); roll=buf[-4096:]
+          print("\n--- COUNTS ---")
+          for term,count in counts.items(): print(term,count)
+          PY
+      - name: Remove temporary inspection workflow
+        if: always()
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          rm -f .github/workflows/m36-last-action-delta-inspection-v2-20261014.yml
+          git add -A .github/workflows
+          if ! git diff --cached --quiet; then git commit -m "chore: remove temporary last action delta inspection"; git push origin mobile-migration-v1; fi
