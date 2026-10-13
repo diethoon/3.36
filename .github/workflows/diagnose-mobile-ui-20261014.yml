@@ -22,8 +22,8 @@ jobs:
           marker = b'id="m36-landscape-work-choice-width-20261014"'
           icon_start = b'/* High contrast: light physical buttons with dark glyphs, including SVG paths and raster icons. */'
           icon_end = b'/* Keep the portrait panel dominant; the change summary only consumes its text height. */'
-          css = b"""<style id="m36-landscape-work-choice-width-20261014">
-          @media (orientation:landscape) and (max-width:1023px) {
+          css = """<style id="m36-landscape-work-choice-width-20261014">
+          @media (orientation:landscape) {
             /* The 5-minute control is the second button in a split action row. It must stay
                content-sized; the generic landscape rule makes all action buttons 100% wide. */
             .mobile-action-panel .mobile-action-scroll button[title*="동안 자동으로 일하기"] {
@@ -75,7 +75,7 @@ jobs:
             }
           }
           </style>
-          """
+          """.encode("utf-8")
           with p.open("r+b") as f:
               f.seek(0, 2)
               size = f.tell()
@@ -100,7 +100,7 @@ jobs:
               body = tail.rfind(b"</body>")
               if body < 0:
                   raise SystemExit("</body> not found in bounded EOF window; HTML unchanged")
-              tail = tail[:body] + css + b"\\n" + tail[body:]
+              tail = tail[:body] + css + b"\n" + tail[body:]
               f.seek(start)
               f.write(tail)
               f.truncate(start + len(tail))
