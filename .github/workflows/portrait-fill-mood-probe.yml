@@ -18,14 +18,18 @@ jobs:
           python3 - <<'PY'
           from pathlib import Path
           p=Path("Wayward_MOD_v3.36.html")
-          terms=("대기중","기분","감정","mood","emotion","portrait","초상화")
-          for n,line in enumerate(p.open(encoding="utf-8",errors="replace"),1):
-              found=[t for t in terms if t.lower() in line.lower()]
-              if found:
-                  for term in found[:3]:
-                      start=max(0,line.lower().find(term.lower())-220)
-                      snippet=line[start:start+650].replace("\t"," ")
-                      print(f"SOURCE_MATCH line={n} term={term} length={len(line)} context={snippet!r}")
+          lines=p.read_text(encoding="utf-8",errors="replace").splitlines()
+          for lo,hi in [(2328,2410),(2410,2475),(2578,2610),(3738,3905),(6288,6490)]:
+              print(f"SOURCE_RANGE {lo}-{hi}")
+              for n in range(lo,min(hi,len(lines))+1):
+                  line=lines[n-1]
+                  if len(line)>1600:
+                      picks=[]
+                      for term in ("M331ActionStatus","m331-action-status","대기중","대기 중","기분","m36-mobile-room-activity","mobile-main-panel","m36-landscape-grid","portrait"):
+                          pos=line.find(term)
+                          if pos>=0:picks.append(line[max(0,pos-250):pos+550])
+                      line=(" | ... | ".join(picks[:5]))[:2500]
+                  print(f"LINE {n}: {line}")
           PY
       - name: Runtime DOM geometry inspection
         shell: bash
@@ -60,10 +64,11 @@ jobs:
                 const rect=e=>{const b=e.getBoundingClientRect();return {x:+b.x.toFixed(1),y:+b.y.toFixed(1),w:+b.width.toFixed(1),h:+b.height.toFixed(1),bottom:+b.bottom.toFixed(1)}};
                 const path=e=>{let a=[],n=e;for(let i=0;n&&i<5;i++,n=n.parentElement)a.push(n.tagName.toLowerCase()+(n.id?'#'+n.id:'')+(n.classList&&n.classList.length?'.'+[...n.classList].join('.'):''));return a};
                 const style=e=>{const s=getComputedStyle(e);return {display:s.display,position:s.position,flex:s.flex,align:s.alignItems,justify:s.justifyContent,overflow:s.overflow,width:s.width,height:s.height,minHeight:s.minHeight,maxHeight:s.maxHeight,objectFit:s.objectFit,opacity:s.opacity,color:s.color,background:s.backgroundColor,fontSize:s.fontSize}};
-                const imgs=[...document.querySelectorAll('.mobile-layout img, img')].map(e=>({alt:e.alt,src:(e.currentSrc||e.src||'').slice(0,90),rect:rect(e),style:style(e),path:path(e)})).filter(o=>o.rect.w>0&&o.rect.h>0).slice(0,30);
-                const waits=[...document.querySelectorAll('body *')].filter(e=>e.children.length===0&&(e.innerText||e.textContent||'').trim().includes('대기중')).slice(0,10).map(e=>({tag:e.tagName,text:(e.innerText||e.textContent||'').trim().slice(0,250),rect:rect(e),style:style(e),path:path(e),parentText:(e.parentElement?.innerText||'').slice(0,400)}));
-                const portraitCandidates=[...document.querySelectorAll('.mobile-layout *')].filter(e=>{const c=(e.className||'').toString();const a=(e.getAttribute('aria-label')||'')+' '+(e.id||'');return /portrait|avatar|character|image|face|portrait/i.test(c+' '+a)}).slice(0,25).map(e=>({tag:e.tagName,cls:(e.className||'').toString().slice(0,160),text:(e.children.length===0?(e.innerText||''):'').slice(0,80),rect:rect(e),style:style(e),path:path(e)}));
-                return {viewport:{w:innerWidth,h:innerHeight,scrollWidth:document.documentElement.scrollWidth},layout:rect(document.querySelector('.mobile-layout')),main:rect(document.querySelector('.mobile-main-panel')),images:imgs,waits,portraitCandidates,bodyText:document.body.innerText.split('\n').filter(t=>/대기중|기분|감정|엘레나|상태|활동|변화/.test(t)).slice(0,100)};
+                const imgs=[...document.querySelectorAll('img')].map(e=>({alt:e.alt,src:(e.currentSrc||e.src||'').slice(0,90),rect:rect(e),style:style(e),path:path(e)})).filter(o=>o.rect.w>0&&o.rect.h>0).slice(0,30);
+                const all=[...document.querySelectorAll('body *')].filter(e=>{const r=e.getBoundingClientRect(),s=getComputedStyle(e);return r.width>60&&r.height>35&&r.bottom>0&&r.top<innerHeight&&s.display!=='none'&&s.visibility!=='hidden'&&!['SCRIPT','STYLE','SVG','PATH'].includes(e.tagName)}).map(e=>({tag:e.tagName,cls:(e.className||'').toString().slice(0,150),id:e.id,text:e.children.length===0?(e.innerText||e.textContent||'').trim().slice(0,80):'',rect:rect(e),style:{display:getComputedStyle(e).display,position:getComputedStyle(e).position,flex:getComputedStyle(e).flex,objectFit:getComputedStyle(e).objectFit,color:getComputedStyle(e).color,bg:getComputedStyle(e).backgroundColor,bgi:getComputedStyle(e).backgroundImage.slice(0,100),opacity:getComputedStyle(e).opacity},path:path(e)})).sort((a,b)=>b.rect.w*b.rect.h-a.rect.w*a.rect.h).slice(0,55);
+                const waits=[...document.querySelectorAll('body *')].filter(e=>e.children.length===0&&/대기중|대기 중|대기|기분 변화|변화 없음/.test((e.innerText||e.textContent||'').trim())).slice(0,20).map(e=>({tag:e.tagName,text:(e.innerText||e.textContent||'').trim().slice(0,180),rect:rect(e),style:style(e),path:path(e),parentText:(e.parentElement?.innerText||'').slice(0,300)}));
+                const state=[...document.querySelectorAll('body *')].filter(e=>e.children.length===0&&/기분|감정|활동|상태/.test((e.innerText||'').trim())&&(e.innerText||'').trim().length<60).slice(0,30).map(e=>({text:(e.innerText||'').trim(),rect:rect(e),path:path(e)}));
+                return {viewport:{w:innerWidth,h:innerHeight,scrollWidth:document.documentElement.scrollWidth},layout:rect(document.querySelector('.mobile-layout')),main:rect(document.querySelector('.mobile-main-panel')),images:imgs,waits,state,all,bodyText:document.body.innerText.split('\\n').filter(t=>/대기중|대기 중|기분|감정|엘레나|상태|활동|변화/.test(t)).slice(0,100)};
               });
               console.log('DOM_PROBE '+JSON.stringify({vp,...out}));
               await page.close();
