@@ -1,0 +1,62 @@
+name: M36 bounded mobile UI inspection v2
+on:
+  push:
+    branches: [mobile-migration-v1]
+    paths: [".github/workflows/m36-bounded-ui-inspection-v2-20261014.yml"]
+permissions:
+  contents: write
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: mobile-migration-v1
+          fetch-depth: 1
+      - name: Inspect bounded text windows
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path("Wayward_MOD_v3.36.html")
+          terms=["대기 중","대기","u.jsx(M36MobilePleasureFixed","M36MobilePleasureFixed",
+                 "m36-mobile-choice-gauge","m36-mobile-store-status","portrait",
+                 "상태변화","상태 변화","statusChange","currentTask"]
+          found={t:0 for t in terms}; seen=set(); overlap=b""; offset=0
+          print("FILE_BYTES",p.stat().st_size)
+          with p.open("rb") as f:
+            while True:
+              chunk=f.read(256*1024)
+              if not chunk: break
+              buf=overlap+chunk; base=offset-len(overlap)
+              for term in terms:
+                needle=term.encode("utf-8"); pos=0
+                while True:
+                  i=buf.find(needle,pos)
+                  if i<0: break
+                  absolute=base+i; key=(term,absolute)
+                  if key not in seen:
+                    seen.add(key); found[term]+=1
+                    limit=20 if term in ("대기 중","대기","u.jsx(M36MobilePleasureFixed") else 10
+                    if found[term]<=limit:
+                      a=max(0,i-320); b=min(len(buf),i+len(needle)+550)
+                      print(f"\n--- TERM={term} N={found[term]} OFFSET={absolute} ---")
+                      print(buf[a:b].decode("utf-8","replace").replace("\\n"," ")[:950])
+                  pos=i+len(needle)
+              offset+=len(chunk); overlap=buf[-2048:]
+          print("\n--- COUNTS ---")
+          for term,n in found.items(): print(f"{term}: {n}")
+          PY
+      - name: Remove temporary inspection workflows
+        if: always()
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          rm -f .github/workflows/m36-bounded-ui-inspection-20261014.yml .github/workflows/m36-bounded-ui-inspection-v2-20261014.yml
+          git add -A .github/workflows
+          if ! git diff --cached --quiet; then
+            git commit -m "chore: remove temporary bounded UI inspection workflows"
+            git push origin mobile-migration-v1
+          fi
