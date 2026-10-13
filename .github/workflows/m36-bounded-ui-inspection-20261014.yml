@@ -1,0 +1,60 @@
+name: M36 bounded mobile UI inspection
+on:
+  push:
+    branches: [mobile-migration-v1]
+    paths: [".github/workflows/m36-bounded-ui-inspection-20261014.yml"]
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: mobile-migration-v1
+      - name: Inspect only bounded byte windows
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path("Wayward_MOD_v3.36.html")
+          terms=[
+            "대기 중","m36-mobile-pleasure-fixed","m36-mobile-choice-gauge",
+            "m36-mobile-dialogue-fixed","상태변화","상태 변화","statusChange",
+            "status-change","statusLog","lastActionResult"
+          ]
+          size=p.stat().st_size
+          print(f"FILE_BYTES={size}")
+          # Stream the file in 256 KiB chunks. Keep only bounded context for matching terms.
+          found={t:0 for t in terms}
+          seen=set()
+          overlap=b""
+          offset=0
+          with p.open("rb") as f:
+            while True:
+              chunk=f.read(256*1024)
+              if not chunk: break
+              buf=overlap+chunk
+              base=offset-len(overlap)
+              low=buf.lower()
+              for term in terms:
+                needle=term.encode("utf-8")
+                pos=0
+                while True:
+                  i=buf.find(needle,pos)
+                  if i<0: break
+                  absolute=base+i
+                  key=(term,absolute)
+                  if key not in seen:
+                    seen.add(key); found[term]+=1
+                    if found[term] <= 8:
+                      a=max(0,i-450); b=min(len(buf),i+len(needle)+700)
+                      print(f"\n--- TERM={term} COUNT={found[term]} OFFSET={absolute} ---")
+                      print(buf[a:b].decode("utf-8","replace").replace("\\n"," ")[:1300])
+                  pos=i+len(needle)
+              offset += len(chunk)
+              overlap=buf[-2048:]
+          print("\n--- COUNTS ---")
+          for term,n in found.items(): print(f"{term}: {n}")
+          PY
