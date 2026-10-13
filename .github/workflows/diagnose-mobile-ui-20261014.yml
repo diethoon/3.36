@@ -144,11 +144,12 @@ jobs:
               const launch=[...document.querySelectorAll('.m34-header .m33-launchers button')];
               const tools=[...document.querySelectorAll('.m34-header .m34-system-tools button')];
               const icons=[...launch,...tools].map(e=>({self:s(e),icon:s(e.querySelector('svg,img,i,[class*=icon]')),swatch:s(e.querySelector('.m33-theme-button > span,span'))}));
-              const timers=[...document.querySelectorAll('button[title*="자동으로 일하기"]')].filter(e=>e.closest('.mobile-action-scroll'));
-              const timer=timers[0]||null;
+              const timerCandidates=[...document.querySelectorAll('button')].filter(e=>/5분/.test(e.textContent||'')||/자동으로 일하기/.test(e.title||''));
+              const timers=timerCandidates.filter(e=>e.closest('.mobile-action-scroll'));
+              const timer=timers.find(e=>r(e)?.w>0)||timers[0]||null;
               const row=timer?.parentElement;
               const main=row?.querySelector('button:first-child');
-              const rows={timerCount:timers.length,row:s(row),main:s(main),timer:s(timer),timerText:timer?(timer.textContent||'').trim():null,timerBefore:timer?getComputedStyle(timer,'::before').content:null,timerAfter:timer?getComputedStyle(timer,'::after').content:null};
+              const rows={timerCount:timers.length,allCandidates:timerCandidates.slice(0,12).map(e=>({title:e.title,text:(e.textContent||'').trim(),cls:String(e.className||''),rect:r(e),parent:e.parentElement?{cls:String(e.parentElement.className||''),text:(e.parentElement.innerText||'').trim().slice(0,140),html:e.parentElement.outerHTML.slice(0,600)}:null})),row:s(row),main:s(main),timer:s(timer),timerText:timer?(timer.textContent||'').trim():null,timerBefore:timer?getComputedStyle(timer,'::before').content:null,timerAfter:timer?getComputedStyle(timer,'::after').content:null};
               const layout=document.querySelector('.mobile-layout'),head=document.querySelector('.m34-header'),action=document.querySelector('.mobile-action-panel'),scroll=document.querySelector('.mobile-action-scroll');
               return{label,viewport:{w:innerWidth,h:innerHeight,scrollWidth:document.documentElement.scrollWidth},grid:layout?getComputedStyle(layout).gridTemplateColumns:null,layout:r(layout),header:r(head),action:r(action),scroll:r(scroll),railDirection:launch[0]?getComputedStyle(launch[0].parentElement).flexDirection:null,icons,rows};
             },label);
@@ -161,7 +162,7 @@ jobs:
               await startGame(p,file);
               await p.setViewportSize({width:w,height:h});await pause(200);
               await p.evaluate(()=>{
-                const timer=[...document.querySelectorAll('button[title*="자동으로 일하기"]')].find(e=>e.closest('.mobile-action-scroll'));
+                const timer=[...document.querySelectorAll('button')].find(e=>/5분/.test(e.textContent||'')&&e.closest('.mobile-action-scroll'));
                 timer?.scrollIntoView({block:'center',inline:'nearest'});
               });
               await pause(100);
