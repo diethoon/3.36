@@ -39,19 +39,55 @@ jobs:
                   out.write(safe.replace(old,new))
               count+=carry.count(old)
               out.write(carry.replace(old,new))
-          if count!=1:
+          if count==1:
+              tmp.replace(p)
+              print("PORTRAIT_DELTA_WRAPPER_NOW_CONDITIONAL")
+          else:
               tmp.unlink(missing_ok=True)
-              raise SystemExit(f"expected one existing portrait component wrapper, found {count}; HTML unchanged")
-          tmp.replace(p)
-          print("PORTRAIT_DELTA_WRAPPER_NOW_CONDITIONAL")
+              current=p.read_bytes()
+              if count==0 and current.count(new)==1:
+                  print("PORTRAIT_DELTA_WRAPPER_ALREADY_CONDITIONAL")
+              else:
+                  raise SystemExit(f"expected one old wrapper or one already-conditional wrapper, old={count}, current={current.count(new)}; HTML unchanged")
+          # Remove only the preparation-detail component embedded in the narration/story column.
+          # The actual preparation controls in the action panel (facilityOnly) remain untouched.
+          prep_old=(b'T=u.jsxs("div",{className:"min-w-0",children:[h&&u.jsx("div",{className:"mb-3 m36-mobile-prep-detail",children:u.jsx(x3e,{})}),u.jsx(mDe,{})]})')
+          prep_new=(b'T=u.jsx("div",{className:"min-w-0",children:u.jsx(mDe,{})})')
+          fd,tmp_name=tempfile.mkstemp(prefix="wayward-prep-panel-patch-",dir=str(p.parent))
+          tmp=Path(tmp_name); count=0; already=0; carry=b""
+          overlap=max(len(prep_old),len(prep_new))-1
+          with p.open("rb") as src, os.fdopen(fd,"wb") as out:
+              while True:
+                  chunk=src.read(64*1024)
+                  if not chunk: break
+                  data=carry+chunk
+                  safe_len=max(0,len(data)-overlap)
+                  safe,carry=data[:safe_len],data[safe_len:]
+                  count+=safe.count(prep_old); already+=safe.count(prep_new)
+                  out.write(safe.replace(prep_old,prep_new))
+              count+=carry.count(prep_old); already+=carry.count(prep_new)
+              out.write(carry.replace(prep_old,prep_new))
+          if count==1:
+              tmp.replace(p)
+              print("NARRATION_PREP_MENU_REMOVED_ACTION_PANEL_PRESERVED")
+          else:
+              tmp.unlink(missing_ok=True)
+              if count==0 and already==1:
+                  print("NARRATION_PREP_MENU_ALREADY_REMOVED")
+              else:
+                  raise SystemExit(f"expected one narration prep block or one already-clean component, old={count}, clean={already}")
           # The portrait sizing function and existing appended style both fit in this bounded EOF window.
           with p.open("r+b") as f:
               f.seek(0,2); size=f.tell(); start=max(0,size-256*1024)
               f.seek(start); tail=f.read(size-start)
-              equation=b'const maxPortraitW = Math.max(0, w - choiceW - 2 * minColW);'
-              if tail.count(equation)!=1:
-                  raise SystemExit(f"expected one portrait-width sizing formula in bounded EOF, found {tail.count(equation)}")
-              tail=tail.replace(equation,b'const maxPortraitW = Math.max(0, w - 2 * choiceW - minColW);',1)
+              equation_old=b'const maxPortraitW = Math.max(0, w - choiceW - 2 * minColW);'
+              equation_new=b'const maxPortraitW = Math.max(0, w - 2 * choiceW - minColW);'
+              if tail.count(equation_old)==1:
+                  tail=tail.replace(equation_old,equation_new,1)
+              elif tail.count(equation_new)==1:
+                  pass
+              else:
+                  raise SystemExit(f"expected one known portrait-width formula in bounded EOF, old={tail.count(equation_old)}, current={tail.count(equation_new)}")
               tail=re.sub(rb'<style id="wayward-landscape-menu-portrait-status-v1">.*?</style>\s*',b'',tail,count=1,flags=re.S)
               tail=re.sub(rb'<style id="wayward-landscape-visual-fix-v2">.*?</style>\s*',b'',tail,count=1,flags=re.S)
               at=tail.rfind(b"</body>")
@@ -59,71 +95,78 @@ jobs:
               patch=r"""
           <style id="wayward-landscape-visual-fix-v2">
           @media (orientation:landscape) {
-            /* High-contrast icons: keep the existing controls, only make their glyphs visible. */
+            /* High contrast: light physical buttons with dark glyphs, including SVG paths and raster icons. */
             .m34-header .m33-launchers button,
             .m34-header .m34-system-tools button,
             .m34-header .m34-system-tools .m33-theme-button,
             .m34-header .m34-system-tools .m34-header-control {
-              background:#292524!important;
-              color:#fff7ed!important;
-              opacity:1!important;
-              visibility:visible!important;
-              filter:none!important;
-              border:1px solid #e7e5e4!important;
-              border-radius:4px!important;
-              box-shadow:0 1px 3px rgba(0,0,0,.9)!important;
+              background:#fef3c7!important;
+              color:#1c1917!important;
+              -webkit-text-fill-color:#1c1917!important;
+              opacity:1!important; visibility:visible!important; filter:none!important;
+              border:1px solid #fff7ed!important; border-radius:4px!important;
+              box-shadow:0 0 0 1px #57534e,0 1px 3px rgba(0,0,0,.95)!important;
+            }
+            .m34-header .m33-launchers button::before,
+            .m34-header .m33-launchers button::after,
+            .m34-header .m34-system-tools button::before,
+            .m34-header .m34-system-tools button::after {
+              color:#1c1917!important; -webkit-text-fill-color:#1c1917!important;
+              opacity:1!important; visibility:visible!important; filter:none!important;
+              text-shadow:none!important;
             }
             .m34-header .m33-launchers button > *,
             .m34-header .m34-system-tools button > *,
             .m34-header .m34-system-tools .m33-theme-button > * {
-              display:inline-flex!important;
-              align-items:center!important;
-              justify-content:center!important;
-              color:#fff7ed!important;
-              opacity:1!important;
-              visibility:visible!important;
-              font-size:16px!important;
-              line-height:1!important;
-              filter:none!important;
+              display:inline-flex!important; align-items:center!important; justify-content:center!important;
+              color:#1c1917!important; -webkit-text-fill-color:#1c1917!important;
+              opacity:1!important; visibility:visible!important; font-size:16px!important;
+              line-height:1!important; filter:none!important;
             }
             .m34-header .m33-launchers button svg,
             .m34-header .m34-system-tools button svg,
             .m34-header .m34-system-tools .m33-theme-button svg,
             .m34-header .m34-system-tools .m34-header-control svg {
-              display:block!important;
-              visibility:visible!important;
-              opacity:1!important;
-              width:16px!important;height:16px!important;
-              min-width:16px!important;min-height:16px!important;
+              display:block!important; visibility:visible!important; opacity:1!important;
+              width:16px!important;height:16px!important;min-width:16px!important;min-height:16px!important;
               max-width:16px!important;max-height:16px!important;
-              color:#fff7ed!important;
-              filter:brightness(0) invert(1)!important;
+              color:#1c1917!important;fill:#1c1917!important;stroke:#1c1917!important;filter:none!important;
             }
+            .m34-header .m33-launchers button svg *,
+            .m34-header .m34-system-tools button svg * {
+              color:#1c1917!important;fill:#1c1917!important;stroke:#1c1917!important;
+              opacity:1!important;visibility:visible!important;filter:none!important;
+            }
+            .m34-header .m33-launchers button svg [fill="none"],
+            .m34-header .m34-system-tools button svg [fill="none"] {fill:none!important;}
+            .m34-header .m33-launchers button svg [stroke="none"],
+            .m34-header .m34-system-tools button svg [stroke="none"] {stroke:none!important;}
             .m34-header .m33-launchers button img,
             .m34-header .m34-system-tools button img {
               display:block!important;visibility:visible!important;opacity:1!important;
               width:16px!important;height:16px!important;object-fit:contain!important;
-              filter:brightness(0) invert(1)!important;
+              filter:brightness(0) saturate(100%)!important;
             }
             .m34-header .m33-launchers button[aria-label*="치트 에디터"] {
-              font-size:0!important;color:transparent!important;
+              font-size:0!important;color:#1c1917!important;-webkit-text-fill-color:#1c1917!important;
             }
             .m34-header .m33-launchers button[aria-label*="치트 에디터"]::before {
               content:"⚙"!important;display:block!important;
-              color:#fff7ed!important;font-size:16px!important;line-height:1!important;
-              font-family:system-ui,sans-serif!important;
+              color:#1c1917!important;-webkit-text-fill-color:#1c1917!important;
+              font-size:16px!important;line-height:1!important;font-family:system-ui,sans-serif!important;
             }
-            .m34-header .m34-system-tools .m33-theme-button > span {
+            .m34-header .m34-system-tools .m33-theme-button > span,
+            .m34-header .m34-system-tools button[aria-label="테마 선택"] > span {
               display:block!important;box-sizing:border-box!important;
               width:12px!important;height:12px!important;min-width:12px!important;min-height:12px!important;
               max-width:12px!important;max-height:12px!important;flex:0 0 12px!important;
-              border:2px solid #fff7ed!important;outline:1px solid #1c1917!important;
+              border:2px solid #1c1917!important;outline:1px solid #fff7ed!important;
               border-radius:2px!important;opacity:1!important;visibility:visible!important;
-              box-shadow:0 0 0 1px rgba(255,247,237,.7)!important;
+              box-shadow:0 0 0 1px rgba(28,25,23,.7)!important;
             }
             .m34-header .m33-launchers button:focus-visible,
             .m34-header .m34-system-tools button:focus-visible {
-              outline:2px solid #facc15!important;outline-offset:1px!important;
+              outline:2px solid #f59e0b!important;outline-offset:1px!important;
             }
             /* Keep the portrait panel dominant; the change summary only consumes its text height. */
             .mobile-main-panel>.shrink-0:first-child {
@@ -251,7 +294,7 @@ jobs:
                 const btns=[...document.querySelectorAll('.m34-header .m33-launchers button,.m34-header .m34-system-tools button')];
                 const buttons=btns.map(b=>{const cs=getComputedStyle(b),icon=b.querySelector('svg,img,.m34-icon,i,[class*="icon"]'),is=icon?getComputedStyle(icon):null;return{aria:b.getAttribute('aria-label'),title:b.title,r:rect(b),inner:(b.innerHTML||'').slice(0,300),text:(b.textContent||'').trim(),bg:cs.backgroundColor,color:cs.color,icon:icon?{tag:icon.tagName,cls:(icon.className||'').toString(),r:rect(icon),display:is.display,visibility:is.visibility,opacity:is.opacity,color:is.color,fill:is.fill,stroke:is.stroke,filter:is.filter}:null}});
                 const frame=q('.mobile-main-panel>.shrink-0:first-child'),image=q('.mobile-main-panel>.shrink-0:first-child>.w-full>.relative.overflow-hidden.bg-stone-800.cursor-pointer'),delta=q('.mobile-main-panel>.shrink-0:first-child>.m36-landscape-last-action-delta'),tabs=q('.mobile-main-panel>.m36-mobile-tabs'),narr=q('.mobile-main-panel>.flex-1.min-h-0.overflow-y-auto'),action=q('.mobile-action-panel'),choices=q('.mobile-action-panel .mobile-action-scroll');
-                return{viewport:{w:innerWidth,h:innerHeight,scrollWidth:document.documentElement.scrollWidth},layout:rect(layout),tracks,header:rect(q('.m34-header.m33-header-space')),frame:rect(frame),image:rect(image),delta:delta?{rect:rect(delta),text:(delta.innerText||'').slice(0,150),html:delta.innerHTML.slice(0,180)}:null,tabs:tabs?{rect:rect(tabs),display:getComputedStyle(tabs).display,text:(tabs.innerText||'').trim(),buttons:[...tabs.querySelectorAll('button')].map(b=>({text:(b.innerText||'').trim(),rect:rect(b),display:getComputedStyle(b).display}))}:null,narration:rect(narr),action:rect(action),choices:rect(choices),buttons};
+                return{viewport:{w:innerWidth,h:innerHeight,scrollWidth:document.documentElement.scrollWidth},layout:rect(layout),tracks,header:rect(q('.m34-header.m33-header-space')),frame:rect(frame),image:rect(image),delta:delta?{rect:rect(delta),text:(delta.innerText||'').slice(0,150),html:delta.innerHTML.slice(0,180)}:null,tabs:tabs?{rect:rect(tabs),display:getComputedStyle(tabs).display,text:(tabs.innerText||'').trim(),buttons:[...tabs.querySelectorAll('button')].map(b=>({text:(b.innerText||'').trim(),rect:rect(b),display:getComputedStyle(b).display}))}:null,prepNarration:rect(q('.mobile-main-panel .m36-mobile-prep-detail')),narration:rect(narr),action:rect(action),choices:rect(choices),buttons};
               });
               console.log('LANDSCAPE_V2_RESULT '+vp.width+'x'+vp.height+' '+JSON.stringify(m));
               if(m.viewport.scrollWidth>vp.width)failures.push(vp.width+': horizontal page overflow');
@@ -259,14 +302,16 @@ jobs:
               if(m.tracks.length!==4)failures.push(vp.width+': grid does not have 4 tracks');
               if(m.tracks.length===4&&Math.abs(m.tracks[2]-m.tracks[3])>1.5)failures.push(vp.width+': column 3 and 4 widths differ');
               if(!m.tabs||m.tabs.display==='none'||m.tabs.buttons.length<3||m.tabs.rect.h<20)failures.push(vp.width+': story/shop/wife tabs are not visible');
+              if(m.prepNarration)failures.push(vp.width+': preparation menu remains inside narration column');
               if(!m.narration||m.narration.w<=m.tracks[2])failures.push(vp.width+': narration did not expand relative to the narrow third column');
               if(!m.frame||!m.image||m.image.h<m.frame.h*.7)failures.push(vp.width+': portrait area does not fill its panel');
               if(m.delta&&m.delta.text.trim()===''&&m.delta.rect.h>1)failures.push(vp.width+': empty delta wrapper reserves vertical space');
               if(m.buttons.length<9)failures.push(vp.width+': not all 9 controls were found');
               for(const b of m.buttons){
                 if(!b.r||b.r.x<0||b.r.right>29)failures.push(vp.width+': control outside left rail: '+b.aria);
-                if(!b.bg||b.bg==='rgba(0, 0, 0, 0)'||b.color!=='rgb(255, 247, 237)')failures.push(vp.width+': control background/text lacks contrast: '+b.aria);
+                if(b.bg!=='rgb(254, 243, 199)'||b.color!=='rgb(28, 25, 23)')failures.push(vp.width+': control background/text lacks high contrast: '+b.aria+' bg='+b.bg+' color='+b.color);
                 if(b.icon&&(!b.icon.r||b.icon.r.w<5||b.icon.r.h<5||b.icon.display==='none'||b.icon.visibility!=='visible'||b.icon.opacity==='0'))failures.push(vp.width+': icon element is hidden: '+b.aria);
+                if(b.icon&&b.icon.tag==='SVG'&&(b.icon.filter!=='none'||b.icon.color!=='rgb(28, 25, 23)'))failures.push(vp.width+': SVG glyph is not dark-on-light visible: '+b.aria+' '+JSON.stringify(b.icon));
                 if(!b.icon&&!b.text)failures.push(vp.width+': no visible glyph element or text: '+b.aria);
               }
               if(vp.width===900){
