@@ -216,7 +216,7 @@ jobs:
           async function main(){
             const browser=await chromium.launch({headless:true,args:['--no-sandbox']});
             const page=await browser.newPage({viewport:{width:900,height:400},deviceScaleFactor:1});
-            page.on('pageerror',e=>failures.push('pageerror:'+e.message));
+            page.on('pageerror',e=>{console.log('PAGE_ERROR '+e.message);failures.push('pageerror:'+e.message)});page.on('console',m=>{if(m.type()==='error')console.log('BROWSER_CONSOLE_ERROR '+m.text())});
             await startGame(page,'Wayward_MOD_v3.36.html');
             for(const vp of [{width:800,height:400},{width:900,height:400},{width:1365,height:768}]){
               await page.setViewportSize(vp);await pause(250);
@@ -225,7 +225,7 @@ jobs:
                 const all=[...document.querySelectorAll('.m34-header .m33-launchers button,.m34-header .m34-system-tools button')];
                 const details=all.map(e=>{const s=getComputedStyle(e);return{aria:e.getAttribute('aria-label'),title:e.title,r:r(e),bg:s.backgroundColor,color:s.color,border:s.borderTopColor,opacity:s.opacity};});
                 const frame=q('.mobile-main-panel>.shrink-0:first-child'),image=q('.mobile-main-panel>.shrink-0:first-child>.w-full>.relative.overflow-hidden.bg-stone-800.cursor-pointer'),wait=q('.mobile-main-panel>.shrink-0:first-child .border-t.border-stone-700[class~="bg-stone-800/80"]'),delta=q('.mobile-main-panel>.shrink-0:first-child>.m36-landscape-last-action-delta');
-                return{scrollWidth:document.documentElement.scrollWidth,layout:r(q('.mobile-layout')),cols:getComputedStyle(q('.mobile-layout')).gridTemplateColumns.trim().split(/\\s+/).length,header:r(q('.m34-header.m33-header-space')),frame:r(frame),image:r(image),waitDisplay:wait?getComputedStyle(wait).display:null,deltaPresent:!!delta,deltaHTML:delta?delta.innerHTML.slice(0,250):null,buttons:details};
+                return{scrollWidth:document.documentElement.scrollWidth,layout:r(q('.mobile-layout')),cols:getComputedStyle(q('.mobile-layout')).gridTemplateColumns.trim().split(/\s+/).length,header:r(q('.m34-header.m33-header-space')),frame:r(frame),image:r(image),waitDisplay:wait?getComputedStyle(wait).display:null,deltaPresent:!!delta,deltaHTML:delta?delta.innerHTML.slice(0,250):null,buttons:details};
               });
               console.log('PORTRAIT_RAIL_RESULT '+vp.width+'x'+vp.height+' '+JSON.stringify(m));
               if(m.scrollWidth>vp.width)failures.push(vp.width+': horizontal overflow');
@@ -241,7 +241,7 @@ jobs:
               }
               if(vp.width===900){
                 const fullscreen=page.getByTitle(/전체화면|fullscreen/i).first();
-                try{if(await fullscreen.count()){await fullscreen.click({timeout:1200});await pause(180);const cols=await page.evaluate(()=>getComputedStyle(document.querySelector('.mobile-layout')).gridTemplateColumns.trim().split(/\\s+/).length);if(cols!==4)failures.push('fullscreen changes grid to '+cols);await page.evaluate(()=>document.fullscreenElement?document.exitFullscreen():Promise.resolve());await pause(150)}}catch(e){failures.push('fullscreen test:'+e.message)}
+                try{if(await fullscreen.count()){await fullscreen.click({timeout:1200});await pause(180);const cols=await page.evaluate(()=>getComputedStyle(document.querySelector('.mobile-layout')).gridTemplateColumns.trim().split(/\s+/).length);if(cols!==4)failures.push('fullscreen changes grid to '+cols);await page.evaluate(()=>document.fullscreenElement?document.exitFullscreen():Promise.resolve());await pause(150)}}catch(e){failures.push('fullscreen test:'+e.message)}
               }
             }
             const a=await browser.newPage({viewport:{width:390,height:844}}),b=await browser.newPage({viewport:{width:390,height:844}});
@@ -253,7 +253,7 @@ jobs:
             if(failures.length){console.error('PORTRAIT_RAIL_FAILURES '+JSON.stringify(failures));process.exit(1)}
             console.log('PORTRAIT_RAIL_ALL_TESTS_PASSED');
           }
-          main().catch(e=>{console.error(e);process.exit(1)});
+          main().catch(e=>{console.error('TEST_FAILURES '+JSON.stringify(failures));console.error(e);process.exit(1)});
           JS
       - name: Commit only verified game HTML
         if: success()
