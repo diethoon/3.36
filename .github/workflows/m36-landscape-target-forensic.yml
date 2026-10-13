@@ -158,6 +158,8 @@ jobs:
           git add Wayward_MOD_v3.36.html
           git commit -m "fix(mobile): consolidate landscape status and guest scrolling"
           git push origin HEAD:mobile-migration-v1
+          git fetch origin main
+          git switch --detach origin/main
           git rm .github/workflows/m36-landscape-target-forensic.yml
           git commit -m "chore: remove temporary landscape target forensic workflow"
           git push origin HEAD:main
