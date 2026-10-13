@@ -24,7 +24,7 @@ jobs:
                   while True:
                       pos=lower.find(term.lower(),pos)
                       if pos<0: break
-                      snippet=line[max(0,pos-350):pos+1050]
+                      snippet=line[max(0,pos-1200):pos+6500]
                       print(f"CODE_HIT line={n} term={term} offset={pos} lineLen={len(line)} {snippet!r}")
                       pos+=len(term)
           for lo,hi in ((2798,2810),(2318,2410)):
