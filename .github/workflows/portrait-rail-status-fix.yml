@@ -192,7 +192,7 @@ jobs:
         run: |
           npm init -y >/dev/null
           npm install --no-audit --no-fund playwright
-          npx playwright install --with-deps chromium
+          npx playwright install chromium
           python3 -m http.server 4173 >/tmp/wayward-http.log 2>&1 &
           node <<'JS'
           const {chromium}=require('playwright');
