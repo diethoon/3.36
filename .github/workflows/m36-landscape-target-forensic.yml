@@ -71,6 +71,11 @@ jobs:
             scrollbar-width:thin!important;
           }`;
           style = style.replace(selector, authoritative);
+          const statusOverflow = `.mobile-action-panel>.m36-landscape-info-scroll>.m36-mobile-store-status {
+            flex:0 0 auto!important;height:auto!important;max-height:none!important;overflow:visible!important;
+          }`;
+          if ((style.match(/\.mobile-action-panel>\.m36-landscape-info-scroll>\.m36-mobile-store-status/g)||[]).length) throw new Error('Status overflow normalization already exists; refusing duplicate patch');
+          style = style.replace('</style>', statusOverflow + '\n</style>');
           html = html.slice(0, styleStart) + style + html.slice(styleEnd + '</style>'.length);
 
           if (html.includes('id="m36-landscape-third-column-scroll-touch-fix-20261014"')) throw new Error('Duplicate touch-fix CSS remains');
@@ -136,11 +141,15 @@ jobs:
                 clientHeight:el.clientHeight,scrollHeight:el.scrollHeight,scrollTop:el.scrollTop,
                 containsStatus:!!el.querySelector('.m36-mobile-store-status'),
                 containsRoomActivity:!!el.querySelector('.m36-mobile-room-activity'),
+                statusOverflow:el.querySelector('.m36-mobile-store-status')?getComputedStyle(el.querySelector('.m36-mobile-store-status')).overflowY:'missing',
+                statusHeight:el.querySelector('.m36-mobile-store-status')?el.querySelector('.m36-mobile-store-status').clientHeight:0,
+                statusScrollHeight:el.querySelector('.m36-mobile-store-status')?el.querySelector('.m36-mobile-store-status').scrollHeight:0,
                 directChildren:[...el.children].map(n=>String(n.className||n.tagName).slice(0,80)).slice(0,8)};
             });
             console.log('ACTUAL_TARGET_WRAPPER_BEFORE='+JSON.stringify(before));
             if(before.width<40||before.height<100||before.position!=='absolute'||!['auto','scroll'].includes(before.overflowY)) throw new Error('Target wrapper geometry/scroll owner is invalid');
-            if(!before.containsStatus||!before.containsRoomActivity) throw new Error('Location/gauge and guest/activity components are not inside the intended wrapper');
+            if(!before.containsStatus) throw new Error('Location/gauge status is not inside the target wrapper');
+            if(before.statusOverflow!=='visible') throw new Error('Nested status box still clips the guest list instead of letting the third-column parent own scrolling');
             if(before.scrollHeight<=before.clientHeight) throw new Error('Target wrapper has no natural overflow to test');
             const box=await info.boundingBox();
             const x=Math.round(box.x+box.width/2), y=Math.round(box.y+Math.min(box.height-4,box.height*.78));
