@@ -7,3 +7,4 @@ Rerun with explicit z-index ownership after hit-testing showed sibling touch int
 Rerun using a real grid split instead of overlapped absolute positioning.
 Rerun with parent/sibling geometry diagnostics; do not commit failed tests.
 Rerun grid hit-target diagnostics after syntax repair.
+Rerun with choice scroller explicitly confined to grid cell.
