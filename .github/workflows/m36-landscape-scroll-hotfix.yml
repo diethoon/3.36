@@ -85,7 +85,7 @@ jobs:
           }
           const out = fs.readFileSync(p, 'utf8');
           if (!out.includes(marker) || !out.includes('overflow-y: scroll !important') || !out.includes('touch-action: pan-y !important')) throw new Error('CSS invariant failed');
-          if ((out.match(/<body\\b/gi) || []).length !== 1 || (out.match(/<\\/body>/gi) || []).length !== 1) throw new Error('body boundary invariant failed');
+          if (out.toLowerCase().split('<body').length !== 2 || out.toLowerCase().split('</body>').length !== 2) throw new Error('body boundary invariant failed');
           console.log('HTML_BYTES_AFTER=' + Buffer.byteLength(out));
           NODE
           git diff --check
