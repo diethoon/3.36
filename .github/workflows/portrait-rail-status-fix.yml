@@ -1,0 +1,266 @@
+name: Improve landscape menu contrast and portrait status
+on:
+  push:
+    branches: [mobile-migration-v1]
+    paths: [".github/workflows/portrait-rail-status-fix.yml"]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  patch-and-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Apply exact component insertion and bounded EOF CSS patch
+        shell: bash
+        run: |
+          cp Wayward_MOD_v3.36.html before.html
+          python3 - <<'PY'
+          from pathlib import Path
+          import os, re, tempfile
+          p=Path("Wayward_MOD_v3.36.html")
+          needle=b'u.jsx(rI,{compact:!0})'
+          replacement=(b'u.jsxs(u.Fragment,{children:[u.jsx(rI,{compact:!0}),'
+                       b'u.jsx("div",{className:"m36-landscape-last-action-delta",'
+                       b'children:u.jsx(nOe,{delta:d.lastActionDelta,ageSlot:e.slot})})]})')
+          fd,tmp_name=tempfile.mkstemp(prefix="wayward-html-patch-",dir=str(p.parent))
+          tmp=Path(tmp_name); count=0; carry=b""
+          with p.open("rb") as src, os.fdopen(fd,"wb") as out:
+              overlap=len(needle)-1
+              while True:
+                  chunk=src.read(64*1024)
+                  if not chunk: break
+                  data=carry+chunk
+                  safe_len=max(0,len(data)-overlap)
+                  safe,carry=data[:safe_len],data[safe_len:]
+                  count+=safe.count(needle)
+                  out.write(safe.replace(needle,replacement))
+              count+=carry.count(needle)
+              out.write(carry.replace(needle,replacement))
+          if count!=1:
+              tmp.unlink(missing_ok=True)
+              raise SystemExit(f"expected exactly one portrait renderer token, found {count}; HTML unchanged")
+          tmp.replace(p)
+          print("PORTRAIT_DELTA_COMPONENT_INSERTED_ONCE")
+          # Read and edit only the last 256 KiB for the appended stylesheet.
+          with p.open("r+b") as f:
+              f.seek(0,2); size=f.tell(); start=max(0,size-256*1024)
+              f.seek(start); tail=f.read(size-start)
+              tail=re.sub(rb'<style id="wayward-landscape-menu-portrait-status-v1">.*?</style>\\s*',b'',tail,count=1,flags=re.S)
+              at=tail.rfind(b"</body>")
+              if at<0: raise SystemExit("bounded EOF does not contain </body>")
+              patch=r"""
+          <style id="wayward-landscape-menu-portrait-status-v1">
+          .m36-landscape-last-action-delta {display:none;}
+          @media (orientation:landscape) {
+            body::before {
+              background:rgba(15,12,10,.98)!important;
+              border-right:1px solid #d6d3d1!important;
+            }
+            .m34-header .m33-launchers button,
+            .m34-header .m34-system-tools>button,
+            .m34-header .m34-system-tools .m33-theme-button,
+            .m34-header .m34-system-tools .m34-header-control {
+              background:#44403c!important;
+              color:#fff7ed!important;
+              border:1px solid #d6d3d1!important;
+              border-radius:4px!important;
+              opacity:1!important;
+              filter:none!important;
+              box-shadow:0 1px 4px rgba(0,0,0,.9)!important;
+            }
+            .m34-header .m33-launchers button *,
+            .m34-header .m34-system-tools button *,
+            .m34-header .m34-system-tools .m33-theme-button * {
+              color:#fff7ed!important;
+              opacity:1!important;
+              filter:drop-shadow(0 0 1px rgba(0,0,0,.95))!important;
+            }
+            .m34-header .m33-launchers button svg,
+            .m34-header .m34-system-tools svg {
+              opacity:1!important;
+              filter:drop-shadow(0 0 1px #000)!important;
+            }
+            .m34-header .m33-launchers button:hover,
+            .m34-header .m34-system-tools>button:hover,
+            .m34-header .m34-system-tools .m33-theme-button:hover,
+            .m34-header .m34-system-tools .m34-header-control:hover {
+              background:#57534e!important;
+              border-color:#facc15!important;
+            }
+            .m34-header .m33-launchers button:focus-visible,
+            .m34-header .m34-system-tools button:focus-visible {
+              outline:2px solid #facc15!important;
+              outline-offset:1px!important;
+            }
+            .mobile-main-panel>.shrink-0:first-child {
+              display:flex!important;
+              flex-direction:column!important;
+              align-items:stretch!important;
+              height:100%!important;
+              min-height:0!important;
+              max-height:none!important;
+              overflow:hidden!important;
+            }
+            .mobile-main-panel>.shrink-0:first-child>.w-full {
+              box-sizing:border-box!important;
+              display:flex!important;
+              flex:1 1 0!important;
+              flex-direction:column!important;
+              width:100%!important;
+              height:auto!important;
+              min-height:0!important;
+              max-height:none!important;
+              overflow:hidden!important;
+            }
+            .mobile-main-panel>.shrink-0:first-child>.w-full>.relative.overflow-hidden.bg-stone-800.cursor-pointer {
+              box-sizing:border-box!important;
+              display:flex!important;
+              position:relative!important;
+              flex:1 1 0!important;
+              width:100%!important;
+              height:auto!important;
+              min-height:0!important;
+              max-height:none!important;
+              aspect-ratio:auto!important;
+              align-items:stretch!important;
+              justify-content:stretch!important;
+              overflow:hidden!important;
+            }
+            .mobile-main-panel>.shrink-0:first-child .relative.overflow-hidden.bg-stone-800.cursor-pointer>.w-full.flex.items-center.justify-center.h-32 {
+              box-sizing:border-box!important;
+              display:flex!important;
+              flex:1 1 0!important;
+              width:100%!important;
+              height:100%!important;
+              min-height:0!important;
+              max-height:none!important;
+              align-items:stretch!important;
+              justify-content:stretch!important;
+            }
+            .mobile-main-panel>.shrink-0:first-child .relative.overflow-hidden.bg-stone-800.cursor-pointer img {
+              display:block!important;
+              width:100%!important;
+              height:100%!important;
+              min-width:0!important;
+              min-height:0!important;
+              max-width:100%!important;
+              max-height:100%!important;
+              object-fit:contain!important;
+            }
+            .mobile-main-panel>.shrink-0:first-child .border-t.border-stone-700[class~="bg-stone-800/80"] {
+              display:none!important;
+            }
+            .mobile-main-panel>.shrink-0:first-child>.m36-landscape-last-action-delta {
+              display:block!important;
+              box-sizing:border-box!important;
+              flex:0 0 auto!important;
+              max-height:96px!important;
+              min-width:0!important;
+              overflow-x:hidden!important;
+              overflow-y:auto!important;
+              padding:2px 3px!important;
+              border-top:1px solid rgba(168,162,158,.65)!important;
+              background:rgba(28,25,23,.96)!important;
+              color:#e7e5e4!important;
+              font-size:10px!important;
+              line-height:1.25!important;
+            }
+            .mobile-main-panel>.shrink-0:first-child>.m36-landscape-last-action-delta:empty {
+              display:none!important;
+            }
+            .mobile-main-panel>.shrink-0:first-child>.m36-landscape-last-action-delta>div {
+              max-height:90px!important;
+              overflow-y:auto!important;
+              padding:0!important;
+              background:transparent!important;
+            }
+            .mobile-main-panel>.shrink-0:first-child>.m36-landscape-last-action-delta .font-mono {
+              font-size:10px!important;
+              color:#f5f5f4!important;
+            }
+          }
+          </style>
+          """
+              tail=tail[:at]+patch.encode("utf-8")+tail[at:]
+              f.seek(start);f.write(tail);f.truncate(start+len(tail))
+          print("PORTRAIT_FILL_AND_MENU_CONTRAST_PATCH_APPLIED")
+          PY
+      - name: Validate real-game layout and portrait regression
+        shell: bash
+        run: |
+          npm init -y >/dev/null
+          npm install --no-audit --no-fund playwright
+          npx playwright install --with-deps chromium
+          python3 -m http.server 4173 >/tmp/wayward-http.log 2>&1 &
+          node <<'JS'
+          const {chromium}=require('playwright');
+          const failures=[],pause=ms=>new Promise(r=>setTimeout(r,ms));
+          async function startGame(page,file){
+            await page.goto('http://127.0.0.1:4173/'+file,{waitUntil:'domcontentloaded',timeout:60000});
+            await pause(500);
+            for(let i=0;i<28;i++){
+              const body=await page.locator('body').innerText().catch(()=> '');
+              if(body.includes('물자 채우기')&&body.includes('대출'))return;
+              let clicked=false;
+              const next=page.getByRole('button',{name:/^예$|이해하고 동의합니다|다음|계속|시작|확인|완료|진행|게임 시작|새 게임/});
+              for(let k=0;k<await next.count();k++){try{const b=next.nth(k);if(await b.isVisible()&&await b.isEnabled()){await b.evaluate(e=>e.click());await pause(200);clicked=true;break}}catch{}}
+              const elena=page.getByRole('button',{name:/^엘레나/});
+              if(!clicked&&await elena.count()){try{await elena.first().evaluate(e=>e.click());await pause(200);clicked=true}catch{}}
+              if(!clicked)break;
+            }
+            const body=await page.locator('body').innerText().catch(()=> '');
+            if(!(body.includes('물자 채우기')&&body.includes('대출')))throw new Error('gameplay not reached: '+body.slice(0,180));
+          }
+          async function main(){
+            const browser=await chromium.launch({headless:true,args:['--no-sandbox']});
+            const page=await browser.newPage({viewport:{width:900,height:400},deviceScaleFactor:1});
+            page.on('pageerror',e=>failures.push('pageerror:'+e.message));
+            await startGame(page,'Wayward_MOD_v3.36.html');
+            for(const vp of [{width:800,height:400},{width:900,height:400},{width:1365,height:768}]){
+              await page.setViewportSize(vp);await pause(250);
+              const m=await page.evaluate(()=>{
+                const q=s=>document.querySelector(s),r=e=>{if(!e)return null;const b=e.getBoundingClientRect();return{x:+b.x.toFixed(1),y:+b.y.toFixed(1),w:+b.width.toFixed(1),h:+b.height.toFixed(1),bottom:+b.bottom.toFixed(1)}};
+                const all=[...document.querySelectorAll('.m34-header .m33-launchers button,.m34-header .m34-system-tools button')];
+                const details=all.map(e=>{const s=getComputedStyle(e);return{aria:e.getAttribute('aria-label'),title:e.title,r:r(e),bg:s.backgroundColor,color:s.color,border:s.borderTopColor,opacity:s.opacity};});
+                const frame=q('.mobile-main-panel>.shrink-0:first-child'),image=q('.mobile-main-panel>.shrink-0:first-child>.w-full>.relative.overflow-hidden.bg-stone-800.cursor-pointer'),wait=q('.mobile-main-panel>.shrink-0:first-child .border-t.border-stone-700[class~="bg-stone-800/80"]'),delta=q('.mobile-main-panel>.shrink-0:first-child>.m36-landscape-last-action-delta');
+                return{scrollWidth:document.documentElement.scrollWidth,layout:r(q('.mobile-layout')),cols:getComputedStyle(q('.mobile-layout')).gridTemplateColumns.trim().split(/\\s+/).length,header:r(q('.m34-header.m33-header-space')),frame:r(frame),image:r(image),waitDisplay:wait?getComputedStyle(wait).display:null,deltaPresent:!!delta,deltaHTML:delta?delta.innerHTML.slice(0,250):null,buttons:details};
+              });
+              console.log('PORTRAIT_RAIL_RESULT '+vp.width+'x'+vp.height+' '+JSON.stringify(m));
+              if(m.scrollWidth>vp.width)failures.push(vp.width+': horizontal overflow');
+              if(!m.header||m.header.h>21)failures.push(vp.width+': header not compact');
+              if(m.cols!==4)failures.push(vp.width+': not four columns');
+              if(!m.frame||!m.image||m.image.h<m.frame.h*.65)failures.push(vp.width+': portrait image viewport leaves blank lower area');
+              if(m.waitDisplay&&m.waitDisplay!=='none')failures.push(vp.width+': old portrait waiting bar still visible');
+              if(!m.deltaPresent)failures.push(vp.width+': native action delta mount missing');
+              if(m.buttons.length<9)failures.push(vp.width+': some menu buttons missing');
+              for(const b of m.buttons){
+                if(!b.r||b.r.x<0||b.r.right>29)failures.push(vp.width+': control outside left rail');
+                if(b.opacity!=='1'||b.color!=='rgb(255, 247, 237)'||b.bg==='rgba(0, 0, 0, 0)')failures.push(vp.width+': low-contrast button '+(b.title||b.aria));
+              }
+              if(vp.width===900){
+                const fullscreen=page.getByTitle(/전체화면|fullscreen/i).first();
+                try{if(await fullscreen.count()){await fullscreen.click({timeout:1200});await pause(180);const cols=await page.evaluate(()=>getComputedStyle(document.querySelector('.mobile-layout')).gridTemplateColumns.trim().split(/\\s+/).length);if(cols!==4)failures.push('fullscreen changes grid to '+cols);await page.evaluate(()=>document.fullscreenElement?document.exitFullscreen():Promise.resolve());await pause(150)}}catch(e){failures.push('fullscreen test:'+e.message)}
+              }
+            }
+            const a=await browser.newPage({viewport:{width:390,height:844}}),b=await browser.newPage({viewport:{width:390,height:844}});
+            await startGame(a,'before.html');await startGame(b,'Wayward_MOD_v3.36.html');
+            const measure=p=>p.evaluate(()=>{const out={sw:document.documentElement.scrollWidth};for(const s of ['.m34-header','.m34-header-stats','.m34-header-tools','.mobile-layout','.mobile-main-panel','.mobile-main-panel > .shrink-0:first-child','.mobile-action-panel']){const e=document.querySelector(s);if(e){const r=e.getBoundingClientRect();out[s]=[r.x,r.y,r.width,r.height].map(v=>+v.toFixed(2)).join(',')}}return out});
+            const before=await measure(a),after=await measure(b);console.log('PORTRAIT_BASELINE '+JSON.stringify({before,after}));
+            if(JSON.stringify(before)!==JSON.stringify(after))failures.push('portrait layout differs from baseline');
+            await browser.close();
+            if(failures.length){console.error('PORTRAIT_RAIL_FAILURES '+JSON.stringify(failures));process.exit(1)}
+            console.log('PORTRAIT_RAIL_ALL_TESTS_PASSED');
+          }
+          main().catch(e=>{console.error(e);process.exit(1)});
+          JS
+      - name: Commit only verified game HTML
+        if: success()
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add Wayward_MOD_v3.36.html
+          git commit -m "fix(mobile): increase menu contrast and show portrait action deltas"
+          git push
