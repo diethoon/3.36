@@ -1,3 +1,0 @@
-Trigger one-shot real third-column touch scroll forensic; do not merge.
-Rerun after adding manual touch-scroll fallback to test on real, sentinel-free game content.
-Live Render URL now redeployed from commit a30ec6373af551be4663760f1f8c38dbd96a0601; verify exact live DOM after deployment.
