@@ -1,0 +1,54 @@
+name: M36 landscape third-column inspection
+on:
+  push:
+    branches: [mobile-migration-v1]
+    paths: [".github/workflows/m36-landscape-third-column-inspection-20261014.yml"]
+permissions:
+  contents: write
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: mobile-migration-v1
+          fetch-depth: 1
+      - name: Inspect relevant selectors in bounded chunks
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path("Wayward_MOD_v3.36.html")
+          terms=["m36-portrait-inline-delta","m36-mobile-pleasure-fixed","m36-mobile-choice-gauge","mobile-action-panel","mobile-action-scroll","m36-mobile-store-status","m36-mobile-store-status-line","m36-mobile-store"]
+          seen={x:set() for x in terms}; overlap=b""; offset=0
+          with p.open("rb") as f:
+            while True:
+              chunk=f.read(256*1024)
+              if not chunk: break
+              buf=overlap+chunk; base=offset-len(overlap)
+              for term in terms:
+                needle=term.encode(); pos=0
+                while True:
+                  i=buf.find(needle,pos)
+                  if i<0: break
+                  off=base+i
+                  if off>=offset and off not in seen[term]:
+                    seen[term].add(off)
+                    if len(seen[term])<=8:
+                      print(f"\n--- {term} OFFSET {off} ---")
+                      print(buf[max(0,i-500):min(len(buf),i+len(needle)+950)].decode("utf-8","replace").replace("\\n"," ")[:1500])
+                  pos=i+len(needle)
+              offset+=len(chunk); overlap=buf[-4096:]
+          print("\nCOUNTS")
+          for k,v in seen.items(): print(k,len(v))
+          PY
+      - name: Remove inspection workflow
+        if: always()
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          rm -f .github/workflows/m36-landscape-third-column-inspection-20261014.yml
+          git add -A .github/workflows
+          if ! git diff --cached --quiet; then git commit -m "chore: remove temporary third-column inspection"; git push origin mobile-migration-v1; fi
