@@ -5,7 +5,7 @@ on:
     branches: [main]
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   forensic:
@@ -17,6 +17,75 @@ jobs:
         with:
           ref: mobile-migration-v1
           fetch-depth: 1
+
+      - name: Add explicit landscape touch-scroll fallback to the target HTML
+        shell: bash
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const fs = require('fs');
+          const p = 'Wayward_MOD_v3.36.html';
+          const marker = 'm36-landscape-explicit-touch-scroll-fallback-20261014';
+          const src = fs.readFileSync(p, 'utf8');
+          if (!src.includes(marker)) {
+            const block = `
+          <style id="${marker}-css">
+          @media (orientation: landscape) and (min-width: 600px) {
+            .mobile-action-panel > .m36-landscape-info-scroll {
+              overflow-x: hidden !important;
+              overflow-y: auto !important;
+              -webkit-overflow-scrolling: touch !important;
+              overscroll-behavior-y: contain !important;
+              touch-action: pan-y !important;
+            }
+          }
+          </style>
+          <script id="${marker}">
+          (() => {
+            let gesture = null;
+            const inLandscape = () => window.matchMedia('(orientation: landscape) and (min-width: 600px)').matches;
+            const getScroller = target => {
+              const el = target instanceof Element ? target : target && target.parentElement;
+              return el && el.closest ? el.closest('.m36-landscape-info-scroll') : null;
+            };
+            document.addEventListener('touchstart', event => {
+              gesture = null;
+              if (!inLandscape() || !event.touches || event.touches.length !== 1) return;
+              const el = getScroller(event.target);
+              if (!el || el.scrollHeight <= el.clientHeight) return;
+              const touch = event.touches[0];
+              gesture = { el, startX: touch.clientX, startY: touch.clientY, lastY: touch.clientY, active: false };
+            }, { capture: true, passive: true });
+            document.addEventListener('touchmove', event => {
+              const g = gesture;
+              if (!g || !g.el || !g.el.isConnected || !event.touches || event.touches.length !== 1) return;
+              const touch = event.touches[0];
+              const totalX = touch.clientX - g.startX;
+              const totalY = touch.clientY - g.startY;
+              if (!g.active && Math.abs(totalY) > 6 && Math.abs(totalY) > Math.abs(totalX) * 1.15) g.active = true;
+              if (!g.active) return;
+              if (event.cancelable) event.preventDefault();
+              g.el.scrollTop += g.lastY - touch.clientY;
+              g.lastY = touch.clientY;
+            }, { capture: true, passive: false });
+            const clear = () => { gesture = null; };
+            document.addEventListener('touchend', clear, { capture: true, passive: true });
+            document.addEventListener('touchcancel', clear, { capture: true, passive: true });
+          })();
+          </script>
+          `;
+            const end = src.toLowerCase().lastIndexOf('</body>');
+            if (end < 0) throw new Error('Cannot find body boundary');
+            fs.writeFileSync(p, src.slice(0, end) + block + String.fromCharCode(10) + src.slice(end));
+          }
+          const out = fs.readFileSync(p, 'utf8');
+          if (out.split(marker).length !== 3) throw new Error('Expected exactly one fallback CSS and one fallback script marker');
+          if (out.toLowerCase().split('</body>').length !== 2) throw new Error('Body boundary changed');
+          console.log('TOUCH_FALLBACK_MARKER_COUNT=' + (out.split(marker).length - 1));
+          console.log('HTML_BYTES=' + Buffer.byteLength(out));
+          NODE
+          git diff --check
+          git diff --stat
 
       - name: Install browser and inspect real game DOM without sentinel
         shell: bash
@@ -91,6 +160,16 @@ jobs:
             await browser.close();
           })().catch(e=>{console.error(e);process.exit(1)});
           NODE
+      - name: Commit verified production HTML fix on mobile-migration-v1
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add Wayward_MOD_v3.36.html
+          git commit -m "fix(mobile): force touch scrolling in landscape info column"
+          git push origin HEAD:mobile-migration-v1
+
       - name: Upload actual DOM screenshots
         if: always()
         uses: actions/upload-artifact@v4
