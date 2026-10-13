@@ -73,12 +73,13 @@ jobs:
             -webkit-overflow-scrolling:touch!important;overscroll-behavior-y:contain!important;touch-action:pan-y!important;
             scrollbar-width:thin!important;
           }
-          .mobile-action-panel>.flex-1.min-h-0.flex.flex-col {
+          html body .mobile-action-panel > div.flex-1.min-h-0.flex.flex-col {
             position:absolute!important;left:48%!important;right:0!important;top:0!important;bottom:0!important;
             display:flex!important;flex-direction:column!important;width:auto!important;height:auto!important;
             min-width:0!important;min-height:0!important;max-height:none!important;overflow:hidden!important;z-index:1!important;
+            flex:none!important;margin:0!important;padding:0!important;
           }
-          .mobile-action-panel>.flex-1.min-h-0.flex.flex-col>.mobile-action-scroll {
+          html body .mobile-action-panel > div.flex-1.min-h-0.flex.flex-col > div.mobile-action-scroll {
             position:relative!important;inset:auto!important;display:flex!important;flex-direction:column!important;
             flex:1 1 0%!important;height:100%!important;max-height:100%!important;width:100%!important;
             min-width:0!important;min-height:0!important;overflow-x:hidden!important;overflow-y:auto!important;
