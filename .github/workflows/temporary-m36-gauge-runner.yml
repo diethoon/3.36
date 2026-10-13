@@ -71,7 +71,7 @@ jobs:
                 out.push({aria:e.getAttribute('aria-label'),title:e.title,text:(e.innerText||'').trim(),chain,svg:svg?{color:ss.color,stroke:ss.stroke,fill:ss.fill,opacity:ss.opacity,filter:ss.filter,html:svg.outerHTML.slice(0,140)}:null});
               }return out;
             });
-            console.log('M36_ACTION_TOUCH_TEST='+JSON.stringify({viewport:{w:innerWidth,h:innerHeight},before,hit,afterTouch,afterWheel,sidebar,errors}));
+            console.log('M36_ACTION_TOUCH_TEST='+JSON.stringify({viewport:await page.evaluate(()=>({w:innerWidth,h:innerHeight})),before,hit,afterTouch,afterWheel,sidebar,errors}));
             await browser.close();
           })().catch(e=>{console.error(e);process.exit(1)});
           NODE
