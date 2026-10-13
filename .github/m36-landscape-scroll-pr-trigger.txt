@@ -1,0 +1,1 @@
+One-shot trigger for the landscape third-column scroll runtime verification. This file is not part of production behavior.
