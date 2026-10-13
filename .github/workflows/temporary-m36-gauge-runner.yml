@@ -1,20 +1,169 @@
-name: M36 landscape action pane scroll and sidebar forensic
+name: M36 landscape red-pane scroll and sidebar contrast fix
 on:
   push:
     branches: [main]
     paths: [".github/workflows/temporary-m36-gauge-runner.yml"]
 permissions:
-  contents: read
+  contents: write
 jobs:
-  inspect:
+  patch-and-test:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout the exact mobile work branch
+        uses: actions/checkout@v4
         with:
           ref: mobile-migration-v1
-          fetch-depth: 1
-      - name: Test real touch scroll in red pane and inspect sidebar ancestors
+          fetch-depth: 0
+      - name: Add bounded red-pane touch fallback and brighter icon rail
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import os
+
+          p = Path("Wayward_MOD_v3.36.html")
+          body_close = b"</body>"
+          style_id = b'm36-landscape-action-scroll-and-icon-contrast-20261014'
+          script_id = b'm36-landscape-action-pane-touch-fallback-20261014'
+
+          style = b"""<style id="m36-landscape-action-scroll-and-icon-contrast-20261014">
+          @media (orientation:landscape) {
+            html body .mobile-action-panel .mobile-action-scroll {
+              box-sizing:border-box!important;min-width:0!important;min-height:0!important;
+              overflow-x:hidden!important;overflow-y:auto!important;
+              -webkit-overflow-scrolling:touch!important;overscroll-behavior-y:contain!important;
+              touch-action:pan-y!important;scrollbar-width:thin!important;
+            }
+            html body .m33-launchers button,
+            html body .m34-system-tools .m34-header-control,
+            html body .m33-theme-button {
+              box-sizing:border-box!important;
+              color:#f5f5f4!important;background:rgb(68,64,60)!important;
+              border:1px solid rgba(245,245,244,.55)!important;border-radius:5px!important;
+              box-shadow:0 1px 3px rgba(0,0,0,.65),inset 0 0 0 1px rgba(12,10,9,.35)!important;
+              opacity:1!important;filter:none!important;
+            }
+            html body .m33-launchers button svg,
+            html body .m34-system-tools .m34-header-control svg {
+              color:#f5f5f4!important;stroke:currentColor!important;opacity:1!important;filter:none!important;
+            }
+            html body .m33-launchers button:disabled,
+            html body .m34-system-tools .m34-header-control:disabled {
+              color:#d6d3d1!important;opacity:1!important;background:rgb(68,64,60)!important;
+            }
+          }
+          </style>"""
+          script = b"""<script id="m36-landscape-action-pane-touch-fallback-20261014">
+          (function(){
+            var selector=".mobile-action-scroll";
+            var active=null,startX=0,startY=0,startTop=0,moved=false;
+            function point(e){return e.touches&&e.touches.length===1?e.touches[0]:null;}
+            document.addEventListener("touchstart",function(e){
+              var t=point(e);
+              if(!t){active=null;return;}
+              var target=e.target&&e.target.closest?e.target.closest(selector):null;
+              if(!target||target.scrollHeight<=target.clientHeight+1){active=null;return;}
+              var rect=target.getBoundingClientRect();
+              if(t.clientX<rect.left||t.clientX>rect.right||t.clientY<rect.top||t.clientY>rect.bottom){active=null;return;}
+              active=target;startX=t.clientX;startY=t.clientY;startTop=target.scrollTop;moved=false;
+            },{capture:true,passive:true});
+            document.addEventListener("touchmove",function(e){
+              if(!active)return;
+              var t=point(e);
+              if(!t){active=null;return;}
+              var dy=startY-t.clientY,dx=startX-t.clientX;
+              if(Math.abs(dx)>10&&Math.abs(dx)>Math.abs(dy)*1.15){active=null;return;}
+              if(Math.abs(dy)<4&&!moved)return;
+              moved=true;
+              var max=Math.max(0,active.scrollHeight-active.clientHeight);
+              if(max<=0){active=null;return;}
+              if(e.cancelable)e.preventDefault();
+              active.scrollTop=Math.max(0,Math.min(max,startTop+dy));
+              active.setAttribute("data-m36-touch-scroll-owned","true");
+            },{capture:true,passive:false});
+            function end(){active=null;moved=false;}
+            document.addEventListener("touchend",end,{capture:true,passive:true});
+            document.addEventListener("touchcancel",end,{capture:true,passive:true});
+          })();
+          </script>"""
+
+          def contains(path, marker):
+              overlap = b""
+              with path.open("rb") as f:
+                  while True:
+                      chunk = f.read(256 * 1024)
+                      if not chunk:
+                          return False
+                      if marker in overlap + chunk:
+                          return True
+                      overlap = (overlap + chunk)[-max(1, len(marker)-1):]
+
+          for marker in (style_id, script_id):
+              if contains(p, marker):
+                  raise SystemExit(f"Duplicate patch marker already exists: {marker.decode()}")
+
+          last = -1
+          offset = 0
+          overlap = b""
+          with p.open("rb") as f:
+              while True:
+                  chunk = f.read(256 * 1024)
+                  if not chunk:
+                      break
+                  buf = overlap + chunk
+                  base = offset - len(overlap)
+                  pos = 0
+                  while True:
+                      i = buf.find(body_close, pos)
+                      if i < 0:
+                          break
+                      last = base + i
+                      pos = i + 1
+                  offset += len(chunk)
+                  overlap = buf[-(len(body_close)-1):]
+          if last < 0:
+              raise SystemExit("Closing body tag not found")
+
+          tmp = p.with_name(p.name + ".m36tmp")
+          payload = style + b"\n" + script + b"\n"
+          def copy_n(src, dst, count):
+              remaining = count
+              while remaining:
+                  part = src.read(min(128 * 1024, remaining))
+                  if not part:
+                      raise EOFError("Unexpected EOF during bounded copy")
+                  dst.write(part)
+                  remaining -= len(part)
+
+          with p.open("rb") as src, tmp.open("wb") as dst:
+              copy_n(src, dst, last)
+              dst.write(payload)
+              src.seek(last)
+              while True:
+                  part = src.read(128 * 1024)
+                  if not part:
+                      break
+                  dst.write(part)
+          os.replace(tmp, p)
+
+          if not contains(p, style_id) or not contains(p, script_id):
+              raise SystemExit("Post-patch marker verification failed")
+          if not contains(p, b'data-m36-touch-scroll-owned'):
+              # The marker appears inside the fallback script and should now exist exactly in source.
+              raise SystemExit("Touch-scroll ownership marker missing")
+          Path("/tmp/m36-action-fallback.js").write_bytes(
+              script.split(b"<script id=\"m36-landscape-action-pane-touch-fallback-20261014\">",1)[1].split(b"</script>",1)[0])
+          print("PATCH_OK")
+          print("FILE_BYTES", p.stat().st_size)
+          print("STYLE_MARKER", style_id.decode())
+          print("TOUCH_FALLBACK_MARKER", script_id.decode())
+          print("CLOSE_BODY_OFFSET", last)
+          PY
+          node --check /tmp/m36-action-fallback.js
+          git diff --check
+      - name: Boot actual game and test the red pane touch scroll plus icon contrast
         shell: bash
         run: |
           set -euo pipefail
@@ -31,7 +180,7 @@ jobs:
             const context=await browser.newContext({viewport:{width:820,height:360},deviceScaleFactor:1,isMobile:true,hasTouch:true});
             const page=await context.newPage(),errors=[];
             page.on('pageerror',e=>errors.push(String(e)));
-            const response=await page.goto('http://127.0.0.1:4173/Wayward_MOD_v3.36.html?m36-diag=touch',{waitUntil:'domcontentloaded',timeout:90000});
+            const response=await page.goto('http://127.0.0.1:4173/Wayward_MOD_v3.36.html?m36-landscape-action-fix=20261014',{waitUntil:'domcontentloaded',timeout:90000});
             if(response?.status()!==200)throw new Error('HTML did not return 200');
             await page.waitForFunction(()=>document.body&&document.body.innerText.trim().length>10,null,{timeout:60000}).catch(()=>{});
             for(let i=0;i<45;i++){
@@ -42,36 +191,69 @@ jobs:
               for(let j=0;j<await next.count();j++){try{const b=next.nth(j);if(await b.isVisible()&&await b.isEnabled()){await b.evaluate(e=>e.click());await wait(180);clicked=true;break;}}catch{}}
               const body2=await page.locator('body').innerText().catch(()=> '');
               if(!clicked&&body2.includes('그녀는 당신에게 어떤 존재인가요')){
-                const w=page.getByRole('button',{name:/^아내$/});if(await w.count()&&await w.first().isVisible()){await w.first().evaluate(e=>e.click());await wait(220);clicked=true;}
-                const woman=page.getByRole('button',{name:/^(엘레나|마라|피파)/});if(await woman.count()&&await woman.first().isVisible()){await woman.first().evaluate(e=>e.click());await wait(250);clicked=true;}
+                const w=page.getByRole('button',{name:/^아내$/});
+                if(await w.count()&&await w.first().isVisible()&&await w.first().isEnabled()){await w.first().evaluate(e=>e.click());await wait(220);clicked=true;}
+                const woman=page.getByRole('button',{name:/^(엘레나|마라|피파)/});
+                if(await woman.count()&&await woman.first().isVisible()&&await woman.first().isEnabled()){await woman.first().evaluate(e=>e.click());await wait(250);clicked=true;}
               }
               if(!clicked){const woman=page.getByRole('button',{name:/^(엘레나|마라|피파)/});if(await woman.count()&&await woman.first().isVisible()&&await woman.first().isEnabled()){await woman.first().evaluate(e=>e.click());await wait(250);clicked=true;}}
               if(!clicked)await wait(250);
             }
             await wait(500);
-            const target=page.locator('.mobile-action-panel .mobile-action-scroll').first();
-            if(!await target.count())throw new Error('Actual choices scroller missing');
-            const before=await target.evaluate(e=>{const r=e.getBoundingClientRect(),s=getComputedStyle(e);return {x:Math.round(r.x),y:Math.round(r.y),w:Math.round(r.width),h:Math.round(r.height),clientHeight:e.clientHeight,scrollHeight:e.scrollHeight,scrollTop:e.scrollTop,overflowY:s.overflowY,touchAction:s.touchAction,position:s.position,pointerEvents:s.pointerEvents};});
-            const box=await target.boundingBox(),x=Math.round(box.x+Math.min(box.width/2,35)),y=Math.round(box.y+Math.min(box.height*.70,box.height-15));
+            const scroller=page.locator('.mobile-action-panel .mobile-action-scroll').first();
+            if(!await scroller.count())throw new Error('Actual red-pane scroller .mobile-action-scroll is missing');
+            await scroller.evaluate(e=>{e.scrollTop=0;e.removeAttribute('data-m36-touch-scroll-owned');});
+            const before=await scroller.evaluate(e=>{const r=e.getBoundingClientRect(),s=getComputedStyle(e);return {x:Math.round(r.x),y:Math.round(r.y),w:Math.round(r.width),h:Math.round(r.height),clientHeight:e.clientHeight,scrollHeight:e.scrollHeight,scrollTop:e.scrollTop,overflowY:s.overflowY,touchAction:s.touchAction};});
+            if(before.h<100||before.scrollHeight<=before.clientHeight||!['auto','scroll'].includes(before.overflowY))throw new Error('Red-pane scroller lacks a bounded native scroll region: '+JSON.stringify(before));
+            const box=await scroller.boundingBox(),x=Math.round(box.x+Math.min(box.width/2,35)),y=Math.round(box.y+Math.min(box.height*.70,box.height-15));
             const hit=await page.evaluate(({x,y})=>{const e=document.elementFromPoint(x,y);return {x,y,tag:e?.tagName,cls:String(e?.className||'').slice(0,120),inside:!!e?.closest('.mobile-action-scroll'),text:(e?.textContent||'').trim().slice(0,60)}},{x,y});
+            if(!hit.inside)throw new Error('A sibling element intercepts the touch point over the red-pane scroller: '+JSON.stringify(hit));
             const cdp=await context.newCDPSession(page);
             await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x,y}]});
             await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x,y:y-80}]});
             await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x,y:y-170}]});
             await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
-            await wait(450);
-            const afterTouch=await target.evaluate(e=>({scrollTop:e.scrollTop,scrollHeight:e.scrollHeight,clientHeight:e.clientHeight}));
-            await page.mouse.move(x,y);await page.mouse.wheel(0,260);await wait(250);
-            const afterWheel=await target.evaluate(e=>({scrollTop:e.scrollTop,scrollHeight:e.scrollHeight,clientHeight:e.clientHeight}));
-            const sidebar=await page.evaluate(()=>{
-              const out=[];const nodes=[...document.querySelectorAll('.m33-launchers button,.m34-system-tools button,.m33-theme-button')];
-              for(const e of nodes){const r=e.getBoundingClientRect();if(r.width<=0||r.left>70)continue;const chain=[];let p=e;
-                while(p&&chain.length<7){const s=getComputedStyle(p),rr=p.getBoundingClientRect();chain.push({tag:p.tagName,cls:String(p.className||'').slice(0,90),x:Math.round(rr.x),y:Math.round(rr.y),opacity:s.opacity,filter:s.filter,brightness:s.filter,visibility:s.visibility,color:s.color,background:s.backgroundColor,transform:s.transform,mixBlendMode:s.mixBlendMode,position:s.position});p=p.parentElement;}
-                const svg=e.querySelector('svg');const ss=svg?getComputedStyle(svg):null;
-                out.push({aria:e.getAttribute('aria-label'),title:e.title,text:(e.innerText||'').trim(),chain,svg:svg?{color:ss.color,stroke:ss.stroke,fill:ss.fill,opacity:ss.opacity,filter:ss.filter,html:svg.outerHTML.slice(0,140)}:null});
-              }return out;
+            await wait(300);
+            const after=await scroller.evaluate(e=>({scrollTop:e.scrollTop,max:e.scrollHeight-e.clientHeight,clientHeight:e.clientHeight,scrollHeight:e.scrollHeight,customTouchOwner:e.getAttribute('data-m36-touch-scroll-owned')}));
+            console.log('M36_RED_PANE_SCROLL_TEST='+JSON.stringify({before,hit,after}));
+            if(after.scrollTop<=before.scrollTop||after.customTouchOwner!=='true')throw new Error('Explicit touch fallback did not move the actual red-pane scroller');
+            const icons=await page.evaluate(()=>{
+              const a=document.querySelector('.m33-launchers button');
+              const b=document.querySelector('.m34-system-tools .m34-header-control');
+              const read=e=>{if(!e)return null;const s=getComputedStyle(e);return {aria:e.getAttribute('aria-label'),color:s.color,background:s.backgroundColor,border:s.border,opacity:s.opacity,filter:s.filter,rect:(()=>{const r=e.getBoundingClientRect();return {x:Math.round(r.x),y:Math.round(r.y),w:Math.round(r.width),h:Math.round(r.height)}})()};};
+              return {launcher:read(a),system:read(b)};
             });
-            console.log('M36_ACTION_TOUCH_TEST='+JSON.stringify({viewport:await page.evaluate(()=>({w:innerWidth,h:innerHeight})),before,hit,afterTouch,afterWheel,sidebar,errors}));
+            console.log('M36_LANDSCAPE_ICON_CONTRAST='+JSON.stringify(icons));
+            for(const [name,icon] of Object.entries(icons)){
+              if(!icon||icon.color!=='rgb(245, 245, 244)'||icon.background!=='rgb(68, 64, 60)'||icon.opacity!=='1')throw new Error('Sidebar icon contrast style missing on '+name+': '+JSON.stringify(icon));
+            }
+            if(errors.length)throw new Error('JavaScript errors: '+errors.join(' | '));
+            console.log('M36_RED_PANE_TOUCH_AND_ICON_CONTRAST_PASS');
             await browser.close();
           })().catch(e=>{console.error(e);process.exit(1)});
           NODE
+      - name: Commit the UI fix and clean temporary runners
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          rm -f .github/workflows/m36-landscape-gauge-portrait-delta-fix-20261014.yml
+          if [ -f /tmp/m36-action-fallback.js ] && [ "$(node --check /tmp/m36-action-fallback.js >/dev/null 2>&1; echo $?)" = "0" ]; then
+            git add Wayward_MOD_v3.36.html idea/GPT_RUNTIME_FORENSIC_FALLBACK.md .github/workflows
+            git diff --cached --check
+            git commit -m "fix(mobile): scroll landscape action pane and brighten icon rail"
+            git push origin HEAD:mobile-migration-v1
+          else
+            git add -A .github/workflows
+            if ! git diff --cached --quiet; then
+              git commit -m "chore: remove temporary landscape diagnostic workflow"
+              git push origin HEAD:mobile-migration-v1
+            fi
+          fi
+          git fetch origin main
+          git switch --detach origin/main
+          git rm .github/workflows/temporary-m36-gauge-runner.yml
+          git commit -m "chore: remove temporary landscape action pane runner"
+          git push origin HEAD:main
