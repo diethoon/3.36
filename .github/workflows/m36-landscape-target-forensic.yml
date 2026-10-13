@@ -1,0 +1,80 @@
+name: M36 forensic — locate actual hall/guest narrative column
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  inspect-targeted-source:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - name: Checkout working branch only
+        uses: actions/checkout@v4
+        with:
+          ref: mobile-migration-v1
+          fetch-depth: 1
+
+      - name: Inspect targeted source anchors without dumping large HTML
+        shell: bash
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const fs = require('fs');
+          const p = 'Wayward_MOD_v3.36.html';
+          const s = fs.readFileSync(p, 'utf8');
+          console.log('TARGET_HEAD=' + require('child_process').execSync('git rev-parse HEAD').toString().trim());
+          console.log('HTML_BYTES=' + Buffer.byteLength(s));
+          const terms = [
+            'm36-landscape-info-scroll',
+            'm36-mobile-store-status',
+            'M36MobileStoreStatus',
+            'M36MobileRoomCustomer',
+            'M36MobileRoomActivity',
+            'M36MobileActionPanel',
+            'm36-landscape-choice-controls',
+            'm36-narrow-landscape-choice-control-slot',
+            'm36-wide-landscape-choice-control-slot',
+            '피파가 응대 중',
+            '대기 중',
+            '헌신',
+            '기분',
+            '신뢰도',
+            '주목도',
+            '흥분도',
+            '로릭 언더힐',
+            '다른 손님 한 명이 합류했습니다.',
+            '그의 손이 그녀의 팔에 얹혀 있습니다.',
+            '현재 위치',
+            '당신 · 홀'
+          ];
+          for (const term of terms) {
+            const positions = [];
+            let at = -1;
+            while ((at = s.indexOf(term, at + 1)) !== -1 && positions.length < 5) positions.push(at);
+            console.log('\nANCHOR ' + JSON.stringify(term) + ' totalAtLeast=' + positions.length);
+            for (const pos of positions.slice(0, 3)) {
+              const left = Math.max(0, pos - 340);
+              const right = Math.min(s.length, pos + Math.max(620, term.length + 400));
+              console.log('OFFSET ' + pos + ': ' + s.slice(left, right).replace(/\s+/g, ' ').slice(0, 1150));
+            }
+          }
+          // Only list matching CSS declarations, not the entire stylesheet.
+          const rules = [
+            /\.m36-landscape-info-scroll\s*\{[^}]{0,1200}\}/g,
+            /\.mobile-action-panel[^{}]{0,240}\{[^}]{0,1000}\}/g,
+            /\.m36-mobile-store-status[^{}]{0,240}\{[^}]{0,1000}\}/g,
+            /\.m36-mobile-room-[^{}]{0,240}\{[^}]{0,1000}\}/g,
+            /\.m36-landscape-choice-controls[^{}]{0,240}\{[^}]{0,1000}\}/g
+          ];
+          for (const re of rules) {
+            console.log('\nCSS_RULE_MATCH ' + re);
+            let m, n=0;
+            while ((m=re.exec(s)) && n<12) { console.log(m[0].replace(/\s+/g,' ').slice(0,700)); n++; }
+            console.log('RULES_PRINTED=' + n);
+          }
+          NODE
+          git diff --check
