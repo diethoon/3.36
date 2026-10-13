@@ -31,7 +31,7 @@ jobs:
           function removeStyle(id) {
             const startTag = '<style id="' + id + '">';
             const start = html.indexOf(startTag);
-            if (start < 0) throw new Error('Expected temporary/duplicate style not found: ' + id);
+            if (start < 0) { console.log('SKIP_STYLE_NOT_PRESENT=' + id); return; }
             const end = html.indexOf('</style>', start);
             if (end < 0) throw new Error('Unclosed style: ' + id);
             html = html.slice(0, start) + html.slice(end + '</style>'.length);
@@ -47,11 +47,9 @@ jobs:
           // geometry is declared in one authoritative selector in the prep-scroll style.
           const absoluteRule = /\.m36-landscape-info-scroll\s*\{[^}]*position:absolute!important;[^}]*width:48%!important;[^}]*\}/g;
           const absoluteMatches = [...html.matchAll(absoluteRule)];
-          if (absoluteMatches.length !== 1) {
-            throw new Error('Expected one obsolete standalone 48% absolute rule; found ' + absoluteMatches.length);
-          }
-          html = html.replace(absoluteRule, '');
-          console.log('REMOVED_OLD_ABSOLUTE_RULE=1');
+          if (absoluteMatches.length > 1) throw new Error('Found multiple obsolete standalone 48% absolute rules: ' + absoluteMatches.length);
+          if (absoluteMatches.length === 1) { html = html.replace(absoluteRule, ''); console.log('REMOVED_OLD_ABSOLUTE_RULE=1'); }
+          else console.log('SKIP_OLD_ABSOLUTE_RULE_NOT_PRESENT');
 
           const id = '<style id="m36-landscape-third-column-prep-scroll-20261014">';
           const styleStart = html.indexOf(id);
@@ -94,8 +92,11 @@ jobs:
           const statusOverflow = `.mobile-action-panel>.m36-landscape-info-scroll>.m36-mobile-store-status {
             flex:0 0 auto!important;height:auto!important;max-height:none!important;overflow:visible!important;
           }`;
-          if ((style.match(/\.mobile-action-panel>\.m36-landscape-info-scroll>\.m36-mobile-store-status/g)||[]).length) throw new Error('Status overflow normalization already exists; refusing duplicate patch');
-          style = style.replace('</style>', statusOverflow + '\n</style>');
+          const statusRule = /\.mobile-action-panel>\.m36-landscape-info-scroll>\.m36-mobile-store-status\s*\{[^}]*\}/g;
+          const statusMatches = [...style.matchAll(statusRule)];
+          if (statusMatches.length > 1) throw new Error('Found duplicated status overflow declarations');
+          if (statusMatches.length === 1) style = style.replace(statusRule, statusOverflow);
+          else style = style.replace('</style>', statusOverflow + '\n</style>');
           html = html.slice(0, styleStart) + style + html.slice(styleEnd + '</style>'.length);
 
           if (html.includes('id="m36-landscape-third-column-scroll-touch-fix-20261014"')) throw new Error('Duplicate touch-fix CSS remains');
