@@ -113,6 +113,17 @@ jobs:
               const next=page.getByRole('button',{name:/^예$|이해하고 동의합니다|다음|계속|시작|확인|완료|진행|게임 시작|새 게임/});
               let clicked=false;
               for(let j=0;j<await next.count();j++){try{const b=next.nth(j);if(await b.isVisible()&&await b.isEnabled()){await b.evaluate(e=>e.click());await wait(180);clicked=true;break;}}catch{}}
+              const body2 = await page.locator('body').innerText().catch(()=> '');
+              if(!clicked && body2.includes('그녀는 당신에게 어떤 존재인가요')) {
+                const wifeType=page.getByRole('button',{name:/^아내$/});
+                if(await wifeType.count()&&await wifeType.first().isVisible()&&await wifeType.first().isEnabled()){await wifeType.first().evaluate(e=>e.click());await wait(220);clicked=true;}
+                const woman=page.getByRole('button',{name:/^(엘레나|마라|피파)/});
+                if(await woman.count()&&await woman.first().isVisible()&&await woman.first().isEnabled()){await woman.first().evaluate(e=>e.click());await wait(250);clicked=true;}
+              }
+              if(!clicked) {
+                const woman=page.getByRole('button',{name:/^(엘레나|마라|피파)/});
+                if(await woman.count()&&await woman.first().isVisible()&&await woman.first().isEnabled()){await woman.first().evaluate(e=>e.click());await wait(250);clicked=true;}
+              }
               if(!clicked) await wait(250);
             }
             await wait(500);
