@@ -1,4 +1,4 @@
-name: M36 landscape action pane and sidebar diagnostic
+name: M36 landscape action pane scroll and sidebar forensic
 on:
   push:
     branches: [main]
@@ -6,7 +6,7 @@ on:
 permissions:
   contents: read
 jobs:
-  diagnose:
+  inspect:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -14,7 +14,7 @@ jobs:
         with:
           ref: mobile-migration-v1
           fetch-depth: 1
-      - name: Boot actual game and inspect red action pane plus blue sidebar
+      - name: Test real touch scroll in red pane and inspect sidebar ancestors
         shell: bash
         run: |
           set -euo pipefail
@@ -25,16 +25,14 @@ jobs:
           SERVER_PID=$!
           trap 'kill "$SERVER_PID" 2>/dev/null || true' EXIT
           node <<'NODE'
-          const { chromium }=require('playwright');
-          const wait=ms=>new Promise(r=>setTimeout(r,ms));
+          const {chromium}=require('playwright'),wait=ms=>new Promise(r=>setTimeout(r,ms));
           (async()=>{
             const browser=await chromium.launch({headless:true});
             const context=await browser.newContext({viewport:{width:820,height:360},deviceScaleFactor:1,isMobile:true,hasTouch:true});
-            const page=await context.newPage();
-            const errors=[];
+            const page=await context.newPage(),errors=[];
             page.on('pageerror',e=>errors.push(String(e)));
-            const response=await page.goto('http://127.0.0.1:4173/Wayward_MOD_v3.36.html?m36-diag=red-pane',{waitUntil:'domcontentloaded',timeout:90000});
-            if(response?.status()!==200)throw new Error('HTML response was not 200');
+            const response=await page.goto('http://127.0.0.1:4173/Wayward_MOD_v3.36.html?m36-diag=touch',{waitUntil:'domcontentloaded',timeout:90000});
+            if(response?.status()!==200)throw new Error('HTML did not return 200');
             await page.waitForFunction(()=>document.body&&document.body.innerText.trim().length>10,null,{timeout:60000}).catch(()=>{});
             for(let i=0;i<45;i++){
               const body=await page.locator('body').innerText().catch(()=> '');
@@ -44,39 +42,36 @@ jobs:
               for(let j=0;j<await next.count();j++){try{const b=next.nth(j);if(await b.isVisible()&&await b.isEnabled()){await b.evaluate(e=>e.click());await wait(180);clicked=true;break;}}catch{}}
               const body2=await page.locator('body').innerText().catch(()=> '');
               if(!clicked&&body2.includes('그녀는 당신에게 어떤 존재인가요')){
-                const wifeType=page.getByRole('button',{name:/^아내$/});
-                if(await wifeType.count()&&await wifeType.first().isVisible()&&await wifeType.first().isEnabled()){await wifeType.first().evaluate(e=>e.click());await wait(220);clicked=true;}
-                const woman=page.getByRole('button',{name:/^(엘레나|마라|피파)/});
-                if(await woman.count()&&await woman.first().isVisible()&&await woman.first().isEnabled()){await woman.first().evaluate(e=>e.click());await wait(250);clicked=true;}
+                const w=page.getByRole('button',{name:/^아내$/});if(await w.count()&&await w.first().isVisible()){await w.first().evaluate(e=>e.click());await wait(220);clicked=true;}
+                const woman=page.getByRole('button',{name:/^(엘레나|마라|피파)/});if(await woman.count()&&await woman.first().isVisible()){await woman.first().evaluate(e=>e.click());await wait(250);clicked=true;}
               }
               if(!clicked){const woman=page.getByRole('button',{name:/^(엘레나|마라|피파)/});if(await woman.count()&&await woman.first().isVisible()&&await woman.first().isEnabled()){await woman.first().evaluate(e=>e.click());await wait(250);clicked=true;}}
               if(!clicked)await wait(250);
             }
-            await wait(700);
-            const diag=await page.evaluate(()=>{
-              const summary=e=>{if(!e)return null;const r=e.getBoundingClientRect(),s=getComputedStyle(e);return {
-                tag:e.tagName,cls:String(e.className||'').slice(0,140),text:(e.innerText||e.textContent||'').trim().slice(0,90),
-                x:Math.round(r.x),y:Math.round(r.y),w:Math.round(r.width),h:Math.round(r.height),
-                position:s.position,display:s.display,overflowX:s.overflowX,overflowY:s.overflowY,touchAction:s.touchAction,
-                pointerEvents:s.pointerEvents,zIndex:s.zIndex,opacity:s.opacity,color:s.color,background:s.backgroundColor,
-                clientHeight:e.clientHeight,scrollHeight:e.scrollHeight,scrollTop:e.scrollTop
-              }};
-              const panel=document.querySelector('.mobile-action-panel');
-              const info=document.querySelector('.m36-landscape-info-scroll');
-              const choices=panel?.querySelector(':scope > div.flex-1.min-h-0.flex.flex-col');
-              const scroller=choices?.querySelector(':scope > .mobile-action-scroll')||panel?.querySelector('.mobile-action-scroll');
-              const hitAt=e=>{if(!e)return null;const r=e.getBoundingClientRect();const x=Math.min(innerWidth-2,Math.max(1,Math.round(r.left+Math.min(r.width*.5,25))));const y=Math.min(innerHeight-2,Math.max(1,Math.round(r.top+Math.min(r.height*.6,r.height-12))));const hit=document.elementFromPoint(x,y);return {x,y,hitTag:hit?.tagName,hitClass:String(hit?.className||'').slice(0,100),insideScroller:!!hit?.closest('.mobile-action-scroll'),insideInfo:!!hit?.closest('.m36-landscape-info-scroll')};};
-              const leftElements=[...document.querySelectorAll('button,[role="button"],a,svg')].map(e=>{
-                const r=e.getBoundingClientRect(),s=getComputedStyle(e);if(r.width<=0||r.height<=0||r.left>70||r.top<0||r.top>innerHeight)return null;
-                const p=e.parentElement,ps=p?getComputedStyle(p):null,pr=p?.getBoundingClientRect();
-                return {el:summary(e),parent:p?{tag:p.tagName,cls:String(p.className||'').slice(0,100),x:Math.round(pr.x),y:Math.round(pr.y),w:Math.round(pr.width),h:Math.round(pr.height),color:ps.color,background:ps.backgroundColor,opacity:ps.opacity}:null,html:e.outerHTML.slice(0,220)};
-              }).filter(Boolean).slice(0,55);
-              return {viewport:{w:innerWidth,h:innerHeight,orientation:matchMedia('(orientation:landscape)').matches?'landscape':'portrait'},body:(document.body.innerText||'').slice(0,200),
-                panel:summary(panel),info:summary(info),choices:summary(choices),scroller:summary(scroller),hit:hitAt(scroller),leftElements};
+            await wait(500);
+            const target=page.locator('.mobile-action-panel .mobile-action-scroll').first();
+            if(!await target.count())throw new Error('Actual choices scroller missing');
+            const before=await target.evaluate(e=>{const r=e.getBoundingClientRect(),s=getComputedStyle(e);return {x:Math.round(r.x),y:Math.round(r.y),w:Math.round(r.width),h:Math.round(r.height),clientHeight:e.clientHeight,scrollHeight:e.scrollHeight,scrollTop:e.scrollTop,overflowY:s.overflowY,touchAction:s.touchAction,position:s.position,pointerEvents:s.pointerEvents};});
+            const box=await target.boundingBox(),x=Math.round(box.x+Math.min(box.width/2,35)),y=Math.round(box.y+Math.min(box.height*.70,box.height-15));
+            const hit=await page.evaluate(({x,y})=>{const e=document.elementFromPoint(x,y);return {x,y,tag:e?.tagName,cls:String(e?.className||'').slice(0,120),inside:!!e?.closest('.mobile-action-scroll'),text:(e?.textContent||'').trim().slice(0,60)}},{x,y});
+            const cdp=await context.newCDPSession(page);
+            await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x,y}]});
+            await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x,y:y-80}]});
+            await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x,y:y-170}]});
+            await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
+            await wait(450);
+            const afterTouch=await target.evaluate(e=>({scrollTop:e.scrollTop,scrollHeight:e.scrollHeight,clientHeight:e.clientHeight}));
+            await page.mouse.move(x,y);await page.mouse.wheel(0,260);await wait(250);
+            const afterWheel=await target.evaluate(e=>({scrollTop:e.scrollTop,scrollHeight:e.scrollHeight,clientHeight:e.clientHeight}));
+            const sidebar=await page.evaluate(()=>{
+              const out=[];const nodes=[...document.querySelectorAll('.m33-launchers button,.m34-system-tools button,.m33-theme-button')];
+              for(const e of nodes){const r=e.getBoundingClientRect();if(r.width<=0||r.left>70)continue;const chain=[];let p=e;
+                while(p&&chain.length<7){const s=getComputedStyle(p),rr=p.getBoundingClientRect();chain.push({tag:p.tagName,cls:String(p.className||'').slice(0,90),x:Math.round(rr.x),y:Math.round(rr.y),opacity:s.opacity,filter:s.filter,brightness:s.filter,visibility:s.visibility,color:s.color,background:s.backgroundColor,transform:s.transform,mixBlendMode:s.mixBlendMode,position:s.position});p=p.parentElement;}
+                const svg=e.querySelector('svg');const ss=svg?getComputedStyle(svg):null;
+                out.push({aria:e.getAttribute('aria-label'),title:e.title,text:(e.innerText||'').trim(),chain,svg:svg?{color:ss.color,stroke:ss.stroke,fill:ss.fill,opacity:ss.opacity,filter:ss.filter,html:svg.outerHTML.slice(0,140)}:null});
+              }return out;
             });
-            console.log('M36_RED_ACTION_PANE_DIAG='+JSON.stringify(diag));
-            console.log('M36_BROWSER_ERRORS='+JSON.stringify(errors));
-            if(!diag.scroller)throw new Error('Landscape action scroller missing after startup flow');
+            console.log('M36_ACTION_TOUCH_TEST='+JSON.stringify({viewport:{w:innerWidth,h:innerHeight},before,hit,afterTouch,afterWheel,sidebar,errors}));
             await browser.close();
           })().catch(e=>{console.error(e);process.exit(1)});
           NODE
