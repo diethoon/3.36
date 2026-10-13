@@ -160,6 +160,7 @@ jobs:
                 statusOverflow:el.querySelector('.m36-mobile-store-status')?getComputedStyle(el.querySelector('.m36-mobile-store-status')).overflowY:'missing',
                 statusHeight:el.querySelector('.m36-mobile-store-status')?el.querySelector('.m36-mobile-store-status').clientHeight:0,
                 statusScrollHeight:el.querySelector('.m36-mobile-store-status')?el.querySelector('.m36-mobile-store-status').scrollHeight:0,
+                panel:(()=>{const p=el.parentElement,s=getComputedStyle(p),r=p.getBoundingClientRect();return {x:Math.round(r.x),y:Math.round(r.y),w:Math.round(r.width),h:Math.round(r.height),display:s.display,gridTemplateColumns:s.gridTemplateColumns,gridTemplateRows:s.gridTemplateRows,position:s.position,overflow:s.overflow,children:[...p.children].map(n=>{const ns=getComputedStyle(n),nr=n.getBoundingClientRect();return {cls:String(n.className||n.tagName).slice(0,80),x:Math.round(nr.x),y:Math.round(nr.y),w:Math.round(nr.width),h:Math.round(nr.height),position:ns.position,zIndex:ns.zIndex,gridColumn:ns.gridColumn,gridRow:ns.gridRow,pointerEvents:ns.pointerEvents,overflowY:ns.overflowY}})}}})(),
                 directChildren:[...el.children].map(n=>String(n.className||n.tagName).slice(0,80)).slice(0,8)};
             });
             console.log('ACTUAL_TARGET_WRAPPER_BEFORE='+JSON.stringify(before));
