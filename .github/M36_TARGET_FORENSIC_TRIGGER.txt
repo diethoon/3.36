@@ -9,3 +9,4 @@ Rerun with parent/sibling geometry diagnostics; do not commit failed tests.
 Rerun grid hit-target diagnostics after syntax repair.
 Rerun with choice scroller explicitly confined to grid cell.
 Rerun with non-overlapping absolute split for info and choices so neither pane can intercept touch.
+Retry idempotent non-overlapping info/choices layout patch.
