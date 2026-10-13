@@ -1,3 +1,4 @@
 Temporary trigger to locate the real landscape column containing current location, Pipha state, guests, and narrative.
 Refresh trigger after PR was opened.
 Rerun with consolidated scroll-owner patch and clean diff.
+Retry after bringing browser boot path in line with validated startup choices.
