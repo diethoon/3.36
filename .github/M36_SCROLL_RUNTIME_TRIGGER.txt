@@ -1,1 +1,1 @@
-Temporary trigger for one-shot M36 landscape scroll browser verification only.
+Temporary trigger for one-shot M36 landscape scroll browser verification only; revised after bootstrapping the game first.
