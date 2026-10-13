@@ -99,6 +99,19 @@ jobs:
           else style = style.replace('</style>', statusOverflow + '\n</style>');
           html = html.slice(0, styleStart) + style + html.slice(styleEnd + '</style>'.length);
 
+          // Move this consolidated layout stylesheet after all legacy stylesheets so no older
+          // .mobile-action-panel / .flex-1 rule can place the choices pane over the info pane.
+          const finalStyleStart = html.indexOf(id);
+          if (finalStyleStart < 0) throw new Error('Consolidated style vanished before final ordering');
+          const finalStyleEnd = html.indexOf('</style>', finalStyleStart);
+          if (finalStyleEnd < 0) throw new Error('Consolidated style is unclosed at final ordering');
+          const consolidatedStyle = html.slice(finalStyleStart, finalStyleEnd + '</style>'.length);
+          html = html.slice(0, finalStyleStart) + html.slice(finalStyleEnd + '</style>'.length);
+          const bodyEndForStyle = html.toLowerCase().lastIndexOf('</body>');
+          if (bodyEndForStyle < 0) throw new Error('Cannot find body close for final stylesheet ordering');
+          html = html.slice(0, bodyEndForStyle) + consolidatedStyle + '\n' + html.slice(bodyEndForStyle);
+          console.log('PRIMARY_LAYOUT_STYLE_MOVED_TO_END=1');
+
           if (html.includes('id="m36-landscape-third-column-scroll-touch-fix-20261014"')) throw new Error('Duplicate touch-fix CSS remains');
           if (html.includes('id="m36-landscape-explicit-touch-scroll-fallback-20261014-css"')) throw new Error('Duplicate fallback CSS remains');
           if (!html.includes('id="m36-landscape-explicit-touch-scroll-fallback-20261014"')) throw new Error('Touch gesture fallback script was accidentally removed');
