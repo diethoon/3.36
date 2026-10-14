@@ -1,0 +1,134 @@
+name: M36 landscape forensic geometry (temporary)
+on:
+  push:
+    branches: [mobile-migration-v1]
+    paths:
+      - ".github/workflows/m36-landscape-forensic-once-20261015.yml"
+      - "Wayward_MOD_v3.36.html"
+permissions:
+  contents: write
+jobs:
+  geometry:
+    if: ${{ contains(github.event.head_commit.added, '.github/workflows/m36-landscape-forensic-once-20261015.yml') || contains(github.event.head_commit.modified, 'Wayward_MOD_v3.36.html') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 2
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install Playwright Chromium
+        run: |
+          python -m pip install --upgrade pip playwright
+          python -m playwright install --with-deps chromium
+      - name: Run exact-source browser geometry test
+        shell: bash
+        run: |
+          set -uo pipefail
+          cat > /tmp/m36_landscape_geometry.py <<'PY'
+          import json, os, re, subprocess, time
+          from pathlib import Path
+          from playwright.sync_api import sync_playwright
+
+          repo = Path(os.environ["GITHUB_WORKSPACE"])
+          html = repo / "Wayward_MOD_v3.36.html"
+          head = subprocess.check_output(["git","rev-parse","HEAD"],cwd=repo,text=True).strip()
+          parent = subprocess.check_output(["git","rev-parse","HEAD^"],cwd=repo,text=True).strip()
+          changed = subprocess.run(["git","diff","--quiet","HEAD^","HEAD","--","Wayward_MOD_v3.36.html"],cwd=repo).returncode != 0
+          source_sha = head if changed else parent
+          blob_sha = subprocess.check_output(["git","rev-parse",f"{source_sha}:Wayward_MOD_v3.36.html"],cwd=repo,text=True).strip()
+          out = {"target_source_commit":source_sha,"html_blob_sha":blob_sha,"html_bytes":html.stat().st_size,"workflow_trigger_commit":head,"browser":"Playwright Chromium","cases":[],"limitations":[]}
+          server = subprocess.Popen(["python","-m","http.server","8765","--bind","127.0.0.1","--directory",str(repo)],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
+          time.sleep(1)
+          try:
+            with sync_playwright() as p:
+              browser = p.chromium.launch(headless=True,args=["--no-sandbox"])
+              for width,height in [(1280,720),(915,412),(720,360)]:
+                context = browser.new_context(viewport={"width":width,"height":height},is_mobile=True,has_touch=True,device_scale_factor=1)
+                page = context.new_page()
+                page_errors=[]
+                page.on("pageerror",lambda exc: page_errors.append(str(exc)[:400]))
+                response = page.goto("http://127.0.0.1:8765/Wayward_MOD_v3.36.html",wait_until="domcontentloaded",timeout=120000)
+                page.wait_for_timeout(4500)
+                initial = page.evaluate("""() => ({title:document.title,visibleButtons:[...document.querySelectorAll('button')].filter(e=>e.getClientRects().length).slice(0,45).map(e=>(e.innerText||e.getAttribute('aria-label')||'').trim().replace(/\\s+/g,' ').slice(0,90)),selectors:Object.fromEntries(['.mobile-layout','.mobile-main-panel','.mobile-action-panel','.mobile-action-scroll','.m34-header.m33-header-space'].map(s=>[s,document.querySelectorAll(s).length]))})""")
+                if page.locator(".mobile-layout").count()==0:
+                  candidates=re.compile(r"(새 게임|게임 시작|새로 시작|시작하기|new game|start game)",re.I)
+                  for _ in range(3):
+                    loc=page.locator("button").filter(has_text=candidates)
+                    did=False
+                    for j in range(min(loc.count(),8)):
+                      b=loc.nth(j)
+                      try:
+                        if b.is_visible() and b.is_enabled():
+                          txt=(b.inner_text(timeout=1000) or "").strip()
+                          if txt and len(txt)<100:
+                            b.click(timeout=2500); page.wait_for_timeout(1600); did=True; break
+                      except Exception:
+                        pass
+                    if not did or page.locator(".mobile-layout").count()>0: break
+                def snapshot(label):
+                  return page.evaluate("""(label) => {
+                    const rect=e=>{if(!e)return null;const r=e.getBoundingClientRect();return {x:+r.x.toFixed(2),y:+r.y.toFixed(2),left:+r.left.toFixed(2),right:+r.right.toFixed(2),top:+r.top.toFixed(2),bottom:+r.bottom.toFixed(2),width:+r.width.toFixed(2),height:+r.height.toFixed(2)}};
+                    const info=e=>e?({tag:e.tagName,id:e.id||null,cls:typeof e.className==='string'?e.className.slice(0,150):'',rect:rect(e),position:getComputedStyle(e).position,display:getComputedStyle(e).display,gridColumn:getComputedStyle(e).gridColumn,overflowX:getComputedStyle(e).overflowX,overflowY:getComputedStyle(e).overflowY,offsetParent:e.offsetParent?((e.offsetParent.id||'')+'.'+(typeof e.offsetParent.className==='string'?e.offsetParent.className:'')).slice(0,130):null}):null;
+                    const layout=document.querySelector('.mobile-layout'),panel=document.querySelector('.mobile-action-panel'),choices=document.querySelector('.mobile-action-scroll');
+                    const lr=layout?.getBoundingClientRect(),tracks=layout?getComputedStyle(layout).gridTemplateColumns.trim().split(/\\s+/).map(parseFloat).filter(Number.isFinite):[];
+                    const col4=lr&&tracks.length>=4?{left:+(lr.left+tracks.slice(0,3).reduce((a,b)=>a+b,0)).toFixed(2),right:+(lr.left+tracks.reduce((a,b)=>a+b,0)).toFixed(2)}:null;
+                    const cr=choices?.getBoundingClientRect();
+                    return {label,viewport:{innerWidth,innerHeight,outerWidth,outerHeight,screenWidth:screen.width,screenHeight:screen.height,scrollWidth:document.documentElement.scrollWidth,bodyScrollWidth:document.body?.scrollWidth,fullscreen:!!document.fullscreenElement},selectors:{layout:document.querySelectorAll('.mobile-layout').length,main:document.querySelectorAll('.mobile-main-panel').length,actionPanel:document.querySelectorAll('.mobile-action-panel').length,choices:document.querySelectorAll('.mobile-action-scroll').length},layout:info(layout),gridTemplateColumns:layout?getComputedStyle(layout).gridTemplateColumns:null,gridTracksPx:tracks,column4:col4,gridChildren:layout?[...layout.children].slice(0,16).map(info):[],actionPanel:info(panel),choices:info(choices),choiceParent:choices?.parentElement?info(choices.parentElement):null,choicesIntersectionWithColumn4:cr&&col4?+Math.max(0,Math.min(cr.right,col4.right)-Math.max(cr.left,col4.left)).toFixed(2):null,rightOverflow:layout&&lr?+(lr.right-innerWidth).toFixed(2):null,documentHorizontalOverflow:document.documentElement.scrollWidth>innerWidth+2||(document.body?.scrollWidth||0)>innerWidth+2};
+                  }""",label)
+                first=snapshot("fullscreen-off")
+                first["http_status"]=response.status if response else None
+                first["initial_screen"]=initial
+                first["page_errors"]=page_errors[:10]
+                out["cases"].append(first)
+                try:
+                  page.evaluate("""() => {const b=document.createElement('button');b.id='__m36_forensic_fullscreen';b.textContent='fs';Object.assign(b.style,{position:'fixed',left:'50%',top:'50%',zIndex:'2147483647',width:'24px',height:'24px'});b.addEventListener('click',()=>document.documentElement.requestFullscreen());document.body.appendChild(b)}""")
+                  page.locator("#__m36_forensic_fullscreen").click(timeout=3000)
+                  page.wait_for_timeout(600)
+                  if page.evaluate("!!document.fullscreenElement"):
+                    page.evaluate("document.querySelector('#__m36_forensic_fullscreen')?.remove()")
+                    fs=snapshot("fullscreen-on")
+                    fs["http_status"]=response.status if response else None
+                    fs["page_errors"]=page_errors[:10]
+                    out["cases"].append(fs)
+                    page.evaluate("document.exitFullscreen()")
+                    page.wait_for_timeout(300)
+                  else: out["limitations"].append(f"{width}x{height}: fullscreen API did not enter fullscreen")
+                except Exception as e: out["limitations"].append(f"{width}x{height}: fullscreen API unavailable: {str(e)[:150]}")
+                context.close()
+              browser.close()
+          finally:
+            server.terminate()
+            try: server.wait(timeout=3)
+            except: server.kill()
+          active=[c for c in out["cases"] if c["selectors"]["layout"] and c["selectors"]["choices"]]
+          if not active:
+            out["verdict"]="INCONCLUSIVE_NO_ACTIVE_GAMEPLAY_CHOICES"
+          else:
+            fails=[]
+            for c in [x for x in active if x["label"]=="fullscreen-off"]:
+              if c["rightOverflow"] is not None and c["rightOverflow"]>2: fails.append(f"{c['viewport']['innerWidth']}px layout extends {c['rightOverflow']}px beyond viewport")
+              if c["choicesIntersectionWithColumn4"] is not None and c["choicesIntersectionWithColumn4"]<12: fails.append(f"{c['viewport']['innerWidth']}px choices overlap fourth track by only {c['choicesIntersectionWithColumn4']}px")
+            out["verdict"]="FAIL: "+"; ".join(fails) if fails else "NO_FAILURE_ON_MEASURED_VIEWPORTS"
+          report="# M36 Landscape Geometry Forensics\n\n- Date: 2026-10-15 UTC\n- Branch: mobile-migration-v1\n- Result: **"+out["verdict"]+"**\n\n~~~json\n"+json.dumps(out,ensure_ascii=False,indent=2)+"\n~~~\n"
+          (repo/"idea/M36_LANDSCAPE_FORENSIC_RESULT_20261015.md").write_text(report,encoding="utf-8")
+          print(report[:18000])
+          PY
+          python /tmp/m36_landscape_geometry.py
+      - name: Save compact forensic report to branch
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if [ -f idea/M36_LANDSCAPE_FORENSIC_RESULT_20261015.md ]; then
+            git add idea/M36_LANDSCAPE_FORENSIC_RESULT_20261015.md
+            if ! git diff --cached --quiet; then
+              git commit -m "test(forensics): record landscape browser geometry"
+              git push origin HEAD:mobile-migration-v1
+            fi
+          fi
