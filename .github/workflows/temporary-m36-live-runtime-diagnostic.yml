@@ -1,0 +1,131 @@
+name: M36 deployed page vs source root-cause check
+on:
+  push:
+    branches: [main]
+    paths: [".github/workflows/temporary-m36-live-runtime-diagnostic.yml"]
+permissions:
+  contents: write
+jobs:
+  verify-live:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - name: Checkout current mobile branch source
+        uses: actions/checkout@v4
+        with:
+          ref: mobile-migration-v1
+          fetch-depth: 1
+      - name: Compare exact Render-served bytes with current branch, without editing game source
+        shell: bash
+        run: |
+          set -euo pipefail
+          URL="https://static-3-36.onrender.com/Wayward_MOD_v3.36.html?m36-live-diagnostic=${GITHUB_SHA}"
+          curl --retry 3 --retry-delay 2 --fail --silent --show-error -D /tmp/m36-live-headers.txt "$URL" -o /tmp/m36-render-live.html
+          printf 'M36_LIVE_HEADERS\n'
+          tr -d '\r' </tmp/m36-live-headers.txt | grep -iE '^(HTTP/|content-type:|content-length:|cache-control:|etag:|last-modified:|age:|x-render:)'
+          sha256sum Wayward_MOD_v3.36.html /tmp/m36-render-live.html
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib
+          src=Path('Wayward_MOD_v3.36.html')
+          live=Path('/tmp/m36-render-live.html')
+          markers=[
+            b'm36-landscape-action-scroll-and-icon-contrast-20261014',
+            b'm36-landscape-action-pane-touch-fallback-20261014',
+            b'm36-landscape-info-scroll',
+            b'mobile-action-scroll',
+          ]
+          def scan(path, marker):
+            n=0; overlap=b''
+            with path.open('rb') as f:
+              while True:
+                chunk=f.read(256*1024)
+                if not chunk: break
+                buf=overlap+chunk
+                n+=buf.count(marker)
+                overlap=buf[-max(0,len(marker)-1):] if len(marker)>1 else b''
+            return n
+          result={
+            'source_bytes':src.stat().st_size,
+            'live_bytes':live.stat().st_size,
+            'source_sha256':hashlib.sha256(src.read_bytes()).hexdigest(),
+            'live_sha256':hashlib.sha256(live.read_bytes()).hexdigest(),
+            'markers':{m.decode():{'source':scan(src,m),'live':scan(live,m)} for m in markers},
+          }
+          print('M36_LIVE_BYTE_IDENTITY='+repr(result))
+          PY
+      - name: Inspect computed CSS and actual scroll behavior on the Render URL
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm init -y >/dev/null
+          npm install --no-audit --no-fund playwright >/dev/null
+          npx playwright install --with-deps chromium >/dev/null
+          node <<'NODE'
+          const {chromium}=require('playwright'),wait=ms=>new Promise(r=>setTimeout(r,ms));
+          (async()=>{
+            const browser=await chromium.launch({headless:true});
+            const context=await browser.newContext({viewport:{width:820,height:360},deviceScaleFactor:1});
+            const page=await context.newPage(),errors=[];
+            page.on('pageerror',e=>errors.push(String(e)));
+            const url='https://static-3-36.onrender.com/Wayward_MOD_v3.36.html?m36-live-browser='+Date.now();
+            const response=await page.goto(url,{waitUntil:'domcontentloaded',timeout:120000});
+            if(response?.status()!==200)throw new Error('Render direct HTML returned '+response?.status());
+            const headers=await response.allHeaders();
+            await page.waitForFunction(()=>document.body&&document.body.innerText.trim().length>10,null,{timeout:60000}).catch(()=>{});
+            for(let i=0;i<45;i++){
+              const body=await page.locator('body').innerText().catch(()=> '');
+              if(body.includes('물자 채우기')&&body.includes('대출'))break;
+              const next=page.getByRole('button',{name:/^예$|이해하고 동의합니다|다음|계속|시작|확인|완료|진행|게임 시작|새 게임/});
+              let clicked=false;
+              for(let j=0;j<await next.count();j++){try{const b=next.nth(j);if(await b.isVisible()&&await b.isEnabled()){await b.evaluate(e=>e.click());await wait(180);clicked=true;break;}}catch{}}
+              const text=await page.locator('body').innerText().catch(()=> '');
+              if(!clicked&&text.includes('그녀는 당신에게 어떤 존재인가요')){
+                const w=page.getByRole('button',{name:/^아내$/});
+                if(await w.count()&&await w.first().isVisible()&&await w.first().isEnabled()){await w.first().evaluate(e=>e.click());await wait(220);clicked=true;}
+                const woman=page.getByRole('button',{name:/^(엘레나|마라|피파)/});
+                if(await woman.count()&&await woman.first().isVisible()&&await woman.first().isEnabled()){await woman.first().evaluate(e=>e.click());await wait(250);clicked=true;}
+              }
+              if(!clicked){const woman=page.getByRole('button',{name:/^(엘레나|마라|피파)/});if(await woman.count()&&await woman.first().isVisible()&&await woman.first().isEnabled()){await woman.first().evaluate(e=>e.click());await wait(250);clicked=true;}}
+              if(!clicked)await wait(250);
+            }
+            await wait(400);
+            const report=await page.evaluate(()=>{
+              const sum=e=>{if(!e)return null;const r=e.getBoundingClientRect(),s=getComputedStyle(e);return {cls:String(e.className||e.tagName).slice(0,100),text:(e.innerText||'').trim().slice(0,60),rect:{x:Math.round(r.x),y:Math.round(r.y),w:Math.round(r.width),h:Math.round(r.height)},display:s.display,position:s.position,overflowY:s.overflowY,touchAction:s.touchAction,pointerEvents:s.pointerEvents,zIndex:s.zIndex,color:s.color,background:s.backgroundColor,border:s.border,opacity:s.opacity,clientHeight:e.clientHeight,scrollHeight:e.scrollHeight,scrollTop:e.scrollTop};};
+              const sc=document.querySelector('.mobile-action-panel .mobile-action-scroll');
+              const info=document.querySelector('.m36-landscape-info-scroll');
+              const launch=document.querySelector('.m33-launchers button');
+              const sys=document.querySelector('.m34-system-tools .m34-header-control');
+              const media=matchMedia('(orientation:landscape)').matches;
+              const actualButtons=[...document.querySelectorAll('.m33-launchers button,.m34-system-tools button,.m33-theme-button')].filter(e=>{const r=e.getBoundingClientRect();return r.width>0&&r.left<60});
+              const icons=actualButtons.map(e=>{const s=getComputedStyle(e),svg=e.querySelector('svg'),ss=svg?getComputedStyle(svg):null,r=e.getBoundingClientRect();return {aria:e.getAttribute('aria-label'),title:e.title,text:(e.innerText||'').trim(),rect:{x:Math.round(r.x),y:Math.round(r.y),w:Math.round(r.width),h:Math.round(r.height)},color:s.color,background:s.backgroundColor,border:s.border,opacity:s.opacity,filter:s.filter,svg:svg?{stroke:ss.stroke,color:ss.color,opacity:ss.opacity}:null};});
+              const rules=(selector)=>[...document.querySelectorAll('style')].map((el,i)=>({index:i,id:el.id,contains:el.textContent.includes(selector),excerpt:el.textContent.includes(selector)?el.textContent.slice(Math.max(0,el.textContent.indexOf(selector)-80),el.textContent.indexOf(selector)+360):''})).filter(x=>x.contains);
+              return {viewport:{w:innerWidth,h:innerHeight,landscape:media},markers:{style:!!document.getElementById('m36-landscape-action-scroll-and-icon-contrast-20261014'),script:!!document.getElementById('m36-landscape-action-pane-touch-fallback-20261014')},panel:sum(document.querySelector('.mobile-action-panel')),info:sum(info),scroller:sum(sc),launcher:sum(launch),system:sum(sys),icons,stylesheetMatches:rules('.mobile-action-scroll')};
+            });
+            let touch=null;
+            try{touch=await page.evaluate(()=>{
+              const sc=document.querySelector('.mobile-action-panel .mobile-action-scroll');if(!sc)return {error:'scroller missing'};
+              const inner=sc.querySelector('p,button,div')||sc, r=sc.getBoundingClientRect(),x=r.left+Math.min(r.width/2,25),y=r.top+Math.min(r.height-10,r.height*.75),before=sc.scrollTop;
+              const make=(type,clientY)=>{const ending=type==='touchend';const t=new Touch({identifier:91,target:inner,clientX:x,clientY,screenX:x,screenY:clientY,pageX:x+scrollX,pageY:clientY+scrollY});const ev=new TouchEvent(type,{bubbles:true,cancelable:type==='touchmove',touches:ending?[]:[t],targetTouches:ending?[]:[t],changedTouches:[t]});inner.dispatchEvent(ev);return {type,prevented:ev.defaultPrevented};};
+              const events=[make('touchstart',y),make('touchmove',y-70),make('touchmove',y-160),make('touchend',y-160)];
+              return {before,after:sc.scrollTop,max:sc.scrollHeight-sc.clientHeight,owner:sc.getAttribute('data-m36-touch-scroll-owned'),events};
+            });}catch(e){touch={error:String(e)};}
+            console.log('M36_RENDER_LIVE_DIAG='+JSON.stringify({url:page.url(),status:response.status(),headers:{cacheControl:headers['cache-control'],age:headers.age,etag:headers.etag,lastModified:headers['last-modified'],contentType:headers['content-type']},report,touch,errors}));
+            if(errors.length)throw new Error('JS page errors: '+errors.join(' | '));
+            await browser.close();
+          })().catch(e=>{console.error(e);process.exit(1)});
+          NODE
+      - name: Remove the temporary diagnostic workflow from main
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git fetch origin main
+          git switch --detach origin/main
+          if [ -f .github/workflows/temporary-m36-live-runtime-diagnostic.yml ]; then
+            git rm .github/workflows/temporary-m36-live-runtime-diagnostic.yml
+            git commit -m "chore: remove temporary live runtime diagnostics"
+            git push origin HEAD:main
+          fi
