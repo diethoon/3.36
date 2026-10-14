@@ -1,0 +1,146 @@
+name: Temporary M36 landscape forensic runner
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/temporary-m36-landscape-forensic-20261015.yml"
+permissions:
+  contents: write
+jobs:
+  probe:
+    if: ${{ !contains(github.event.head_commit.message, 'remove temporary landscape forensic workflow') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - name: Checkout exact mobile branch under test
+        uses: actions/checkout@v4
+        with:
+          ref: mobile-migration-v1
+          fetch-depth: 2
+      - name: Install Chromium and Playwright
+        id: install
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm init -y >/dev/null
+          npm install --no-audit --no-fund playwright
+          npx playwright install --with-deps chromium
+      - name: Run real-game layout geometry at landscape viewports and fullscreen
+        id: browser-test
+        shell: bash
+        run: |
+          set -uo pipefail
+          python3 -m http.server 4173 --bind 127.0.0.1 >/tmp/m36-landscape-http.log 2>&1 &
+          SERVER_PID=$!
+          trap 'kill "$SERVER_PID" 2>/dev/null || true' EXIT
+          node <<'NODE' 2>&1 | tee /tmp/m36-landscape-test.log
+          const {chromium}=require('playwright');
+          const fs=require('fs');
+          const cp=require('child_process');
+          const wait=ms=>new Promise(r=>setTimeout(r,ms));
+          const sourceSha=cp.execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim();
+          const htmlBlob=cp.execFileSync('git',['rev-parse','HEAD:Wayward_MOD_v3.36.html'],{encoding:'utf8'}).trim();
+          const report={target_source_commit:sourceSha,html_blob_sha:htmlBlob,browser:'Playwright Chromium',cases:[],notes:[],verdict:'UNSET'};
+          function writeReport(){fs.mkdirSync('idea',{recursive:true});fs.writeFileSync('idea/M36_LANDSCAPE_FORENSIC_RESULT_20261015.md','# M36 Landscape Geometry Forensics\n\n- Target branch: mobile-migration-v1\n- Target source SHA: '+sourceSha+'\n- Verdict: **'+report.verdict+'**\n\n~~~json\n'+JSON.stringify(report,null,2)+'\n~~~\n');}
+          function summarizeErrors(errors){return errors.slice(0,10).map(String).map(s=>s.slice(0,350));}
+          async function prepareGameplay(page){
+            const bodyText=()=>page.locator('body').innerText().catch(()=> '');
+            for(let i=0;i<45;i++){
+              const text=await bodyText();
+              if(text.includes('물자 채우기')&&text.includes('대출')) return {started:true,steps:i,bodyEnd:text.slice(-180)};
+              const next=page.getByRole('button',{name:/^예$|이해하고 동의합니다|다음|계속|시작|확인|완료|진행|게임 시작|새 게임|new game|start game/i});
+              let clicked=false;
+              for(let j=0;j<Math.min(await next.count(),10);j++){
+                try{const b=next.nth(j);if(await b.isVisible()&&await b.isEnabled()){await b.evaluate(e=>e.click());await wait(220);clicked=true;break;}}catch{}
+              }
+              const body=await bodyText();
+              if(body.includes('그녀는 당신에게 어떤 존재인가요')){
+                const wife=page.getByRole('button',{name:/^아내$/});
+                try{if(await wife.count()&&await wife.first().isVisible()&&await wife.first().isEnabled()){await wife.first().evaluate(e=>e.click());await wait(260);clicked=true;}}catch{}
+                const woman=page.getByRole('button',{name:/^(엘레나|마라|피파)/});
+                try{if(await woman.count()&&await woman.first().isVisible()&&await woman.first().isEnabled()){await woman.first().evaluate(e=>e.click());await wait(300);clicked=true;}}catch{}
+              }
+              if(!clicked){const woman=page.getByRole('button',{name:/^(엘레나|마라|피파)/});try{if(await woman.count()&&await woman.first().isVisible()&&await woman.first().isEnabled()){await woman.first().evaluate(e=>e.click());await wait(250);clicked=true;}}catch{}}
+              if(!clicked) await wait(300);
+            }
+            const text=await bodyText();
+            return {started:text.includes('물자 채우기')&&text.includes('대출'),steps:45,bodyEnd:text.slice(-300)};
+          }
+          async function snapshot(page,label,status,errors,setup){
+            const data=await page.evaluate((label)=> {
+              const rect=e=>{if(!e)return null;const r=e.getBoundingClientRect();return {x:+r.x.toFixed(2),y:+r.y.toFixed(2),left:+r.left.toFixed(2),right:+r.right.toFixed(2),top:+r.top.toFixed(2),bottom:+r.bottom.toFixed(2),width:+r.width.toFixed(2),height:+r.height.toFixed(2)}};
+              const info=e=>e?{tag:e.tagName,id:e.id||null,cls:(typeof e.className==='string'?e.className:'').slice(0,160),rect:rect(e),position:getComputedStyle(e).position,display:getComputedStyle(e).display,gridColumn:getComputedStyle(e).gridColumn,overflowX:getComputedStyle(e).overflowX,overflowY:getComputedStyle(e).overflowY,offsetParent:e.offsetParent?((e.offsetParent.id||'')+'.'+(typeof e.offsetParent.className==='string'?e.offsetParent.className:'')).slice(0,130):null}:null;
+              const layout=document.querySelector('.mobile-layout'),panel=document.querySelector('.mobile-action-panel'),choices=document.querySelector('.mobile-action-scroll'),inf=document.querySelector('.m36-landscape-info-scroll');
+              const lr=layout?.getBoundingClientRect(),tracks=layout?getComputedStyle(layout).gridTemplateColumns.trim().split(/\\s+/).map(v=>parseFloat(v)).filter(Number.isFinite):[];
+              const c4=lr&&tracks.length>=4?{left:+(lr.left+tracks.slice(0,3).reduce((a,b)=>a+b,0)).toFixed(2),right:+(lr.left+tracks.reduce((a,b)=>a+b,0)).toFixed(2),width:+tracks[3].toFixed(2)}:null;
+              const cr=choices?.getBoundingClientRect(),ir=inf?.getBoundingClientRect();
+              return {label,viewport:{innerWidth,innerHeight,screenWidth:screen.width,screenHeight:screen.height,scrollWidth:document.documentElement.scrollWidth,bodyScrollWidth:document.body?.scrollWidth,fullscreen:!!document.fullscreenElement},selectors:{layout:document.querySelectorAll('.mobile-layout').length,main:document.querySelectorAll('.mobile-main-panel').length,panel:document.querySelectorAll('.mobile-action-panel').length,info:document.querySelectorAll('.m36-landscape-info-scroll').length,choices:document.querySelectorAll('.mobile-action-scroll').length},layout:info(layout),gridTemplateColumns:layout?getComputedStyle(layout).gridTemplateColumns:null,gridTracksPx:tracks,column4:c4,gridChildren:layout?[...layout.children].slice(0,12).map(info):[],actionPanel:info(panel),infoPane:info(inf),choices:info(choices),choiceParent:choices?.parentElement?info(choices.parentElement):null,choiceIntersectionWithColumn4:cr&&c4?+Math.max(0,Math.min(cr.right,c4.right)-Math.max(cr.left,c4.left)).toFixed(2):null,infoChoiceGap:ir&&cr?+(cr.left-ir.right).toFixed(2):null,infoChoiceOverlapPx:ir&&cr?+Math.max(0,ir.right-cr.left).toFixed(2):null,rightOverflow:layout&&lr?+(lr.right-innerWidth).toFixed(2):null,documentHorizontalOverflow:document.documentElement.scrollWidth>innerWidth+2||(document.body?.scrollWidth||0)>innerWidth+2};
+            },label);
+            data.http_status=status;data.gameSetup=setup;data.pageErrors=summarizeErrors(errors);return data;
+          }
+          (async()=>{
+            const browser=await chromium.launch({headless:true,args:['--no-sandbox']});
+            try{
+              for(const [width,height] of [[1280,720],[915,412],[720,360]]){
+                const context=await browser.newContext({viewport:{width,height},deviceScaleFactor:1,isMobile:true,hasTouch:true});
+                const page=await context.newPage(),errors=[];
+                page.on('pageerror',e=>errors.push(String(e)));
+                let status=null,setup={started:false};
+                try{
+                  const response=await page.goto('http://127.0.0.1:4173/Wayward_MOD_v3.36.html?m36-landscape-forensic=20261015',{waitUntil:'domcontentloaded',timeout:120000});
+                  status=response?.status()??null;
+                  await page.waitForFunction(()=>document.body&&document.body.innerText.trim().length>10,null,{timeout:60000}).catch(()=>{});
+                  setup=await prepareGameplay(page);
+                  await wait(500);
+                  const off=await snapshot(page,'fullscreen-off',status,errors,setup);report.cases.push(off);
+                  try{
+                    await page.evaluate(()=>{const b=document.createElement('button');b.id='__m36_forensic_fullscreen';b.textContent='fs';Object.assign(b.style,{position:'fixed',left:'50%',top:'50%',zIndex:'2147483647',width:'24px',height:'24px'});b.addEventListener('click',()=>document.documentElement.requestFullscreen());document.body.appendChild(b)});
+                    await page.locator('#__m36_forensic_fullscreen').click({timeout:3000});
+                    await wait(500);
+                    if(await page.evaluate('!!document.fullscreenElement')){
+                      await page.evaluate("document.querySelector('#__m36_forensic_fullscreen')?.remove()");
+                      report.cases.push(await snapshot(page,'fullscreen-on',status,errors,setup));
+                      await page.evaluate('document.exitFullscreen()');await wait(250);
+                    }else{report.notes.push(width+'x'+height+': Chromium did not enter fullscreen API; viewport layout still measured');await page.evaluate("document.querySelector('#__m36_forensic_fullscreen')?.remove()")}
+                  }catch(e){report.notes.push(width+'x'+height+': fullscreen API unavailable: '+String(e).slice(0,180));}
+                }catch(e){report.notes.push(width+'x'+height+': page/run error: '+String(e).slice(0,350));}
+                await context.close();
+              }
+            }finally{await browser.close()}
+            const active=report.cases.filter(c=>c.selectors.layout>0&&c.selectors.choices>0);
+            if(!active.length)report.verdict='INCONCLUSIVE: gameplay layout or choice scroller not present in browser run';
+            else{
+              const failures=[];
+              for(const c of active){
+                if(c.rightOverflow!==null&&c.rightOverflow>2)failures.push(c.label+' '+c.viewport.innerWidth+'px: layout extends '+c.rightOverflow+'px right of viewport');
+                if(c.choiceIntersectionWithColumn4!==null&&c.choiceIntersectionWithColumn4<12)failures.push(c.label+' '+c.viewport.innerWidth+'px: choices intersect column 4 by only '+c.choiceIntersectionWithColumn4+'px');
+                if(c.documentHorizontalOverflow)failures.push(c.label+' '+c.viewport.innerWidth+'px: document has horizontal overflow');
+              }
+              report.verdict=failures.length?'FAIL: '+failures.join('; '):'No measured right overflow or fourth-column placement failure';
+            }
+            writeReport();
+            console.log('M36_FORENSIC_RESULT='+JSON.stringify(report));
+          })().catch(e=>{
+            report.verdict='HARNESS ERROR: '+String(e).slice(0,500);
+            try{writeReport()}catch{}
+            console.error(e);process.exitCode=1;
+          });
+          NODE
+      - name: Commit geometry report back to the tested mobile branch
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p idea
+          if [ ! -f idea/M36_LANDSCAPE_FORENSIC_RESULT_20261015.md ]; then
+            { echo '# M36 Landscape Geometry Forensics — setup failed'; echo; echo "Workflow SHA: ${GITHUB_SHA}"; echo "Install outcome: ${{ steps.install.outcome }}"; echo "Browser test outcome: ${{ steps.browser-test.outcome }}"; echo; echo 'No runtime conclusion is claimed.'; } > idea/M36_LANDSCAPE_FORENSIC_RESULT_20261015.md
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add idea/M36_LANDSCAPE_FORENSIC_RESULT_20261015.md
+          if ! git diff --cached --quiet; then
+            git commit -m "test(forensics): record current landscape browser geometry"
+            git fetch origin mobile-migration-v1
+            git rebase origin/mobile-migration-v1
+            git push origin HEAD:mobile-migration-v1
+          fi
