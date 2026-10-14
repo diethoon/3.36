@@ -20,11 +20,13 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - name: Install Playwright Chromium
+      - id: install
+        name: Install Playwright Chromium
         run: |
           python -m pip install --upgrade pip playwright
           python -m playwright install --with-deps chromium
-      - name: Run exact-source browser geometry test
+      - id: browser-test
+        name: Run exact-source browser geometry test
         shell: bash
         run: |
           set -uo pipefail
@@ -127,15 +129,22 @@ jobs:
           exit 0
       - name: Save compact forensic report to branch
         if: always()
+        env:
+          INSTALL_OUTCOME: ${{ steps.install.outcome }}
+          TEST_OUTCOME: ${{ steps.browser-test.outcome }}
         shell: bash
         run: |
           set -euo pipefail
+          mkdir -p idea
+          if [ ! -f idea/M36_LANDSCAPE_FORENSIC_RESULT_20261015.md ]; then
+            { echo '# M36 Landscape Geometry Forensics — harness failure'; echo; echo "Workflow commit: ${GITHUB_SHA}"; echo "Playwright install outcome: ${INSTALL_OUTCOME}"; echo "Browser test outcome: ${TEST_OUTCOME}"; echo; echo 'The geometry script did not produce a report; no runtime conclusions are claimed.'; } > idea/M36_LANDSCAPE_FORENSIC_RESULT_20261015.md
+          fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          if [ -f idea/M36_LANDSCAPE_FORENSIC_RESULT_20261015.md ]; then
-            git add idea/M36_LANDSCAPE_FORENSIC_RESULT_20261015.md
-            if ! git diff --cached --quiet; then
-              git commit -m "test(forensics): record landscape browser geometry"
-              git push origin HEAD:mobile-migration-v1
-            fi
+          git add idea/M36_LANDSCAPE_FORENSIC_RESULT_20261015.md
+          if ! git diff --cached --quiet; then
+            git commit -m "test(forensics): record landscape browser geometry"
+            git fetch origin mobile-migration-v1
+            git rebase origin/mobile-migration-v1
+            git push origin HEAD:mobile-migration-v1
           fi
