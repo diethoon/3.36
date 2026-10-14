@@ -9,7 +9,7 @@ permissions:
   contents: write
 jobs:
   geometry:
-    if: ${{ contains(github.event.head_commit.added, '.github/workflows/m36-landscape-forensic-once-20261015.yml') || contains(github.event.head_commit.modified, 'Wayward_MOD_v3.36.html') }}
+    if: ${{ !contains(github.event.head_commit.message, 'remove temporary forensic workflow') }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -117,7 +117,14 @@ jobs:
           (repo/"idea/M36_LANDSCAPE_FORENSIC_RESULT_20261015.md").write_text(report,encoding="utf-8")
           print(report[:18000])
           PY
-          python /tmp/m36_landscape_geometry.py
+          set +e
+          python /tmp/m36_landscape_geometry.py 2>&1 | tee /tmp/m36_landscape_geometry.log
+          TEST_RC=${PIPESTATUS[0]}
+          echo "M36_TEST_EXITCODE=${TEST_RC}"
+          if [ ! -f idea/M36_LANDSCAPE_FORENSIC_RESULT_20261015.md ]; then
+            { echo '# M36 Landscape Geometry Forensics — harness failure'; echo; echo "Workflow commit: ${GITHUB_SHA}"; echo "Test exit code: ${TEST_RC}"; echo; tail -n 100 /tmp/m36_landscape_geometry.log; } > idea/M36_LANDSCAPE_FORENSIC_RESULT_20261015.md
+          fi
+          exit 0
       - name: Save compact forensic report to branch
         if: always()
         shell: bash
