@@ -1,0 +1,456 @@
+name: Temporary M36 landscape clean-grid patch runner v4
+on:
+  push:
+    branches: [mobile-migration-v1]
+    paths:
+      - ".github/workflows/m36-landscape-clean-four-columns-v4-20261015.yml"
+permissions:
+  contents: write
+jobs:
+  probe:
+    if: ${{ !contains(github.event.head_commit.message, 'remove temporary landscape clean four column workflow') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout exact mobile branch under test
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref_name }}
+          fetch-depth: 2
+      - name: Install Chromium and Playwright
+        id: install
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm init -y >/dev/null
+          npm install --no-audit --no-fund playwright
+          npx playwright install --with-deps chromium
+      - name: Remove conflicting CSS and test the patched source in Chromium
+        id: browser-test
+        shell: bash
+        run: |
+          set +e
+          node <<'NODE' 2>&1 | tee /tmp/m36-landscape-patch-test.log
+          const fs = require('fs');
+          const cp = require('child_process');
+          const { spawn } = require('child_process');
+          const { chromium } = require('playwright');
+          const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
+          const file = 'Wayward_MOD_v3.36.html';
+          const reportPath = 'idea/M36_LANDSCAPE_CLEAN_PATCH_RESULT_20261015.md';
+          const sourceHead = cp.execFileSync('git', ['rev-parse','HEAD'], {encoding:'utf8'}).trim();
+          const sourceBlobBefore = cp.execFileSync('git', ['rev-parse','HEAD:'+file], {encoding:'utf8'}).trim();
+          const oldReport = fs.existsSync(reportPath) ? fs.readFileSync(reportPath,'utf8') : '';
+          let baseline = { note:'Previous static report was not available.' };
+          try {
+            const m = oldReport.match(/~~~json\n([\s\S]*?)\n~~~/);
+            if (m) {
+              const v = JSON.parse(m[1]);
+              baseline = {
+                sourceCommit:v.target_source_commit || null,
+                htmlBlobSha:v.html_blob_sha || null,
+                verdict:v.verdict || null,
+                cases:(v.cases || []).map(c => ({
+                  label:c.label, viewport:c.viewport, layout:c.layout && c.layout.rect,
+                  actionPanel:c.actionPanel && c.actionPanel.rect, choices:c.choices && c.choices.rect,
+                  rightOverflow:c.rightOverflow
+                }))
+              };
+            }
+          } catch(e) { baseline = { note:'Could not parse old report: '+String(e).slice(0,180) }; }
+          const report = {
+            targetBranch:'mobile-migration-v1',
+            sourceHeadBeforePatch:sourceHead,
+            htmlBlobBeforePatch:sourceBlobBefore,
+            htmlBytesBeforePatch:fs.statSync(file).size,
+            baselineEvidence:baseline,
+            patch:{status:'NOT_STARTED',removedDuplicateRules:{},removedTailOverride:false},
+            browser:'Playwright Chromium',
+            cases:[],
+            failures:[],
+            verdict:'UNSET'
+          };
+          function writeReport() {
+            fs.mkdirSync('idea',{recursive:true});
+            const md = '# M36 Landscape Geometry Forensics and Clean CSS Patch\n\n'
+              + '- Target branch: mobile-migration-v1\n'
+              + '- Original HTML blob: '+sourceBlobBefore+'\n'
+              + '- Verdict: **'+report.verdict+'**\n\n~~~json\n'
+              + JSON.stringify(report,null,2)+'\n~~~\n';
+            fs.writeFileSync(reportPath,md,'utf8');
+          }
+          function findToken(token, from=0, to=fs.statSync(file).size) {
+            const fd = fs.openSync(file,'r');
+            const chunkSize = 256 * 1024, needle = Buffer.from(token);
+            let pos = from, carry = Buffer.alloc(0);
+            try {
+              while (pos < to) {
+                const length = Math.min(chunkSize,to-pos);
+                const buf = Buffer.allocUnsafe(length);
+                const n = fs.readSync(fd,buf,0,length,pos);
+                if (!n) break;
+                const part = n===length ? buf : buf.subarray(0,n);
+                const joined = carry.length ? Buffer.concat([carry,part]) : part;
+                const ix = joined.indexOf(needle);
+                if (ix >= 0) {
+                  const absolute = pos - carry.length + ix;
+                  if (absolute >= from && absolute + needle.length <= to) return absolute;
+                }
+                carry = joined.subarray(Math.max(0,joined.length-needle.length+1));
+                pos += n;
+              }
+              return -1;
+            } finally { fs.closeSync(fd); }
+          }
+          function readRange(start,end) {
+            if (end < start || end-start > 2*1024*1024) throw new Error('Unsafe style range: '+start+'..'+end);
+            const fd=fs.openSync(file,'r'), out=Buffer.alloc(end-start);
+            let got=0;
+            try {
+              while(got<out.length) {
+                const n=fs.readSync(fd,out,got,out.length-got,start+got);
+                if(!n) throw new Error('Unexpected EOF for bounded CSS range');
+                got+=n;
+              }
+            } finally {fs.closeSync(fd);}
+            return out.toString('utf8');
+          }
+          function locateStyle(id) {
+            const marker='<style id="'+id+'">';
+            const start=findToken(marker);
+            if(start<0) throw new Error('Required CSS style missing: '+id);
+            const close=findToken('</style>',start+marker.length);
+            if(close<0) throw new Error('Unclosed CSS style: '+id);
+            return {start,end:close+8,text:readRange(start,close+8),marker};
+          }
+          function cssInner(block) {
+            const gt=block.text.indexOf('>');
+            if(gt<0 || !block.text.endsWith('</style>')) throw new Error('Invalid style block '+block.marker);
+            return {prefix:block.text.slice(0,gt+1),css:block.text.slice(gt+1,-8)};
+          }
+          function normalizeSelector(s) {
+            return s.replace(/\/\*[\s\S]*?\*\//g,'').trim().replace(/\s+/g,' ').replace(/\s*>\s*/g,'>').replace(/\s*:\s*/g,':');
+          }
+          function parseRules(css) {
+            const stack=[], rules=[];
+            let lastBoundary=0, quote='', comment=false;
+            for(let i=0;i<css.length;i++) {
+              const ch=css[i], nx=css[i+1];
+              if(comment) { if(ch==='*'&&nx==='/'){comment=false;i++;} continue; }
+              if(quote) { if(ch==='\\'){i++;continue;} if(ch===quote) quote=''; continue; }
+              if(ch==='/'&&nx==='*'){comment=true;i++;continue;}
+              if(ch==='"'||ch==="'"){quote=ch;continue;}
+              if(ch==='{') {
+                const raw=css.slice(lastBoundary,i);
+                const selector=normalizeSelector(raw);
+                const rule={selector,open:i,start:lastBoundary,parents:stack.map(x=>x.selector)};
+                stack.push(rule);
+                lastBoundary=i+1;
+              } else if(ch==='}') {
+                const rule=stack.pop();
+                if(!rule) throw new Error('Unbalanced closing CSS brace');
+                rule.close=i;
+                rule.body=css.slice(rule.open+1,i);
+                rules.push(rule);
+                lastBoundary=i+1;
+              }
+            }
+            if(stack.length || comment || quote) throw new Error('Unbalanced CSS stylesheet');
+            return rules;
+          }
+          function setGridColumn(css) {
+            const rules=parseRules(css).filter(r=>r.selector==='.mobile-action-panel' && /grid-column\s*:\s*3\s*!important\s*;/i.test(r.body));
+            if(rules.length!==1) throw new Error('Expected exactly one grid-column 3 declaration on the landscape panel; found '+rules.length);
+            const r=rules[0], body=r.body.replace(/grid-column\s*:\s*3\s*!important\s*;/i,'grid-column:3 / 5 !important;');
+            return css.slice(0,r.open+1)+body+css.slice(r.close);
+          }
+          function removeOldBreakpointRules(css) {
+            const rules=parseRules(css);
+            const targets={
+              '.mobile-action-panel':0,
+              '.mobile-action-panel>.m36-landscape-info-scroll':0,
+              '.mobile-action-panel>.flex-1.min-h-0.flex.flex-col':0,
+              '.mobile-action-panel .mobile-action-scroll':0
+            };
+            const selected=rules.filter(r=>{
+              const underBreakpoint=r.parents.some(p=>/^@media\s*\(orientation\s*:\s*landscape\)\s*and\s*\(min-width\s*:\s*1024px\)/i.test(normalizeSelector(p)));
+              if(!underBreakpoint) return false;
+              return Object.prototype.hasOwnProperty.call(targets,r.selector);
+            });
+            for(const r of selected) targets[r.selector]++;
+            for(const [s,n] of Object.entries(targets)) if(n!==1) throw new Error('Expected one obsolete breakpoint rule for '+s+'; found '+n);
+            let out=css;
+            for(const r of selected.sort((a,b)=>b.start-a.start)) out=out.slice(0,r.start)+out.slice(r.close+1);
+            report.patch.removedDuplicateRules=targets;
+            return out;
+          }
+          function replacePrimaryLayout(css) {
+            const rules=parseRules(css);
+            const legacy=rules.filter(r=>{
+              const s=r.selector, body=r.body.replace(/\s+/g,'');
+              if(s==='.mobile-action-panel' && /position:relative!important/.test(body) && /height:100%!important/.test(body)) return true;
+              if(s.endsWith('.m36-landscape-info-scroll') && (/width:48%!important|max-width:48%!important/.test(body) || /right:auto!important/.test(body))) return true;
+              if(s.includes('.flex-1.min-h-0.flex.flex-col') && (/left:48%!important|width:50%!important/.test(body))) return true;
+              if(s.includes('.mobile-action-scroll') && /position:absolute!important/.test(body) && (/inset:0!important|width:100%!important|height:100%!important/.test(body))) return true;
+              return false;
+            });
+            const removed={panel:0,info:0,wrapper:0,choices:0};
+            for(const r of legacy) {
+              if(r.selector==='.mobile-action-panel') removed.panel++;
+              else if(r.selector.endsWith('.m36-landscape-info-scroll')) removed.info++;
+              else if(r.selector.includes('.flex-1.min-h-0.flex.flex-col')) removed.wrapper++;
+              else if(r.selector.includes('.mobile-action-scroll')) removed.choices++;
+            }
+            let out=css;
+            for(const r of legacy.sort((a,b)=>b.start-a.start)) out=out.slice(0,r.start)+out.slice(r.close+1);
+            report.patch.additionalLegacyGeometryRulesRemoved=removed;
+            const canonical=[
+              '@media (orientation:landscape) {',
+              '  .mobile-action-panel {',
+              '    display:block!important;position:relative!important;box-sizing:border-box!important;',
+              '    grid-column:3 / 5!important;width:100%!important;height:100%!important;',
+              '    min-width:0!important;min-height:0!important;max-width:none!important;max-height:none!important;',
+              '    margin:0!important;padding:0!important;border:0!important;overflow:hidden!important;',
+              '  }',
+              '  .mobile-action-panel>.m36-landscape-info-scroll {',
+              '    position:absolute!important;left:0!important;right:var(--m36-landscape-choice-w)!important;top:0!important;bottom:0!important;',
+              '    z-index:2!important;box-sizing:border-box!important;width:auto!important;max-width:none!important;',
+              '    display:flex!important;flex-direction:column!important;flex:none!important;',
+              '    height:auto!important;min-width:0!important;min-height:0!important;max-height:none!important;',
+              '    margin:0!important;padding:5px 7px!important;border-right:1px solid rgba(120,113,108,.45)!important;',
+              '    overflow-x:hidden!important;overflow-y:auto!important;-webkit-overflow-scrolling:touch!important;',
+              '    overscroll-behavior-y:contain!important;touch-action:pan-y!important;scrollbar-width:thin!important;',
+              '  }',
+              '  html body .mobile-action-panel > div.flex-1.min-h-0.flex.flex-col {',
+              '    position:static!important;left:auto!important;right:auto!important;top:auto!important;bottom:auto!important;',
+              '    display:block!important;width:0!important;height:0!important;min-width:0!important;min-height:0!important;max-height:0!important;',
+              '    overflow:visible!important;z-index:auto!important;flex:none!important;margin:0!important;padding:0!important;',
+              '  }',
+              '  html body .mobile-action-panel > div.flex-1.min-h-0.flex.flex-col > div.mobile-action-scroll {',
+              '    position:absolute!important;left:auto!important;right:0!important;top:0!important;bottom:0!important;',
+              '    box-sizing:border-box!important;display:block!important;width:var(--m36-landscape-choice-w)!important;',
+              '    min-width:0!important;max-width:var(--m36-landscape-choice-w)!important;height:auto!important;min-height:0!important;max-height:none!important;',
+              '    margin:0!important;padding:4px!important;border-left:1px solid rgba(120,113,108,.6)!important;',
+              '    flex:none!important;overflow-x:hidden!important;overflow-y:auto!important;-webkit-overflow-scrolling:touch!important;',
+              '    overscroll-behavior-y:contain!important;touch-action:pan-y!important;scrollbar-width:thin!important;',
+              '  }',
+              '}'
+            ].join('\n');
+            out=out.replace(/\s+$/,'')+'\n\n'+canonical+'\n';
+            const leftovers=parseRules(out).filter(r =>
+              (r.selector.endsWith('.m36-landscape-info-scroll') &&
+                (r.body.includes('width:48%!important') || r.body.includes('max-width:48%!important') || r.body.includes('right:auto!important'))) ||
+              (r.selector.includes('.flex-1.min-h-0.flex.flex-col') &&
+                (r.body.includes('left:48%!important') || r.body.includes('width:50%!important')))
+            );
+            if(leftovers.length) throw new Error('Legacy 48/50 geometry remains in '+leftovers.length+' relevant panel rules');
+            return out;
+          }
+          function removeTailOverride() {
+            const size=fs.statSync(file).size;
+            const searchFrom=Math.max(0,size-512*1024);
+            const start=findToken('<style id="m36-landscape-fill-four-columns-20261015">',searchFrom,size);
+            if(start<0) throw new Error('The known bad EOF width override was not found in bounded final 512 KiB');
+            const close=findToken('</style>',start,size);
+            if(close<0) throw new Error('Bad EOF width override has no closing style');
+            const body=findToken('</body>',close+8,size);
+            if(body<0) throw new Error('Body close not found after old EOF override');
+            const between=readRange(close+8,body);
+            if(!/^\s*$/.test(between)) throw new Error('Unexpected content between old EOF override and body close; refusing unsafe deletion');
+            const item={start,end:body,replacement:Buffer.alloc(0)};
+            report.patch.removedTailOverride=true;
+            return item;
+          }
+          function streamApplyEdits(edits) {
+            const size=fs.statSync(file).size;
+            const ordered=edits.slice().sort((a,b)=>a.start-b.start);
+            let prev=0;
+            for(const e of ordered){if(e.start<prev||e.end<e.start||e.end>size)throw new Error('Overlapping/out-of-range source edit');prev=e.end;}
+            const temp=file+'.m36-clean-patch.tmp';
+            const src=fs.openSync(file,'r'),dst=fs.openSync(temp,'w');
+            function copy(from,to) {
+              let pos=from;
+              while(pos<to){
+                const len=Math.min(256*1024,to-pos),buf=Buffer.allocUnsafe(len);
+                const n=fs.readSync(src,buf,0,len,pos);
+                if(!n)throw new Error('Unexpected EOF during streaming rewrite');
+                let off=0;while(off<n){off+=fs.writeSync(dst,buf,off,n-off);}
+                pos+=n;
+              }
+            }
+            try{
+              for(const e of ordered){copy(prev,e.start);if(e.replacement.length){let off=0;while(off<e.replacement.length)off+=fs.writeSync(dst,e.replacement,off,e.replacement.length-off);}prev=e.end;}
+              copy(prev,size);
+            } finally {fs.closeSync(src);fs.closeSync(dst);}
+            fs.renameSync(temp,file);
+          }
+          async function bootGame(page) {
+            await page.waitForFunction(()=>document.body&&document.body.innerText.trim().length>10,null,{timeout:60000}).catch(()=>{});
+            for(let i=0;i<45;i++){
+              const body=await page.locator('body').innerText().catch(()=>'');
+              if(body.includes('물자 채우기')&&body.includes('대출')) return {started:true,steps:i};
+              if(body.includes('그녀는 당신에게 어떤 존재인가요')){
+                const wife=page.getByRole('button',{name:/^아내$/});
+                try{if(await wife.count()&&await wife.first().isVisible()&&await wife.first().isEnabled()){await wife.first().evaluate(e=>e.click());await wait(220);continue;}}catch{}
+              }
+              const buttons=page.getByRole('button',{name:/^예$|이해하고 동의합니다|다음|계속|시작|확인|완료|진행|게임 시작|새 게임|new game|start game/i});
+              let clicked=false;
+              for(let j=0;j<Math.min(await buttons.count(),12);j++){
+                try{const b=buttons.nth(j);if(await b.isVisible()&&await b.isEnabled()){await b.evaluate(e=>e.click());await wait(220);clicked=true;break;}}catch{}
+              }
+              if(!clicked){
+                const woman=page.getByRole('button',{name:/^(엘레나|마라|피파)/});
+                try{if(await woman.count()&&await woman.first().isVisible()&&await woman.first().isEnabled()){await woman.first().evaluate(e=>e.click());await wait(250);clicked=true;}}catch{}
+              }
+              if(!clicked) await wait(250);
+            }
+            return {started:false,steps:45,bodyTail:(await page.locator('body').innerText().catch(()=>'')).slice(-250)};
+          }
+          async function measure(page,label,screen,status,setup,errors) {
+            const m=await page.evaluate(label=> {
+              const rect=e=>{if(!e)return null;const r=e.getBoundingClientRect();return {left:+r.left.toFixed(2),right:+r.right.toFixed(2),top:+r.top.toFixed(2),bottom:+r.bottom.toFixed(2),width:+r.width.toFixed(2),height:+r.height.toFixed(2)}};
+              const info=e=>e?{rect:rect(e),position:getComputedStyle(e).position,display:getComputedStyle(e).display,gridColumn:getComputedStyle(e).gridColumn,overflowY:getComputedStyle(e).overflowY}:null;
+              const layout=document.querySelector('.mobile-layout'),panel=document.querySelector('.mobile-action-panel'),narr=document.querySelector('.m36-landscape-info-scroll'),choices=document.querySelector('.mobile-action-scroll');
+              const tracks=layout?getComputedStyle(layout).gridTemplateColumns.trim().split(/\s+/).map(parseFloat):[];
+              const lr=layout?.getBoundingClientRect(),sum=tracks.reduce((a,b)=>a+b,0);
+              const col4=lr&&tracks.length===4?{left:+(lr.left+tracks.slice(0,3).reduce((a,b)=>a+b,0)).toFixed(2),right:+(lr.left+sum).toFixed(2),width:+tracks[3].toFixed(2)}:null;
+              const nr=narr?.getBoundingClientRect(),cr=choices?.getBoundingClientRect(),pr=panel?.getBoundingClientRect();
+              return {label,viewport:{width:innerWidth,height:innerHeight,screenWidth:screen.width,screenHeight:screen.height,fullscreen:!!document.fullscreenElement,documentWidth:document.documentElement.scrollWidth},selectors:{layout:!!layout,panel:!!panel,narration:!!narr,choices:!!choices},layout:info(layout),tracks,gridTemplateColumns:layout?getComputedStyle(layout).gridTemplateColumns:null,column4:col4,actionPanel:info(panel),narration:info(narr),choices:info(choices),panelRightError:pr?+(pr.right-lr.right).toFixed(2):null,layoutRightError:lr?+(lr.right-innerWidth).toFixed(2):null,narrationRightError:nr&&col4?+(nr.right-col4.left).toFixed(2):null,choicesLeftError:cr&&col4?+(cr.left-col4.left).toFixed(2):null,choicesRightError:cr&&lr?+(cr.right-lr.right).toFixed(2):null,choiceParent:choices?.parentElement?info(choices.parentElement):null,gameTextTail:(document.body.innerText||'').slice(-180)};
+            },label);
+            m.screen=screen;m.httpStatus=status;m.gameSetup=setup;m.pageErrors=errors.slice(0,8);
+            const failures=[];
+            if(!setup.started)failures.push('game did not reach prep/gameplay state');
+            if(m.viewport.fullscreen!==label.endsWith('fullscreen-on')) failures.push('fullscreen state mismatch');
+            if(!m.selectors.layout||!m.selectors.panel||!m.selectors.narration||!m.selectors.choices) failures.push('required gameplay layout node missing');
+            if(m.tracks.length!==4) failures.push('grid resolved to '+m.tracks.length+' tracks, not four');
+            if(m.layoutRightError===null||Math.abs(m.layoutRightError)>2) failures.push('layout right edge error '+m.layoutRightError);
+            if(m.actionPanel && !(m.actionPanel.gridColumn.includes('3')&&m.actionPanel.gridColumn.includes('5'))) failures.push('action panel does not span columns 3–4: '+m.actionPanel.gridColumn);
+            if(m.panelRightError===null||Math.abs(m.panelRightError)>2) failures.push('action panel does not end at layout right edge: '+m.panelRightError);
+            if(m.narrationRightError===null||Math.abs(m.narrationRightError)>3) failures.push('narration does not end at column 4 start: '+m.narrationRightError);
+            if(m.choicesLeftError===null||Math.abs(m.choicesLeftError)>3) failures.push('choices do not start at column 4: '+m.choicesLeftError);
+            if(m.choicesRightError===null||Math.abs(m.choicesRightError)>3) failures.push('choices do not fill column 4 to the right edge: '+m.choicesRightError);
+            if(errors.length)failures.push('browser page errors: '+errors.slice(0,3).join(' | '));
+            m.failures=failures;report.cases.push(m);report.failures.push(...failures.map(f=>label+' '+screen.width+'x'+screen.height+': '+f));
+            return m;
+          }
+          async function patchSource() {
+            const grid=locateStyle('wayward-landscape-four-column-v1');
+            const gi=cssInner(grid);
+            const gridCss=setGridColumn(gi.css);
+            const gridNew=gi.prefix+gridCss+'</style>';
+            const primary=locateStyle('m36-landscape-third-column-prep-scroll-20261014');
+            const pi=cssInner(primary);
+            let mainCss=removeOldBreakpointRules(pi.css);
+            mainCss=replacePrimaryLayout(mainCss);
+            if(/width:48%\s*!important|max-width:48%\s*!important|left:48%\s*!important|width:50%\s*!important/.test(mainCss)) throw new Error('Old 48/50 percent split declarations still remain in primary landscape stylesheet');
+            const primaryNew=pi.prefix+mainCss+'</style>';
+            const tail=removeTailOverride();
+            const edits=[
+              {start:grid.start,end:grid.end,replacement:Buffer.from(gridNew,'utf8')},
+              {start:primary.start,end:primary.end,replacement:Buffer.from(primaryNew,'utf8')},
+              tail
+            ];
+            streamApplyEdits(edits);
+            const newSize=fs.statSync(file).size;
+            if(findToken('m36-landscape-fill-four-columns-20261015')>=0) throw new Error('Bad tail override marker remains after edit');
+            const verifyGrid=locateStyle('wayward-landscape-four-column-v1');
+            const verifyGridInner=cssInner(verifyGrid);
+            if(!/grid-column:3\s*\/\s*5\s*!important/i.test(verifyGridInner.css)) throw new Error('Panel is not configured to span the final two columns');
+            const verifyPrimary=locateStyle('m36-landscape-third-column-prep-scroll-20261014');
+            const verifyPrimaryInner=cssInner(verifyPrimary);
+            if(/width:48%\s*!important|max-width:48%\s*!important|left:48%\s*!important|width:50%\s*!important/.test(verifyPrimaryInner.css)) throw new Error('Old split remains after patch');
+            report.patch.status='APPLIED_TO_TEST_COPY';
+            report.patch.htmlBytesAfterPatch=newSize;
+            report.patch.bytesDelta=newSize-report.htmlBytesBeforePatch;
+            report.patch.oldSplitGeometryRulesRemoved=4;
+            console.log('M36_PATCH_PREPARED=' + JSON.stringify(report.patch));
+          }
+          (async()=>{
+            try {
+              await patchSource();
+              const server=spawn('python3',['-m','http.server','4173','--bind','127.0.0.1'],{stdio:'ignore'});
+              try {
+                await wait(900);
+                const browser=await chromium.launch({headless:true,args:['--no-sandbox']});
+                try {
+                  for(const screen of [{width:1280,height:720},{width:915,height:412},{width:720,height:360}]){
+                    const context=await browser.newContext({viewport:{width:screen.width,height:screen.height},deviceScaleFactor:1,isMobile:false,hasTouch:true});
+                    const page=await context.newPage(),errors=[];
+                    page.on('pageerror',e=>errors.push(String(e)));
+                    const response=await page.goto('http://127.0.0.1:4173/Wayward_MOD_v3.36.html?m36-clean-layout-test=20261015',{waitUntil:'domcontentloaded',timeout:120000});
+                    if(response?.status()!==200) throw new Error('HTTP response '+response?.status());
+                    await page.waitForTimeout(700);
+                    const setup=await bootGame(page);
+                    await wait(450);
+                    const off=await measure(page,'fullscreen-off',screen,response.status(),setup,errors);
+                    console.log('M36_CASE='+JSON.stringify(off));
+                    const fsButtonId='__m36_test_fullscreen';
+                    await page.evaluate(()=>{const b=document.createElement('button');b.id='__m36_test_fullscreen';b.textContent='fullscreen-test';Object.assign(b.style,{position:'fixed',left:'50%',top:'50%',zIndex:'2147483647',width:'28px',height:'28px'});b.addEventListener('click',()=>document.documentElement.requestFullscreen());document.body.appendChild(b)});
+                    await page.locator('#'+fsButtonId).click({timeout:3000});
+                    await page.waitForFunction(()=>!!document.fullscreenElement,null,{timeout:5000});
+                    await page.locator('#'+fsButtonId).evaluate(e=>e.remove());
+                    await page.waitForTimeout(350);
+                    const on=await measure(page,'fullscreen-on',screen,response.status(),setup,errors);
+                    console.log('M36_CASE='+JSON.stringify(on));
+                    await page.evaluate(()=>document.exitFullscreen());
+                    await context.close();
+                  }
+                } finally {await browser.close();}
+              } finally {server.kill('SIGTERM');}
+              if(report.cases.length!==6) report.failures.push('Expected six viewport/fullscreen measurements, got '+report.cases.length);
+              if(report.failures.length===0) report.verdict='PASS: four-column geometry verified in six real-game Chromium layouts';
+              else report.verdict='FAIL: '+report.failures.join('; ');
+              writeReport();
+              console.log('M36_VALIDATED_PATCH_VERDICT='+report.verdict);
+              if(report.verdict.startsWith('PASS:')) {
+                fs.writeFileSync('/tmp/M36_VALIDATED_PATCH_PASS','PASS');
+              } else {
+                cp.execFileSync('git',['checkout','--',file]);
+                report.patch.status='REVERTED_AFTER_FAILED_BROWSER_VALIDATION';
+                report.patch.workingSourceRestored=true;
+                writeReport();
+                process.exitCode=1;
+              }
+            } catch(e) {
+              report.failures.push(String(e.stack||e).slice(0,2000));
+              report.verdict='HARNESS_OR_PATCH_ERROR; no source change may be committed';
+              try {
+                if(fs.existsSync(file+'.m36-clean-patch.tmp')) fs.unlinkSync(file+'.m36-clean-patch.tmp');
+                cp.execFileSync('git',['checkout','--',file]);
+                report.patch.status='REVERTED_AFTER_EXCEPTION';
+                report.patch.workingSourceRestored=true;
+              } catch(revertError) {report.failures.push('Rollback error: '+String(revertError));}
+              try{writeReport();}catch(reportError){console.error('REPORT_WRITE_ERROR='+String(reportError));}
+              console.error(e);process.exitCode=1;
+            }
+          })();
+          NODE
+          TEST_RC=${PIPESTATUS[0]}
+          echo "M36_TEST_EXITCODE=${TEST_RC}"
+          exit 0
+      - name: Commit only validated HTML diff and forensic result
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p idea
+          if [ ! -f idea/M36_LANDSCAPE_CLEAN_PATCH_RESULT_20261015.md ]; then
+            { echo '# M36 Landscape Geometry Forensics — harness failed'; echo; echo "Workflow SHA: ${GITHUB_SHA}"; echo "Install outcome: ${{ steps.install.outcome }}"; echo "Browser test outcome: ${{ steps.browser-test.outcome }}"; echo; echo 'No app-source change is committed without a passing real-game browser test.'; } > idea/M36_LANDSCAPE_CLEAN_PATCH_RESULT_20261015.md
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if [ -f /tmp/M36_VALIDATED_PATCH_PASS ] && grep -q 'Verdict: \*\*PASS:' idea/M36_LANDSCAPE_CLEAN_PATCH_RESULT_20261015.md; then
+            git add Wayward_MOD_v3.36.html idea/M36_LANDSCAPE_CLEAN_PATCH_RESULT_20261015.md
+            git rm .github/workflows/m36-landscape-clean-four-columns-v2-20261015.yml 2>/dev/null || true
+            git rm .github/workflows/m36-landscape-clean-four-columns-v4-20261015.yml
+            git diff --cached --check
+            git diff --cached --stat
+            git commit -m "fix(mobile): consolidate landscape layout into four columns; remove temporary landscape clean four column workflow"
+          else
+            git checkout -- Wayward_MOD_v3.36.html
+            git add idea/M36_LANDSCAPE_CLEAN_PATCH_RESULT_20261015.md
+            git rm .github/workflows/m36-landscape-clean-four-columns-v2-20261015.yml 2>/dev/null || true
+            git rm .github/workflows/m36-landscape-clean-four-columns-v4-20261015.yml
+            git commit -m "test(forensics): report landscape CSS result; remove temporary landscape clean four column workflow"
+          fi
+          git push origin HEAD:mobile-migration-v1
