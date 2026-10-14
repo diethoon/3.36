@@ -6962,7 +6962,26 @@ END_WAYWARD_MOD_PARENT_3_25_EXTENSION_GUIDE -->
 @media (orientation:portrait) {
   .m36-narrow-landscape-choice-control-slot,.m36-wide-landscape-choice-control-slot {display:none!important;}
 }
-</style></body>
+</style><style id="m36-landscape-fill-four-columns-20261015">
+/* Keep the landscape four-column grid using the full available row width. */
+@media (orientation:landscape) {
+  .mobile-layout {
+    box-sizing:border-box!important;
+    width:100%!important;
+    max-width:none!important;
+    min-width:0!important;
+    grid-template-columns:
+      var(--m36-landscape-portrait-w,clamp(72px,34vh,280px))
+      minmax(0,1fr)
+      minmax(0,1fr)
+      minmax(0,1fr)!important;
+    justify-content:stretch!important;
+  }
+  .mobile-layout>* { min-width:0!important; }
+}
+</style>
+
+</body>
 </html>
 
 <!-- WAYWARD_MOD_PARENT_3_26_MAP
