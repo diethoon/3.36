@@ -1,14 +1,14 @@
 # M36 Landscape Geometry Repair — 2026-10-15
 
 Branch: mobile-migration-v1
-Source HEAD: 70dc22f5476231aa0380c675d946073b9b54b63e
+Source HEAD: e214e25633834faf5185a532ca991c4914bb505f
 Source HTML blob before patch: 1b92fc87e669373d6bad7a3bb48f40a967817703
 Result: **FAIL**
 
 JSON evidence:
 {
   "branch": "mobile-migration-v1",
-  "sourceHead": "70dc22f5476231aa0380c675d946073b9b54b63e",
+  "sourceHead": "e214e25633834faf5185a532ca991c4914bb505f",
   "sourceHtmlBlob": "1b92fc87e669373d6bad7a3bb48f40a967817703",
   "bytesBefore": 19674218,
   "featureMarkerCountsBefore": {
@@ -29,13 +29,22 @@ JSON evidence:
   "bootEvidence": {
     "baseline-portrait": {
       "started": false,
-      "steps": 55,
-      "textTail": "Wayward\n\n그녀가 누구인지 고르세요. 다음으로 어떤 사람인지 정합니다. 나머지는 플레이하며 알아가게 됩니다.\n\n그녀는 당신에게 어떤 존재인가요?\n아내\n연인준비 중\n의붓여동생준비 중\n친구준비 중\n고용인/종업원준비 중\n\n부부입니다. 당신과 침대를 함께 씁니다.\n\n엘레나\n농가 출신 여성. 19세. 결혼한 지 3주 됨.\n마라\n상인의 딸. 23세. 지금껏 관계를 맺어 본 남자는 한 명뿐.\n피파\n작고 가녀리며 묘하게 사랑스러운 여인. 21세.\n뒤로\n함께할 아내를 선택하세요"
+      "steps": 65,
+      "actions": [
+        "button: 예",
+        "step 10: 세 선술집! /  / 성인 콘텐츠 안내 /  / 본 게임은 노골적인 성적 묘사가 포함된 성인 게임입니다. 아내와 다른 남자의 관계를 다루는 커컬드/NTR 소재가 등장합니다. /  / 이해하고 동의합니다",
+        "step 20: 세 선술집! /  / 성인 콘텐츠 안내 /  / 본 게임은 노골적인 성적 묘사가 포함된 성인 게임입니다. 아내와 다른 남자의 관계를 다루는 커컬드/NTR 소재가 등장합니다. /  / 이해하고 동의합니다",
+        "step 30: 세 선술집! /  / 성인 콘텐츠 안내 /  / 본 게임은 노골적인 성적 묘사가 포함된 성인 게임입니다. 아내와 다른 남자의 관계를 다루는 커컬드/NTR 소재가 등장합니다. /  / 이해하고 동의합니다",
+        "step 40: 세 선술집! /  / 성인 콘텐츠 안내 /  / 본 게임은 노골적인 성적 묘사가 포함된 성인 게임입니다. 아내와 다른 남자의 관계를 다루는 커컬드/NTR 소재가 등장합니다. /  / 이해하고 동의합니다",
+        "step 50: 세 선술집! /  / 성인 콘텐츠 안내 /  / 본 게임은 노골적인 성적 묘사가 포함된 성인 게임입니다. 아내와 다른 남자의 관계를 다루는 커컬드/NTR 소재가 등장합니다. /  / 이해하고 동의합니다",
+        "step 60: 세 선술집! /  / 성인 콘텐츠 안내 /  / 본 게임은 노골적인 성적 묘사가 포함된 성인 게임입니다. 아내와 다른 남자의 관계를 다루는 커컬드/NTR 소재가 등장합니다. /  / 이해하고 동의합니다"
+      ],
+      "textTail": "Wayward MOD\nv3.36\n\n당신과 그녀가 함께 꾸려나가는 중세 선술집!\n\n성인 콘텐츠 안내\n\n본 게임은 노골적인 성적 묘사가 포함된 성인 게임입니다. 아내와 다른 남자의 관계를 다루는 커컬드/NTR 소재가 등장합니다.\n\n이해하고 동의합니다"
     }
   },
   "cases": [],
   "failures": [
-    "Error: baseline-portrait: gameplay did not boot over HTTP: Wayward\n\n그녀가 누구인지 고르세요. 다음으로 어떤 사람인지 정합니다. 나머지는 플레이하며 알아가게 됩니다.\n\n그녀는 당신에게 어떤 존재인가요?\n아내\n연인준비 중\n의붓여동생준비 중\n친구준비 중\n고용인/종업원준비 중\n\n부부입니다. 당신과 침대를 함께 씁니다.\n\n엘레나\n농가 출신 여성. 19세. 결혼한 지 3주 됨.\n마라\n상인의 딸. 23세. 지금껏 관계를 맺어 본 남자는 한 명뿐.\n피파\n작고 가녀리며 묘하게 사랑스러운 여인. 21세.\n뒤로\n함께할 아내를 선택하세요\n    at pageFor ([stdin]:88:27)\n    at async main ([stdin]:130:14)"
+    "Error: baseline-portrait: gameplay did not boot over HTTP: Wayward MOD\nv3.36\n\n당신과 그녀가 함께 꾸려나가는 중세 선술집!\n\n성인 콘텐츠 안내\n\n본 게임은 노골적인 성적 묘사가 포함된 성인 게임입니다. 아내와 다른 남자의 관계를 다루는 커컬드/NTR 소재가 등장합니다.\n\n이해하고 동의합니다\n    at pageFor ([stdin]:121:27)\n    at async main ([stdin]:161:14)"
   ],
   "verdict": "FAIL"
 }
