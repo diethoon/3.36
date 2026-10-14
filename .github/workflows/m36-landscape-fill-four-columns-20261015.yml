@@ -1,0 +1,68 @@
+name: M36 landscape fill all four columns one-shot
+on:
+  push:
+    branches: [mobile-migration-v1]
+    paths: [".github/workflows/m36-landscape-fill-four-columns-20261015.yml"]
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: mobile-migration-v1
+          fetch-depth: 1
+      - name: Append landscape-only full-width grid override
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path("Wayward_MOD_v3.36.html")
+          marker=b'<style id="m36-landscape-fill-four-columns-20261015">'
+          css=b"""<style id="m36-landscape-fill-four-columns-20261015">
+          /* Keep the landscape four-column grid using the full available row width. */
+          @media (orientation:landscape) {
+            .mobile-layout {
+              box-sizing:border-box!important;
+              width:100%!important;
+              max-width:none!important;
+              min-width:0!important;
+              grid-template-columns:
+                var(--m36-landscape-portrait-w,clamp(72px,34vh,280px))
+                minmax(0,1fr)
+                minmax(0,1fr)
+                minmax(0,1fr)!important;
+              justify-content:stretch!important;
+            }
+            .mobile-layout>* { min-width:0!important; }
+          }
+          </style>
+          """
+          with p.open("r+b") as f:
+              f.seek(0,2); size=f.tell(); start=max(0,size-512*1024)
+              f.seek(start); tail=f.read(size-start)
+              if marker in tail:
+                  raise SystemExit("patch marker already exists; refusing duplicate")
+              at=tail.lower().rfind(b"</body>")
+              if at<0:
+                  raise SystemExit("could not locate </body> in bounded EOF; no change made")
+              tail=tail[:at]+css+b"\n"+tail[at:]
+              f.seek(start); f.write(tail); f.truncate()
+          print("LANDSCAPE_FULL_WIDTH_GRID_PATCHED")
+          PY
+          git diff --check
+          grep -a -q 'm36-landscape-fill-four-columns-20261015' Wayward_MOD_v3.36.html
+      - name: Commit targeted HTML change and remove one-shot workflow
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add Wayward_MOD_v3.36.html
+          git commit -m "fix(mobile): fill landscape width across four columns"
+          git rm .github/workflows/m36-landscape-fill-four-columns-20261015.yml
+          git commit -m "chore: remove one-shot landscape width patch workflow"
+          git push origin HEAD:mobile-migration-v1
