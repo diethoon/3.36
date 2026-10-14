@@ -1,0 +1,239 @@
+name: M36 landscape geometry repair (single verified run)
+
+on:
+  push:
+    branches: [mobile-migration-v1]
+    paths:
+      - ".github/workflows/m36-landscape-geometry-repair-20261015.yml"
+permissions:
+  contents: write
+
+jobs:
+  repair-and-test:
+    if: ${{ !contains(github.event.head_commit.message, 'remove landscape geometry repair workflow') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout exact branch head
+        uses: actions/checkout@v4
+        with:
+          ref: mobile-migration-v1
+          fetch-depth: 0
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Install Chromium
+        run: |
+          set -euo pipefail
+          npm init -y >/dev/null
+          npm install --no-audit --no-fund playwright
+          npx playwright install --with-deps chromium
+      - name: Apply guarded geometry corrections and test actual gameplay layout
+        id: verify
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const fs=require('fs'),http=require('http'),path=require('path'),cp=require('child_process');
+          const {chromium}=require('playwright');
+          const file='Wayward_MOD_v3.36.html', reportPath='idea/M36_LANDSCAPE_GEOMETRY_REPAIR_20261015.md';
+          const backup='/tmp/Wayward_MOD_v3.36.before-landscape-repair.html';
+          const head=cp.execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim();
+          const blob=cp.execFileSync('git',['rev-parse','HEAD:'+file],{encoding:'utf8'}).trim();
+          const original=fs.readFileSync(file,'utf8'), bytesBefore=Buffer.byteLength(original);
+          const markers=['wayward-save-share','m36-mobile-disabled-choice','m36-mobile-pleasure-fixed','M36MobileStoreStatus','물자 채우기','시설 업그레이드','인사하기'];
+          const count=(s,t)=>{let n=0,p=-1;while((p=s.indexOf(t,p+1))!==-1)n++;return n;};
+          const markerCounts=Object.fromEntries(markers.map(m=>[m,count(original,m)]));
+          const report={branch:'mobile-migration-v1',sourceHead:head,sourceHtmlBlob:blob,bytesBefore,
+            featureMarkerCountsBefore:markerCounts,patch:{widthRule:'not applied',gridColumnRulesChanged:[],bytesAfter:null},
+            browser:'Playwright Chromium via local HTTP',bootEvidence:{},cases:[],failures:[],verdict:'NOT_RUN'};
+          function writeReport(){fs.mkdirSync(path.dirname(reportPath),{recursive:true});fs.writeFileSync(reportPath,
+            '# M36 Landscape Geometry Repair — 2026-10-15\n\nBranch: mobile-migration-v1\nSource HEAD: '+head+
+            '\nSource HTML blob before patch: '+blob+'\nResult: **'+report.verdict+'**\n\nJSON evidence:\n'+
+            JSON.stringify(report,null,2)+'\n','utf8');}
+          function parseRules(css){
+            const stack=[],rules=[];let last=0,quote='',comment=false;
+            for(let i=0;i<css.length;i++){const ch=css[i],nx=css[i+1];
+              if(comment){if(ch==='*'&&nx==='/'){comment=false;i++;}continue;}
+              if(quote){if(ch==='\\'){i++;continue;}if(ch===quote)quote='';continue;}
+              if(ch==='/'&&nx==='*'){comment=true;i++;continue;}
+              if(ch==='"'||ch==="'"){quote=ch;continue;}
+              if(ch==='{'){const r={selector:css.slice(last,i).trim().replace(/\s+/g,' '),open:i,start:last,parents:stack.map(x=>x.selector)};stack.push(r);last=i+1;}
+              else if(ch==='}'){const r=stack.pop();if(!r)throw new Error('Unbalanced CSS closing brace');r.close=i;r.body=css.slice(r.open+1,i);rules.push(r);last=i+1;}
+            }
+            if(stack.length||comment||quote)throw new Error('Unbalanced CSS in landscape style');
+            return rules;
+          }
+          function isPanelRule(s){return s.replace(/\s*>\s*/g,' ').trim().split(/\s+/).pop()==='.mobile-action-panel';}
+          function transform(input){
+            let widthBlock=0;
+            const output=input.replace(/(<style\b[^>]*>)([\s\S]*?)(<\/style>)/gi,(whole,opening,css,closing)=>{
+              const im=opening.match(/\bid\s*=\s*["']([^"']+)["']/i),id=im?im[1]:'';
+              let next=css;
+              if(id.toLowerCase().includes('landscape')&&css.includes('.mobile-action-panel')&&css.includes('grid-column')){
+                const rules=parseRules(css);
+                const edits=rules.filter(r=>{
+                  if(!isPanelRule(r.selector))return false;
+                  const mediaLandscape=r.parents.some(p=>/orientation\s*:\s*landscape/i.test(p));
+                  const knownLandscape=['wayward-landscape-four-column-v1','wayward-landscape-layout-fix-v2','wayward-landscape-grid-inline-fix-v2','wayward-landscape-visual-fix-v2'].includes(id);
+                  return (mediaLandscape||knownLandscape)&&/grid-column\s*:\s*3\s*(?:!important\s*)?;/i.test(r.body)&&
+                    !/grid-column\s*:\s*3\s*\/\s*5\s*(?:!important\s*)?;/i.test(r.body);
+                }).sort((a,b)=>b.start-a.start);
+                for(const r of edits){const body=r.body.replace(/grid-column\s*:\s*3\s*(!important)?\s*;/i,(_m,imp)=>'grid-column:3 / 5'+(imp?' !important':'')+';');
+                  next=next.slice(0,r.open+1)+body+next.slice(r.close);}
+                if(edits.length)report.patch.gridColumnRulesChanged.push({styleId:id,count:edits.length});
+              }
+              if(id==='m36-landscape-fill-four-columns-20261015'){
+                widthBlock++;
+                if(!next.includes('@media (orientation:landscape) and (min-width:600px)')){
+                  next+='\n/* Keep 28px icon rail inside viewport; leave portrait sizing unchanged. */\n'+
+                    '@media (orientation:landscape) and (min-width:600px) {\n'+
+                    ' .mobile-layout { width:calc(100% - 28px)!important; max-width:calc(100% - 28px)!important; }\n}\n';
+                  report.patch.widthRule='landscape-only width calc(100% - 28px); portrait width rule unchanged';
+                }
+              }
+              return next===css?whole:opening+next+closing;
+            });
+            if(widthBlock!==1)throw new Error('Expected one m36-landscape-fill-four-columns-20261015 style, found '+widthBlock);
+            if(!report.patch.gridColumnRulesChanged.length)throw new Error('No landscape action-panel grid-column:3 rule matched; source left unchanged');
+            return output;
+          }
+          let browser=null,server=null;const failures=[];
+          async function boot(page){
+            await page.waitForFunction(()=>document.body&&document.body.innerText.trim().length>10,null,{timeout:60000}).catch(()=>{});
+            for(let i=0;i<55;i++){
+              const body=await page.locator('body').innerText().catch(()=>'');
+              if(body.includes('물자 채우기')&&body.includes('대출'))return {started:true,steps:i,textTail:body.slice(-220)};
+              if(body.includes('그녀는 당신에게 어떤 존재인가요')){
+                const w=page.getByRole('button',{name:/^아내$/});
+                try{if(await w.count()&&await w.first().isVisible()&&await w.first().isEnabled()){await w.first().evaluate(e=>e.click());await page.waitForTimeout(180);continue;}}catch(_){}
+              }
+              const next=page.getByRole('button',{name:/^예$|이해하고 동의합니다|다음|계속|시작|확인|완료|진행|게임 시작|새 게임|new game|start game/i});
+              let clicked=false;
+              for(let j=0;j<Math.min(await next.count().catch(()=>0),14);j++)try{const b=next.nth(j);if(await b.isVisible()&&await b.isEnabled()){await b.evaluate(e=>e.click());await page.waitForTimeout(180);clicked=true;break;}}catch(_){}
+              if(!clicked){const p=page.getByRole('button',{name:/^(엘레나|마라|피파)/});try{if(await p.count()&&await p.first().isVisible()&&await p.first().isEnabled()){await p.first().evaluate(e=>e.click());await page.waitForTimeout(180);clicked=true;}}catch(_){}}
+              if(!clicked)await page.waitForTimeout(220);
+            }
+            return {started:false,steps:55,textTail:(await page.locator('body').innerText().catch(()=>'')).slice(-300)};
+          }
+          async function pageFor(w,h,label){
+            const context=await browser.newContext({viewport:{width:w,height:h},isMobile:true,hasTouch:true,deviceScaleFactor:1});
+            const page=await context.newPage(),errors=[];page.on('pageerror',e=>errors.push(String(e)));
+            await page.goto('http://127.0.0.1:4173/Wayward_MOD_v3.36.html?case='+encodeURIComponent(label),{waitUntil:'domcontentloaded',timeout:120000});
+            const setup=await boot(page);report.bootEvidence[label]=setup;
+            if(!setup.started)throw new Error(label+': gameplay did not boot over HTTP: '+setup.textTail);
+            return {context,page,errors};
+          }
+          async function portraitMetrics(page){
+            return page.evaluate(()=>{const b=e=>{if(!e)return null;const r=e.getBoundingClientRect();return {left:+r.left.toFixed(2),right:+r.right.toFixed(2),width:+r.width.toFixed(2),height:+r.height.toFixed(2)};};
+              return {layout:b(document.querySelector('.mobile-layout')),main:b(document.querySelector('.mobile-main-panel')),
+                choices:!!document.querySelector('.mobile-action-scroll'),pleasure:!!document.querySelector('.m36-mobile-pleasure-fixed'),
+                fixedDialogue:!!document.querySelector('.m36-mobile-dialogue-fixed'),innerWidth,bodyWidth:document.documentElement.scrollWidth,
+                portrait:matchMedia('(orientation:portrait)').matches};});
+          }
+          async function layoutMetrics(page,label){
+            const d=await page.evaluate(label=>{const b=e=>{if(!e)return null;const r=e.getBoundingClientRect();return {left:+r.left.toFixed(2),right:+r.right.toFixed(2),width:+r.width.toFixed(2)};};
+              const s=e=>e?getComputedStyle(e):null,l=document.querySelector('.mobile-layout'),p=document.querySelector('.mobile-action-panel'),
+                i=document.querySelector('.m36-landscape-info-scroll'),c=document.querySelector('.mobile-action-scroll');
+              const tracks=l?(s(l).gridTemplateColumns.match(/-?[\d.]+px/g)||[]).map(Number):[];
+              return {label,viewport:{innerWidth,innerHeight,screenWidth:screen.width,screenHeight:screen.height,fullscreen:!!document.fullscreenElement,docWidth:document.documentElement.scrollWidth},
+                layout:{rect:b(l),grid:s(l)?.gridTemplateColumns,trackCount:tracks.length,overflowX:s(l)?.overflowX},
+                panel:{rect:b(p),gridColumn:s(p)?.gridColumn},info:{rect:b(i),overflowY:s(i)?.overflowY},
+                choices:{rect:b(c),overflowY:s(c)?.overflowY,parent:b(c?.parentElement),offsetParent:c?.offsetParent?.className||null},
+                ui:{prep:document.body.innerText.includes('물자 채우기'),debt:document.body.innerText.includes('대출'),upgrade:document.body.innerText.includes('시설 업그레이드')},
+                nodes:{layout:!!l,panel:!!p,info:!!i,choices:!!c,pleasure:!!document.querySelector('.m36-mobile-pleasure-fixed')}};},label);
+            report.cases.push(d);const fail=m=>failures.push(label+': '+m);
+            if(!d.nodes.layout||!d.nodes.panel||!d.nodes.info||!d.nodes.choices){fail('active gameplay layout nodes missing');return d;}
+            if(d.layout.trackCount!==4)fail('grid has '+d.layout.trackCount+' tracks, expected four');
+            if(Math.abs(d.layout.rect.right-d.viewport.innerWidth)>1.1)fail('layout right edge differs from innerWidth');
+            if(Math.abs(d.panel.rect.right-d.layout.rect.right)>1.1)fail('action panel does not fill to layout right edge');
+            if(!/^3\s*\/\s*5/.test(d.panel.gridColumn))fail('computed grid-column is '+d.panel.gridColumn);
+            if(Math.abs(d.choices.rect.left-(d.panel.rect.left+d.panel.rect.width/2))>2.5)fail('choices do not begin at column 4 boundary');
+            if(Math.abs(d.choices.rect.right-d.layout.rect.right)>1.1)fail('choices do not fill column 4 right edge');
+            if(d.info.rect.right>d.choices.rect.left+1.1)fail('status/prep pane overlaps choices');
+            if(d.viewport.docWidth>d.viewport.innerWidth+1)fail('document horizontal overflow');
+            if(!d.ui.prep||!d.ui.debt||!d.ui.upgrade)fail('prep/supply/loan or facility-upgrade UI unavailable');
+            return d;
+          }
+          async function main(){
+            if(bytesBefore<10000000)throw new Error('HTML size guard failed: '+bytesBefore);
+            fs.copyFileSync(file,backup);
+            try{
+              server=http.createServer((req,res)=>{if(!req.url||!req.url.startsWith('/Wayward_MOD_v3.36.html')){res.writeHead(404);res.end();return;}
+                res.writeHead(200,{'content-type':'text/html; charset=utf-8','cache-control':'no-store'});fs.createReadStream(file).pipe(res);});
+              await new Promise((resolve,reject)=>server.listen(4173,'127.0.0.1',resolve).once('error',reject));
+              browser=await chromium.launch({headless:true,args:['--no-sandbox']});
+              const bp=await pageFor(390,844,'baseline-portrait'),portraitBefore=await portraitMetrics(bp.page);
+              report.bootEvidence.baselinePortraitGeometry=portraitBefore;await bp.context.close();
+              const bl=await pageFor(1280,720,'baseline-landscape');
+              report.bootEvidence.baselineLandscape=await bl.page.evaluate(()=>{const b=e=>{if(!e)return null;const r=e.getBoundingClientRect();return {left:+r.left.toFixed(2),right:+r.right.toFixed(2),width:+r.width.toFixed(2)};};
+                const l=document.querySelector('.mobile-layout'),p=document.querySelector('.mobile-action-panel'),c=document.querySelector('.mobile-action-scroll');
+                return {innerWidth,layout:b(l),panel:b(p),choices:b(c),gridColumn:p?getComputedStyle(p).gridColumn:null};});
+              await bl.context.close();
+
+              const patched=transform(original);
+              if(patched===original)throw new Error('no CSS changes generated');
+              if(Math.abs(Buffer.byteLength(patched)-bytesBefore)>5000)throw new Error('source size change > 5000 bytes; refusing');
+              for(const m of markers)if(count(patched,m)!==markerCounts[m])throw new Error('game feature marker changed: '+m);
+              fs.writeFileSync(file,patched,'utf8');
+              report.patch.bytesAfter=Buffer.byteLength(patched);report.patch.bytesDelta=report.patch.bytesAfter-bytesBefore;
+              report.patch.featureMarkerCountsAfter=Object.fromEntries(markers.map(m=>[m,count(patched,m)]));
+              cp.execFileSync('git',['diff','--check'],{stdio:'pipe'});
+
+              const pp=await pageFor(390,844,'patched-portrait'),portraitAfter=await portraitMetrics(pp.page);
+              report.bootEvidence.patchedPortraitGeometry=portraitAfter;await pp.context.close();
+              for(const k of ['layout','main']){const b=portraitBefore[k],a=portraitAfter[k];if(!b||!a||Math.abs(b.left-a.left)>.5||Math.abs(b.right-a.right)>.5||Math.abs(b.width-a.width)>.5||Math.abs(b.height-a.height)>.5)throw new Error('portrait geometry changed: '+k+' '+JSON.stringify(b)+' -> '+JSON.stringify(a));}
+              for(const k of ['choices','pleasure','fixedDialogue','portrait'])if(portraitBefore[k]!==portraitAfter[k])throw new Error('portrait feature changed: '+k);
+
+              for(const vp of [{w:1280,h:720},{w:915,h:412},{w:720,h:360}]){
+                const label='patched-'+vp.w+'x'+vp.h,item=await pageFor(vp.w,vp.h,label);
+                await layoutMetrics(item.page,label);
+                if(item.errors.length)failures.push(label+': browser page errors: '+item.errors.join(' | '));
+                if(vp.w===1280){
+                  const bs=await item.page.locator('button').evaluateAll(es=>es.map((e,i)=>({i,label:(e.getAttribute('aria-label')||'')+' '+(e.getAttribute('title')||'')+' '+(e.innerText||'')})));
+                  const f=bs.find(x=>/fullscreen|full\s*screen|전체\s*화면|전체화면/i.test(x.label));
+                  report.bootEvidence.fullscreenButton=f?{found:true,label:f.label.trim()}:{found:false,buttonSamples:bs.filter(x=>x.label.trim()).slice(0,25)};
+                  if(f){
+                    await item.page.locator('button').nth(f.i).click();await item.page.waitForTimeout(350);
+                    const on=await item.page.evaluate(()=>!!document.fullscreenElement);
+                    report.bootEvidence.fullscreenButton.enteredFullscreen=on;
+                    if(on){await layoutMetrics(item.page,'patched-1280x720-fullscreen-on');await item.page.evaluate(()=>document.exitFullscreen().catch(()=>{}));}
+                    else failures.push('fullscreen control did not enter fullscreen in Chromium');
+                  }else failures.push('fullscreen control could not be identified');
+                }
+                await item.context.close();
+              }
+              if(failures.length)throw new Error(failures.join('\n'));
+              report.verdict='PASS';fs.writeFileSync('/tmp/m36-landscape-repair-success','PASS');
+            }catch(e){report.failures.push(String(e&&e.stack||e).slice(0,3500));report.verdict='FAIL';if(fs.existsSync(backup))fs.copyFileSync(backup,file);throw e;}
+            finally{if(browser)await browser.close().catch(()=>{});if(server)await new Promise(resolve=>server.close(resolve));writeReport();}
+          }
+          main().catch(e=>{console.error('LANDSCAPE_REPAIR_TEST_FAILED:',e&&e.stack||e);process.exitCode=1;});
+          NODE
+      - name: Commit report and verified HTML change only; remove this one-run workflow
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm -f .github/workflows/m36-landscape-geometry-repair-20261015.yml
+          if [ -f /tmp/m36-landscape-repair-success ]; then
+            git add Wayward_MOD_v3.36.html idea/M36_LANDSCAPE_GEOMETRY_REPAIR_20261015.md
+            git commit -m "fix(mobile): repair landscape grid geometry and remove landscape geometry repair workflow"
+          else
+            git add idea/M36_LANDSCAPE_GEOMETRY_REPAIR_20261015.md
+            git commit -m "test(mobile): record landscape geometry failure and remove landscape geometry repair workflow"
+          fi
+          git push origin HEAD:mobile-migration-v1
+      - name: Require verified result
+        if: always()
+        shell: bash
+        run: |
+          if [ ! -f /tmp/m36-landscape-repair-success ]; then
+            echo "Repair failed; original HTML was restored and no HTML change was committed."
+            exit 1
+          fi
+          echo "Landscape geometry repair and portrait regression checks passed."
