@@ -1,0 +1,80 @@
+name: M36 active-pane source root-cause audit
+on:
+  push:
+    branches: [main]
+    paths: [".github/workflows/temporary-m36-source-audit.yml"]
+permissions:
+  contents: write
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: mobile-migration-v1
+          fetch-depth: 1
+      - name: Search bounded byte windows around the screenshot's rendered strings
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('Wayward_MOD_v3.36.html')
+          targets=[
+            '손님들이 와 있습니다.',
+            '응대하고, 살피고,',
+            '로릭 언더힐',
+            '다른 손님 한 명이 합류했습니다.',
+            'm36-mobile-room-activity',
+            'm36-mobile-store-status',
+            'm36-landscape-info-scroll',
+            'mobile-action-scroll',
+            'm36-landscape-action-pane-touch-fallback-20261014',
+          ]
+          needles=[t.encode('utf-8') for t in targets]
+          found={t:[] for t in targets}
+          overlap=b''
+          offset=0
+          with p.open('rb') as f:
+            while True:
+              chunk=f.read(256*1024)
+              if not chunk: break
+              buf=overlap+chunk
+              base=offset-len(overlap)
+              for t,n in zip(targets,needles):
+                if len(found[t])>=3: continue
+                start=0
+                while len(found[t])<3:
+                  i=buf.find(n,start)
+                  if i<0: break
+                  abspos=base+i
+                  if not found[t] or found[t][-1][0]!=abspos:
+                    found[t].append((abspos,abspos-len(n)//2))
+                  start=i+1
+              offset+=len(chunk)
+              overlap=buf[-8192:]
+          with p.open('rb') as f:
+            for t in targets:
+              hits=found[t]
+              print('M36_SOURCE_TARGET',repr(t),'COUNT_SAMPLE',len(hits))
+              for idx,(pos,_) in enumerate(hits[:2]):
+                f.seek(max(0,pos-900))
+                win=f.read(1800)
+                print('M36_SOURCE_CONTEXT',t,'hit',idx+1,'byte',pos,win.decode('utf-8','replace').replace('\n',' ')[:1900])
+          print('M36_SOURCE_BYTES',p.stat().st_size)
+          PY
+      - name: Remove temporary source audit workflow from main
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git fetch origin main
+          git switch --detach origin/main
+          if [ -f .github/workflows/temporary-m36-source-audit.yml ]; then
+            git rm .github/workflows/temporary-m36-source-audit.yml
+            git commit -m "chore: remove temporary active pane source audit"
+            git push origin HEAD:main
+          fi
