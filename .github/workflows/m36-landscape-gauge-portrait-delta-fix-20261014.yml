@@ -1,0 +1,324 @@
+name: M36 landscape icon rail repair (one-shot)
+on:
+  push:
+    branches: [mobile-migration-v1]
+    paths:
+      - ".github/workflows/m36-landscape-gauge-portrait-delta-fix-20261014.yml"
+permissions:
+  contents: write
+jobs:
+  repair-and-verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: mobile-migration-v1
+          fetch-depth: 1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Install Chromium
+        run: |
+          npm init -y >/dev/null
+          npm install --no-audit --no-fund playwright
+          npx playwright install --with-deps chromium
+      - name: Preserve original and apply bounded landscape icon visibility patch
+        run: |
+          set -euo pipefail
+          cp Wayward_MOD_v3.36.html /tmp/m36-original.html
+          python3 <<'PY'
+          from pathlib import Path
+          import json, os
+          p=Path("Wayward_MOD_v3.36.html")
+          marker=b'm36-landscape-icon-visibility-20261016'
+          body=b'</body>'
+          terms=[b'wayward-save-share',b'm36-mobile-disabled-choice',b'm36-mobile-pleasure-fixed',
+                 b'M36MobileStoreStatus','물자 채우기'.encode(), '시설 업그레이드'.encode(), '인사하기'.encode()]
+          hits={marker:set(),body:set()}
+          counts={t:set() for t in terms}
+          overlap=b''; total=0
+          with p.open('rb') as f:
+              while True:
+                  chunk=f.read(256*1024)
+                  if not chunk: break
+                  buf=overlap+chunk; base=total-len(overlap)
+                  for target,found in hits.items():
+                      at=0
+                      while True:
+                          i=buf.find(target,at)
+                          if i<0: break
+                          found.add(base+i); at=i+1
+                  for target,found in counts.items():
+                      at=0
+                      while True:
+                          i=buf.find(target,at)
+                          if i<0: break
+                          found.add(base+i); at=i+1
+                  total+=len(chunk); overlap=buf[-512:]
+          if hits[marker]: raise SystemExit('Refusing duplicate icon visibility patch marker')
+          if not hits[body]: raise SystemExit('Closing body tag not found')
+          before={t.decode('utf-8'):len(v) for t,v in counts.items()}
+          style=('''<style id="m36-landscape-icon-visibility-20261016">
+          @media (orientation:landscape) and (min-width:600px) {
+            .m34-header .m33-launchers,
+            .m34-header .m34-system-tools {
+              display:flex!important;
+              flex-direction:column!important;
+              align-items:center!important;
+              justify-content:flex-start!important;
+              flex:0 0 28px!important;
+              width:28px!important;
+              min-width:28px!important;
+              max-width:28px!important;
+              gap:4px!important;
+            }
+            .m34-header .m33-launchers button,
+            .m34-header .m34-system-tools button {
+              box-sizing:border-box!important;
+              width:22px!important;
+              min-width:22px!important;
+              max-width:22px!important;
+              height:22px!important;
+              min-height:22px!important;
+              max-height:22px!important;
+              padding:2px!important;
+              color:#fafaf9!important;
+              background:#44403c!important;
+              border:1px solid #78716c!important;
+              box-shadow:0 0 0 1px rgba(250,250,249,.14),0 1px 3px rgba(0,0,0,.55)!important;
+              opacity:1!important;
+            }
+            .m34-header .m33-launchers button:disabled,
+            .m34-header .m34-system-tools button:disabled,
+            .m34-header .m33-launchers button[aria-disabled="true"],
+            .m34-header .m34-system-tools button[aria-disabled="true"] {
+              opacity:.58!important;
+            }
+            .m34-header .m33-launchers button svg,
+            .m34-header .m34-system-tools button svg {
+              color:#fafaf9!important;
+              opacity:1!important;
+              filter:brightness(1.12) contrast(1.1)!important;
+            }
+            .m34-header .m33-launchers button svg[fill]:not([fill="none"]),
+            .m34-header .m34-system-tools button svg[fill]:not([fill="none"]),
+            .m34-header .m33-launchers button svg [fill]:not([fill="none"]),
+            .m34-header .m34-system-tools button svg [fill]:not([fill="none"]) {
+              fill:#fafaf9!important;
+            }
+            .m34-header .m33-launchers button svg[stroke]:not([stroke="none"]),
+            .m34-header .m34-system-tools button svg[stroke]:not([stroke="none"]),
+            .m34-header .m33-launchers button svg [stroke]:not([stroke="none"]),
+            .m34-header .m34-system-tools button svg [stroke]:not([stroke="none"]) {
+              stroke:#fafaf9!important;
+            }
+          }
+          </style>
+          ''').encode('utf-8')
+          body_at=max(hits[body]); tmp=p.with_suffix('.html.m36tmp')
+          with p.open('rb') as src, tmp.open('wb') as dst:
+              remain=body_at
+              while remain:
+                  chunk=src.read(min(256*1024,remain))
+                  if not chunk: raise SystemExit('Source ended before closing body tag')
+                  dst.write(chunk); remain-=len(chunk)
+              dst.write(style)
+              while True:
+                  chunk=src.read(256*1024)
+                  if not chunk: break
+                  dst.write(chunk)
+          os.replace(tmp,p)
+          after_counts={t:set() for t in terms}; overlap=b''; total=0
+          with p.open('rb') as f:
+              while True:
+                  chunk=f.read(256*1024)
+                  if not chunk: break
+                  buf=overlap+chunk; base=total-len(overlap)
+                  for target,found in after_counts.items():
+                      at=0
+                      while True:
+                          i=buf.find(target,at)
+                          if i<0: break
+                          found.add(base+i); at=i+1
+                  total+=len(chunk); overlap=buf[-512:]
+          after={t.decode('utf-8'):len(v) for t,v in after_counts.items()}
+          if before!=after: raise SystemExit('Game feature marker count changed: '+json.dumps({'before':before,'after':after},ensure_ascii=False))
+          ev={'marker':'m36-landscape-icon-visibility-20261016','bytesBefore':p.stat().st_size-len(style),
+              'bytesAfter':p.stat().st_size,'insertedBytes':len(style),'featureMarkerCountsBefore':before,
+              'featureMarkerCountsAfter':after,'scope':'landscape toolbar presentation only'}
+          Path('/tmp/m36-icon-patch-evidence.json').write_text(json.dumps(ev,ensure_ascii=False,indent=2))
+          print(json.dumps(ev,ensure_ascii=False))
+          PY
+          git diff --check
+      - name: Verify icon rail, contrast, fullscreen and portrait preservation
+        id: runtime
+        continue-on-error: true
+        run: |
+          cat > /tmp/m36-icon-repair.cjs <<'NODE'
+          const fs=require('fs'),http=require('http'),cp=require('child_process');
+          const {chromium}=require(process.cwd()+'/node_modules/playwright');
+          const file='Wayward_MOD_v3.36.html';
+          const report={head:cp.execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim(),boot:[],views:[],errors:[],verdict:'FAIL'};
+          const wait=ms=>new Promise(r=>setTimeout(r,ms));
+          const server=http.createServer((req,res)=>{
+            if(String(req.url||'').split('?')[0]!=='/Wayward_MOD_v3.36.html'){res.writeHead(404);res.end();return;}
+            res.writeHead(200,{'content-type':'text/html; charset=utf-8','cache-control':'no-store'});
+            fs.createReadStream(file).pipe(res);
+          });
+          const rect=e=>{if(!e)return null;const r=e.getBoundingClientRect();return {x:+r.x.toFixed(2),y:+r.y.toFixed(2),right:+r.right.toFixed(2),bottom:+r.bottom.toFixed(2),width:+r.width.toFixed(2),height:+r.height.toFixed(2)};};
+          async function click(page,re){
+            const b=page.getByRole('button',{name:re}).first();
+            if(!await b.count().catch(()=>0)||!await b.isVisible().catch(()=>false))return false;
+            await b.evaluate(e=>e.click());await wait(400);return true;
+          }
+          async function boot(page){
+            const actions=[];
+            for(let i=0;i<70;i++){
+              const ready=await page.evaluate(()=>!!(document.querySelector('.mobile-layout')&&document.querySelector('.mobile-action-panel')&&document.querySelector('.mobile-action-scroll'))).catch(()=>false);
+              if(ready){report.boot.push({ok:true,actions});return;}
+              if(await click(page,/^예$/)){actions.push('age');continue;}
+              if(await click(page,/이해하고 동의합니다/)){actions.push('consent');continue;}
+              if(await click(page,/계속하기/)){actions.push('continue');continue;}
+              if(actions.includes('wife')&&await click(page,/엘레나/)){actions.push('Elena');continue;}
+              if(!actions.includes('wife')&&await click(page,/아내/)){actions.push('wife');continue;}
+              if(await click(page,/엘레나/)){actions.push('Elena');continue;}
+              if(await click(page,/^새 게임$/)){actions.push('new game');continue;}
+              if(await click(page,/건너뛰기/)){actions.push('skip prologue');continue;}
+              if(await click(page,/^다음$/)){actions.push('next prologue');continue;}
+              await wait(200);
+            }
+            throw new Error('Game did not boot: '+JSON.stringify(actions)+'; tail='+(await page.locator('body').innerText().catch(()=>'' )).slice(-1000));
+          }
+          function lum(c){
+            const m=String(c||'').match(/rgba?\(([^)]+)\)/);if(!m)return null;
+            const vals=m[1].split(',').slice(0,3).map(Number).map(v=>v/255).map(v=>v<=.04045?v/12.92:Math.pow((v+.055)/1.055,2.4));
+            return .2126*vals[0]+.7152*vals[1]+.0722*vals[2];
+          }
+          function contrast(a,b){const x=lum(a),y=lum(b);if(x===null||y===null)return null;return +((Math.max(x,y)+.05)/(Math.min(x,y)+.05)).toFixed(2);}
+          async function inspect(page,label){
+            const m=await page.evaluate(label=>{
+              const box=e=>{if(!e)return null;const r=e.getBoundingClientRect(),s=getComputedStyle(e);return {x:+r.x.toFixed(2),y:+r.y.toFixed(2),right:+r.right.toFixed(2),bottom:+r.bottom.toFixed(2),width:+r.width.toFixed(2),height:+r.height.toFixed(2),display:s.display,direction:s.flexDirection,gap:s.gap,opacity:s.opacity};};
+              const controls=root=>root?[...root.querySelectorAll('button,[role="button"]')].filter(e=>{const r=e.getBoundingClientRect();return r.width>0&&r.height>0;}).map(e=>{
+                const r=e.getBoundingClientRect(),s=getComputedStyle(e),svg=e.querySelector('svg'),ss=svg?getComputedStyle(svg):null;
+                const shapes=svg?[...svg.querySelectorAll('path,circle,rect,line,polyline,polygon,ellipse')].map(n=>{
+                  const q=getComputedStyle(n);return {tag:n.tagName,fill:q.fill,stroke:q.stroke,fillAttr:n.getAttribute('fill'),strokeAttr:n.getAttribute('stroke'),opacity:q.opacity};
+                }):[];
+                const ink=[];if(ss){ink.push({kind:'svg-color',color:ss.color});}
+                for(const sh of shapes){if(sh.fill!=='none'&&Number(sh.opacity||1)>.05)ink.push({kind:'fill',color:sh.fill});if(sh.stroke!=='none'&&Number(sh.opacity||1)>.05)ink.push({kind:'stroke',color:sh.stroke});}
+                return {label:(e.getAttribute('aria-label')||e.title||e.innerText||e.textContent||'').trim().slice(0,65),
+                  disabled:!!(e.disabled||e.getAttribute('aria-disabled')==='true'),
+                  rect:{x:+r.x.toFixed(2),y:+r.y.toFixed(2),right:+r.right.toFixed(2),bottom:+r.bottom.toFixed(2),width:+r.width.toFixed(2),height:+r.height.toFixed(2),opacity:s.opacity},
+                  color:s.color,background:s.backgroundColor,contrast:contrast(s.color,s.backgroundColor),
+                  svgColor:ss&&ss.color,ink:ink.slice(0,12).map(q=>({...q,contrast:contrast(q.color,s.backgroundColor)})),shapes:shapes.slice(0,8)};
+              }):[];
+              const launch=document.querySelector('.m34-header .m33-launchers'),tools=document.querySelector('.m34-header .m34-system-tools');
+              const l=controls(launch),t=controls(tools),all=[...l,...t],overlaps=[];
+              for(let i=0;i<all.length;i++)for(let j=i+1;j<all.length;j++){const a=all[i].rect,b=all[j].rect;if(a.x<b.right&&a.right>b.x&&a.y<b.bottom&&a.bottom>b.y)overlaps.push([all[i].label,all[j].label]);}
+              const layout=document.querySelector('.mobile-layout'),panel=document.querySelector('.mobile-action-panel'),choices=document.querySelector('.mobile-action-scroll');
+              const b=e=>{if(!e)return null;const r=e.getBoundingClientRect();return {x:+r.x.toFixed(2),y:+r.y.toFixed(2),right:+r.right.toFixed(2),bottom:+r.bottom.toFixed(2),width:+r.width.toFixed(2),height:+r.height.toFixed(2)};};
+              return {label,viewport:{width:innerWidth,height:innerHeight,clientWidth:document.documentElement.clientWidth,docWidth:document.documentElement.scrollWidth,fullscreen:!!document.fullscreenElement},
+                launchers:box(launch),launcherCount:l.length,launcherItems:l,systemTools:box(tools),systemCount:t.length,systemItems:t,overlaps,
+                layout:b(layout),panel:b(panel),panelGrid:panel?getComputedStyle(panel).gridColumn:null,choices:b(choices)};
+            },label);
+            report.views.push(m);return m;
+          }
+          async function validate(page,label){
+            const m=await inspect(page,label);
+            const controls=[...m.launcherItems,...m.systemItems];
+            const fail=[];
+            if(!m.launchers||m.launchers.display!=='flex'||m.launchers.direction!=='column'||m.launchers.width<27||m.launchers.width>29)fail.push('launchers not a 28px vertical rail');
+            if(!m.systemTools||m.systemTools.display!=='flex'||m.systemTools.direction!=='column'||m.systemTools.width<27||m.systemTools.width>29)fail.push('system tools not a 28px vertical rail');
+            if(m.launcherCount<3||m.systemCount<4)fail.push('expected launcher/system controls are missing');
+            for(const c of controls){
+              if(c.rect.x < -1||c.rect.right>29.5)fail.push(c.label+': outside rail');
+              if(c.rect.width<20||c.rect.height<20)fail.push(c.label+': icon button undersized');
+              if(!c.disabled&&Number(c.rect.opacity)<.95)fail.push(c.label+': active icon opacity too low');
+              if(c.disabled&&Number(c.rect.opacity)<.5)fail.push(c.label+': disabled icon too dim');
+              if(c.contrast!==null&&c.contrast<3)fail.push(c.label+': button foreground contrast below 3:1');
+              for(const ink of c.ink||[])if(ink.contrast!==null&&ink.contrast<3)fail.push(c.label+': SVG '+ink.kind+' contrast below 3:1 ('+ink.color+')');
+            }
+            if(m.overlaps.length)fail.push('toolbar controls overlap');
+            if(m.viewport.docWidth>m.viewport.clientWidth+1)fail.push('horizontal document overflow');
+            m.checks={pass:fail.length===0,failures:fail};
+            await page.screenshot({path:'/tmp/m36-'+label.replace(/[^a-z0-9]+/gi,'-')+'.png',fullPage:false}).catch(()=>{});
+            if(fail.length)throw new Error(label+': '+fail.join('; '));
+            return m;
+          }
+          async function main(){
+            let browser;
+            try{
+              await new Promise((ok,no)=>server.listen(4173,'127.0.0.1',ok).once('error',no));
+              browser=await chromium.launch({headless:true,args:['--no-sandbox']});
+              const page=await browser.newPage({viewport:{width:390,height:844},isMobile:true,hasTouch:true,deviceScaleFactor:1});
+              page.on('pageerror',e=>report.errors.push(String(e)));
+              await page.goto('http://127.0.0.1:4173/Wayward_MOD_v3.36.html',{waitUntil:'domcontentloaded',timeout:120000});
+              await boot(page);
+              const portraitBefore=await page.evaluate(()=>{const q=s=>{const e=document.querySelector(s);if(!e)return null;const r=e.getBoundingClientRect();return {x:+r.x.toFixed(2),y:+r.y.toFixed(2),right:+r.right.toFixed(2),bottom:+r.bottom.toFixed(2),width:+r.width.toFixed(2),height:+r.height.toFixed(2)}};return {layout:q('.mobile-layout'),panel:q('.mobile-action-panel'),choices:q('.mobile-action-scroll'),viewport:{width:innerWidth,height:innerHeight,docWidth:document.documentElement.scrollWidth}};});
+              report.portraitBefore=portraitBefore;
+              for(const v of [{w:1280,h:720},{w:915,h:412},{w:720,h:360}]){
+                await page.setViewportSize({width:v.w,height:v.h});await wait(500);
+                await validate(page,v.w+'x'+v.h);
+              }
+              const fsButton=page.getByRole('button',{name:/전체화면/}).first();
+              if(await fsButton.count().catch(()=>0)&&await fsButton.isVisible().catch(()=>false)){
+                await fsButton.evaluate(e=>e.click());await wait(500);
+                report.fullscreenEntered=await page.evaluate(()=>!!document.fullscreenElement);
+                if(report.fullscreenEntered)await validate(page,'fullscreen');
+                await page.evaluate(()=>document.exitFullscreen()).catch(()=>{});await wait(250);
+              }else report.fullscreenEntered=false;
+              await page.setViewportSize({width:390,height:844});await wait(500);
+              const portraitAfter=await page.evaluate(()=>{const q=s=>{const e=document.querySelector(s);if(!e)return null;const r=e.getBoundingClientRect();return {x:+r.x.toFixed(2),y:+r.y.toFixed(2),right:+r.right.toFixed(2),bottom:+r.bottom.toFixed(2),width:+r.width.toFixed(2),height:+r.height.toFixed(2)}};return {layout:q('.mobile-layout'),panel:q('.mobile-action-panel'),choices:q('.mobile-action-scroll'),viewport:{width:innerWidth,height:innerHeight,docWidth:document.documentElement.scrollWidth}};});
+              report.portraitAfter=portraitAfter;
+              for(const key of ['layout','panel','choices']){
+                const a=portraitBefore[key],b=portraitAfter[key];
+                if(!!a!==!!b)throw new Error('Portrait '+key+' presence changed');
+                if(a&&b)for(const dim of ['x','y','right','bottom','width','height'])if(Math.abs(a[dim]-b[dim])>1.5)throw new Error('Portrait '+key+' '+dim+' changed: '+a[dim]+' -> '+b[dim]);
+              }
+              if(report.errors.length)throw new Error('page errors: '+report.errors.join(' | '));
+              report.verdict='PASS';
+              fs.writeFileSync('/tmp/m36-icon-rail-pass','PASS');
+            }catch(e){
+              report.failure=String(e&&e.stack||e).slice(0,6000);
+              try{report.verdict='FAIL';}catch{}
+            }finally{
+              fs.writeFileSync('/tmp/m36-icon-rail-report.json',JSON.stringify(report,null,2));
+              if(browser)await browser.close().catch(()=>{});
+              await new Promise(r=>server.close(r)).catch(()=>{});
+            }
+            console.log(JSON.stringify(report));
+            if(report.verdict!=='PASS')process.exitCode=1;
+          }
+          main().catch(e=>{console.error(e&&e.stack||e);process.exitCode=1;});
+          NODE
+          node /tmp/m36-icon-repair.cjs
+      - name: Record result, revert unverified changes, and remove runner
+        if: always()
+        run: |
+          set -euo pipefail
+          mkdir -p idea
+          if [ -f /tmp/m36-icon-patch-evidence.json ]; then
+            if [ -f /tmp/m36-icon-rail-report.json ]; then
+              node -e "const fs=require('fs');const p='/tmp/m36-icon-rail-report.json';const r=JSON.parse(fs.readFileSync(p,'utf8'));r.patch=JSON.parse(fs.readFileSync('/tmp/m36-icon-patch-evidence.json','utf8'));fs.writeFileSync(p,JSON.stringify(r,null,2))"
+            fi
+          fi
+          if [ -f /tmp/m36-icon-rail-report.json ]; then
+            { echo "# M36 Landscape Icon Rail Repair — 2026-10-16"; echo; echo "Result: **$(node -e "process.stdout.write(JSON.parse(require('fs').readFileSync('/tmp/m36-icon-rail-report.json','utf8')).verdict)")**"; echo; echo "Runtime evidence:"; cat /tmp/m36-icon-rail-report.json; } > idea/M36_LANDSCAPE_ICON_RAIL_REPAIR_20261016.md
+          else
+            printf '%s\n' '# M36 Landscape Icon Rail Repair — 2026-10-16' '' 'Result: **FAIL**' '' 'No runtime report was generated.' > idea/M36_LANDSCAPE_ICON_RAIL_REPAIR_20261016.md
+          fi
+          if [ ! -f /tmp/m36-icon-rail-pass ] && [ -f /tmp/m36-original.html ]; then cp /tmp/m36-original.html Wayward_MOD_v3.36.html; fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm -f .github/workflows/m36-landscape-gauge-portrait-delta-fix-20261014.yml || true
+          if [ -f /tmp/m36-icon-rail-pass ]; then
+            git add Wayward_MOD_v3.36.html idea/M36_LANDSCAPE_ICON_RAIL_REPAIR_20261016.md
+            git commit -m "fix(mobile): brighten landscape left icon rail and verify layout"
+          else
+            git add idea/M36_LANDSCAPE_ICON_RAIL_REPAIR_20261016.md
+            git commit -m "test(mobile): record landscape icon rail repair verification"
+          fi
+          git push origin HEAD:mobile-migration-v1
+      - name: Require real browser PASS
+        if: always()
+        run: test -f /tmp/m36-icon-rail-pass
