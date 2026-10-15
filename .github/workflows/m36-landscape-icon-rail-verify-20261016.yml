@@ -1,0 +1,153 @@
+name: M36 landscape menu rail diagnostic (one-shot)
+on:
+  push:
+    branches: [mobile-migration-v1]
+    paths:
+      - ".github/workflows/m36-landscape-icon-rail-verify-20261016.yml"
+permissions:
+  contents: write
+jobs:
+  inspect-live-icon-rail:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: mobile-migration-v1
+          fetch-depth: 1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Install Chromium
+        run: |
+          npm init -y >/dev/null
+          npm install --no-audit --no-fund playwright
+          npx playwright install --with-deps chromium
+      - name: Prepare actual gameplay DOM inspection
+        run: |
+          cat > /tmp/m36-icon-check.cjs <<'NODE'
+          const fs=require('fs'),http=require('http'),{chromium}=require(process.cwd()+'/node_modules/playwright');
+          const file='Wayward_MOD_v3.36.html', url='http://127.0.0.1:4173/Wayward_MOD_v3.36.html';
+          const report={branch:'mobile-migration-v1',sourceHead:require('child_process').execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim(),
+            measurements:[],boot:[],errors:[],verdict:'PENDING'};
+          const box=e=>{if(!e)return null;const r=e.getBoundingClientRect();return {x:+r.x.toFixed(2),y:+r.y.toFixed(2),right:+r.right.toFixed(2),bottom:+r.bottom.toFixed(2),width:+r.width.toFixed(2),height:+r.height.toFixed(2)};};
+          function contrast(fg,bg){
+            const rgb=s=>{const m=String(s).match(/rgba?\(([^)]+)\)/);if(!m)return null;const p=m[1].split(',').map(Number);return p.length<3?null:p.slice(0,3).map(v=>v/255);};
+            const lum=c=>{const a=c.map(v=>v<=.04045?v/12.92:Math.pow((v+.055)/1.055,2.4));return .2126*a[0]+.7152*a[1]+.0722*a[2];};
+            const a=rgb(fg),b=rgb(bg);if(!a||!b)return null;const x=lum(a),y=lum(b);return +((Math.max(x,y)+.05)/(Math.min(x,y)+.05)).toFixed(2);
+          }
+          async function startServer(){
+            const s=http.createServer((req,res)=>{
+              if(String(req.url||'').split('?')[0]!=='/Wayward_MOD_v3.36.html'){res.writeHead(404);res.end();return;}
+              res.writeHead(200,{'content-type':'text/html; charset=utf-8','cache-control':'no-store'});fs.createReadStream(file).pipe(res);
+            });
+            await new Promise((ok,no)=>s.listen(4173,'127.0.0.1',ok).once('error',no));return s;
+          }
+          async function clickVisible(page,regex){
+            const b=page.getByRole('button',{name:regex}).first();
+            if(!(await b.count().catch(()=>0))||!(await b.isVisible().catch(()=>false)))return false;
+            await b.evaluate(e=>e.click());await page.waitForTimeout(400);return true;
+          }
+          async function enter(page){
+            const actions=[];
+            for(let n=0;n<70;n++){
+              const ready=await page.evaluate(()=>{const l=document.querySelector('.mobile-layout'),p=document.querySelector('.mobile-action-panel'),c=document.querySelector('.mobile-action-scroll');return !!(l&&p&&c&&l.getBoundingClientRect().width>120&&p.getBoundingClientRect().width>50);}).catch(()=>false);
+              if(ready){report.boot.push({ok:true,actions});return;}
+              if(await clickVisible(page,/^예$/)){actions.push('age');continue;}
+              if(await clickVisible(page,/이해하고 동의합니다/)){actions.push('consent');continue;}
+              if(await clickVisible(page,/계속하기/)){actions.push('continue');continue;}
+              if(actions.includes('wife')&&await clickVisible(page,/엘레나/)){actions.push('Elena');continue;}
+              if(!actions.includes('wife')&&await clickVisible(page,/아내/)){actions.push('wife');continue;}
+              if(await clickVisible(page,/엘레나/)){actions.push('Elena');continue;}
+              if(await clickVisible(page,/^새 게임$/)){actions.push('new game');continue;}
+              if(await clickVisible(page,/건너뛰기/)){actions.push('skip prologue');continue;}
+              if(await clickVisible(page,/^다음$/)){actions.push('next prologue');continue;}
+              await page.waitForTimeout(250);
+            }
+            const tail=(await page.locator('body').innerText().catch(()=>'' )).slice(-1200);report.boot.push({ok:false,actions,tail});throw new Error('Could not enter gameplay: '+JSON.stringify(actions)+' '+tail);
+          }
+          async function inspect(page,label){
+            return page.evaluate(label=>{
+              const r=e=>{if(!e)return null;const b=e.getBoundingClientRect(),s=getComputedStyle(e);return {x:+b.x.toFixed(2),y:+b.y.toFixed(2),right:+b.right.toFixed(2),bottom:+b.bottom.toFixed(2),width:+b.width.toFixed(2),height:+b.height.toFixed(2),display:s.display,position:s.position,direction:s.flexDirection,color:s.color,background:s.backgroundColor,border:s.borderColor,opacity:s.opacity,filter:s.filter};};
+              function opaqueBg(el){for(let p=el;p;p=p.parentElement){const c=getComputedStyle(p).backgroundColor,m=c.match(/rgba?\(([^)]+)\)/);if(!m)continue;const a=m[1].split(',').map(Number);if(a.length===3||a[3]>.05)return c;}return getComputedStyle(document.body).backgroundColor;}
+              const launch=document.querySelector('.m34-header .m33-launchers'),tools=document.querySelector('.m34-header .m34-system-tools');
+              const buttons=container=>container?[...container.querySelectorAll('button,[role="button"]')].filter(e=>{const b=e.getBoundingClientRect();return b.width>0&&b.height>0;}):[];
+              const summarize=e=>{const s=getComputedStyle(e),bg=opaqueBg(e),svg=e.querySelector('svg');return {label:(e.getAttribute('aria-label')||e.title||e.innerText||e.textContent||'').trim().slice(0,80),rect:r(e),effectiveBackground:bg,contrast:contrastRatio(s.color,bg),svg:svg?{color:getComputedStyle(svg).color,stroke:getComputedStyle(svg).stroke,fill:getComputedStyle(svg).fill}:null};};
+              function contrastRatio(fg,bg){const rgb=c=>{const m=c.match(/rgba?\(([^)]+)\)/);if(!m)return null;return m[1].split(',').slice(0,3).map(Number).map(v=>v/255);};const lum=c=>{if(!c)return null;const q=c.map(v=>v<=.04045?v/12.92:Math.pow((v+.055)/1.055,2.4));return .2126*q[0]+.7152*q[1]+.0722*q[2];};const a=lum(rgb(fg)),b=lum(rgb(bg));return a==null||b==null?null:+((Math.max(a,b)+.05)/(Math.min(a,b)+.05)).toFixed(2);}
+              const lb=buttons(launch),tb=buttons(tools),items=[...lb,...tb].map(summarize);
+              const overlaps=[];for(let i=0;i<items.length;i++)for(let j=i+1;j<items.length;j++){const a=items[i].rect,b=items[j].rect;if(a.x<b.right&&a.right>b.x&&a.y<b.bottom&&a.bottom>b.y)overlaps.push([items[i].label,items[j].label]);}
+              return {label,viewport:{innerWidth,innerHeight,clientWidth:document.documentElement.clientWidth,docWidth:document.documentElement.scrollWidth,fullscreen:!!document.fullscreenElement},
+                header:r(document.querySelector('.m34-header')),headerTools:r(document.querySelector('.m34-header-tools')),
+                launchers:{rect:r(launch),direction:launch?getComputedStyle(launch).flexDirection:null,display:launch?getComputedStyle(launch).display:null,count:lb.length,buttons:lb.map(summarize)},
+                systemTools:{rect:r(tools),direction:tools?getComputedStyle(tools).flexDirection:null,display:tools?getComputedStyle(tools).display:null,count:tb.length,buttons:tb.map(summarize)},
+                allControls:items,overlaps};
+            },label);
+          }
+          async function main(){
+            let server,browser;
+            try{
+              server=await startServer();browser=await chromium.launch({headless:true,args:['--no-sandbox']});
+              const ctx=await browser.newContext({viewport:{width:390,height:844},isMobile:true,hasTouch:true,deviceScaleFactor:1});
+              const page=await ctx.newPage();page.on('pageerror',e=>report.errors.push(String(e)));
+              await page.goto(url,{waitUntil:'domcontentloaded',timeout:120000});await enter(page);
+              for(const vp of [{w:1280,h:720},{w:915,h:412},{w:720,h:360}]){
+                await page.setViewportSize({width:vp.w,height:vp.h});await page.waitForTimeout(600);
+                const m=await inspect(page,'landscape '+vp.w+'x'+vp.h);report.measurements.push(m);
+                if(!m.launchers.rect||m.launchers.direction!=='column'||m.launchers.count<3)throw new Error(m.label+': launcher stack missing/not vertical '+JSON.stringify(m.launchers));
+                if(!m.systemTools.rect||m.systemTools.direction!=='column'||m.systemTools.count<4)throw new Error(m.label+': system controls missing/not vertical '+JSON.stringify(m.systemTools));
+                for(const it of m.allControls){
+                  if(it.rect.x < -1 || it.rect.right > 29.5) throw new Error(m.label+': icon outside 28px left rail: '+JSON.stringify(it));
+                  if(it.rect.width<16||it.rect.height<16) throw new Error(m.label+': icon control too small: '+JSON.stringify(it));
+                  if(it.rect.opacity!=='1'&&Number(it.rect.opacity)<.95) throw new Error(m.label+': icon control dimmed: '+JSON.stringify(it));
+                  if(it.contrast!==null&&it.contrast<3) throw new Error(m.label+': icon contrast below 3: '+JSON.stringify(it));
+                }
+                if(m.overlaps.length)throw new Error(m.label+': menu controls overlap '+JSON.stringify(m.overlaps));
+                if(m.viewport.docWidth>m.viewport.clientWidth+1)throw new Error(m.label+': horizontal overflow');
+              }
+              const fsButton=page.getByRole('button',{name:/전체화면/}).first();
+              if(await fsButton.count().catch(()=>0)&&await fsButton.isVisible().catch(()=>false)){
+                await fsButton.click({timeout:1500}).catch(()=>{});await page.waitForTimeout(400);
+                if(await page.evaluate(()=>!!document.fullscreenElement)){
+                  const m=await inspect(page,'landscape fullscreen');report.measurements.push(m);
+                  if(!m.launchers.rect||m.launchers.direction!=='column'||m.launchers.count<3)throw new Error('Fullscreen launcher rail failed');
+                  if(!m.systemTools.rect||m.systemTools.direction!=='column'||m.systemTools.count<4)throw new Error('Fullscreen system control rail failed');
+                  for(const it of m.allControls)if(it.rect.x < -1||it.rect.right>29.5||it.rect.opacity!=='1'&&Number(it.rect.opacity)<.95||(it.contrast!==null&&it.contrast<3))throw new Error('Fullscreen rail visibility failure '+JSON.stringify(it));
+                  if(m.overlaps.length)throw new Error('Fullscreen icons overlap '+JSON.stringify(m.overlaps));
+                  report.fullscreen=true;
+                }else report.fullscreen=false;
+              }else report.fullscreen=false;
+              if(report.errors.length)throw new Error('Page errors: '+report.errors.join(' | '));
+              report.verdict='PASS';
+            }catch(e){report.verdict='FAIL';report.failures=[String(e&&e.stack||e).slice(0,5000)];}
+            finally{if(browser)await browser.close().catch(()=>{});if(server)await new Promise(r=>server.close(r));}
+            fs.writeFileSync('/tmp/m36-icon-report.json',JSON.stringify(report,null,2));
+            fs.writeFileSync('/tmp/m36-icon-report.md','# M36 Landscape Icon Rail Verification — 2026-10-16\n\nResult: **'+report.verdict+'**\n\nJSON evidence:\n'+JSON.stringify(report,null,2)+'\n');
+            if(report.verdict!=='PASS')process.exitCode=1;
+          }
+          main().catch(e=>{console.error(e&&e.stack||e);process.exitCode=1;});
+          NODE
+      - name: Run live DOM checks for icon rail and contrast
+        id: inspect
+        continue-on-error: true
+        run: node /tmp/m36-icon-check.cjs
+      - name: Commit diagnostic report and remove one-shot workflow
+        if: always()
+        run: |
+          set -euo pipefail
+          mkdir -p idea
+          if [ -f /tmp/m36-icon-report.md ]; then cp /tmp/m36-icon-report.md idea/M36_LANDSCAPE_ICON_RAIL_VERIFY_20261016.md
+          else printf '%s\n' '# M36 Landscape Icon Rail Verification — 2026-10-16' '' 'Result: **FAIL**' 'No report was produced.' > idea/M36_LANDSCAPE_ICON_RAIL_VERIFY_20261016.md
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm -f .github/workflows/m36-landscape-icon-rail-verify-20261016.yml
+          git add idea/M36_LANDSCAPE_ICON_RAIL_VERIFY_20261016.md
+          if [ -f /tmp/m36-icon-report.json ] && grep -q '"verdict": "PASS"' /tmp/m36-icon-report.json; then
+            git commit -m "test(mobile): verify landscape menu icon rail and contrast"
+          else
+            git commit -m "test(mobile): record landscape icon rail diagnostic"
+          fi
+          git push origin HEAD:mobile-migration-v1
+      - name: Require passing icon rail verification
+        if: always()
+        run: test -f /tmp/m36-icon-report.json && grep -q '"verdict": "PASS"' /tmp/m36-icon-report.json
