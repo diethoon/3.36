@@ -251,12 +251,7 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git rm -f .github/workflows/m36-landscape-gauge-portrait-delta-fix-20261014.yml || true
           if [ -f /tmp/m36-icon-rail-pass ]; then
-            cat >> idea/GPT_RUNTIME_FORENSIC_FALLBACK.md <<'DOC'
-
-## 2026-10-16 — Landscape icon rail bounded repair
-
-A one-shot GitHub Actions runner streamed Wayward_MOD_v3.36.html in 256 KiB chunks and inserted one landscape-only CSS block before the closing body tag. Before committing the source change it booted the game in Chromium and checked the left launcher and system-tool rails at 1280×720, 915×412, 720×360, and fullscreen, including SVG contrast and overlap. It also compared portrait layout geometry before and after the landscape round-trip and counted existing gameplay/save/visitor feature markers before and after patching. The runner is removed after the evidence report is committed. Disabled controls use a lower visibility threshold than active controls; do not treat an intentionally dimmed Undo control as a layout failure.
-DOC
+            printf '%s\n' '' '## 2026-10-16 — Landscape icon rail repair' '' 'A one-shot Actions runner streamed the 3.36 HTML in bounded chunks, inserted landscape-only toolbar styling, checked Chromium positions and SVG contrast at three landscape sizes plus fullscreen, compared portrait geometry after the landscape round-trip, and verified gameplay/save/visitor marker counts. See M36_LANDSCAPE_ICON_RAIL_REPAIR_20261016.md.' >> idea/GPT_RUNTIME_FORENSIC_FALLBACK.mdDOC
             git add Wayward_MOD_v3.36.html idea/M36_LANDSCAPE_ICON_RAIL_REPAIR_20261016.md idea/GPT_RUNTIME_FORENSIC_FALLBACK.md
             git commit -m "fix(mobile): improve landscape left icon rail visibility"
           else
