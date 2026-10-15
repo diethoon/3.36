@@ -1619,3 +1619,15 @@ Cloudflare Worker는 D1/R2 바인딩에 대해 다음 end-to-end API 테스트�
 - 4열 레이아웃과 3·4열 동일 너비, 이야기/가게/엘레나 탭 표시, 초상화 패널 채움, 페이지 가로 넘침 없음.
 - 전체화면 버튼 전환 검사 PASS; 390×844 세로 화면의 주요 레이아웃 좌표가 수정 전과 동일.
 - Workflow의 임시 패치 작업 성공 확인 후 workflow 파일은 저장소에서 제거한다.
+
+
+## 36. 2026-10-16: Landscape left icon rail visibility repair
+
+- Branch: `mobile-migration-v1`
+- Verified source commit before patch: `c03d1a7e6c677a69055b4aa865bf737435e77363`
+- Result commit: `99fb8f3845f7886d6ef203e7d7e9a6d783d8a7a1`
+- Runtime evidence: [M36 Landscape Icon Rail Repair](https://github.com/diethoon/3.36/blob/mobile-migration-v1/idea/M36_LANDSCAPE_ICON_RAIL_REPAIR_20261016.md)
+- Chromium booted the actual game and passed three landscape viewport-resize scenarios plus fullscreen. Both toolbar groups remained a 28px left rail; all nine controls stayed within x=3..25, with no overlaps or horizontal document overflow. The active button foreground/background contrast measured 9.84:1. The intentionally disabled Undo control was raised from opacity 0.30 to 0.58 while remaining disabled.
+- Portrait geometry for `.mobile-layout`, `.mobile-action-panel`, and `.mobile-action-scroll` was unchanged before and after the landscape/fullscreen round-trip. Marker counts for save-share, disabled-choice handling, fixed gauges, store status, facility upgrades, and visitor actions were identical before and after the CSS-only patch.
+- The source was streamed in 256 KiB chunks; the change inserted one landscape-scoped style block before the final `</body>`. Game logic and existing feature code were not rewritten. The temporary runner was removed after the PASS report was committed.
+- Diagnostic guardrail: a disabled icon must not be judged by the active-control opacity threshold. Runtime checks now apply separate thresholds for enabled and disabled controls.
