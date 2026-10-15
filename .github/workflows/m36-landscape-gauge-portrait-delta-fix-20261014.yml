@@ -1,204 +1,142 @@
-name: M36 landscape gauge and portrait delta fix
+name: M36 live landscape icon rail verification
 on:
   push:
     branches: [mobile-migration-v1]
-    paths: [".github/workflows/m36-landscape-gauge-portrait-delta-fix-20261014.yml"]
+    paths:
+      - ".github/workflows/m36-landscape-gauge-portrait-delta-fix-20261014.yml"
 permissions:
   contents: write
 jobs:
-  patch:
+  diagnose:
     runs-on: ubuntu-latest
-    timeout-minutes: 8
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
         with:
           ref: mobile-migration-v1
           fetch-depth: 1
-      - name: Apply precise byte-range patch and validate
-        shell: bash
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Install Chromium
         run: |
-          set -euo pipefail
-          python3 - <<'PY'
-          from pathlib import Path
-          import os
-
-          p=Path("Wayward_MOD_v3.36.html")
-          # Build the exact unique fallback span without reading the minified file in one operation.
-          needle = (b'u.jsx("span",{className:' + bytes([96]) +
-                    b'text-xs leading-tight ' + bytes([36,123]) +
-                    b'Wt}' + bytes([96]) + b',children:xe})')
-          replacement = ('''u.jsx("div",{className:"m36-portrait-inline-delta",children:(m312State.lastActionDelta&&(sMe(m312State.lastActionDelta).length>0||(Rt.getState().devMode&&rMe(m312State.lastActionDelta).length>0)))?u.jsx(nOe,{delta:m312State.lastActionDelta,ageSlot:m312State.slot}):(xe==="대기 중"?"변화 기록 없음":xe)})''').encode("utf-8")
-          body_tag=b"</body>"
-          style=b"""<style id="m36-landscape-gauge-and-portrait-delta-20261014">
-          @media (orientation:landscape) {
-            .mobile-action-panel .m36-mobile-pleasure-fixed {
-              display:grid!important;
-              visibility:visible!important;
-              flex:0 0 auto!important;
-              position:relative!important;
-              z-index:29!important;
-              grid-template-columns:repeat(2,minmax(0,1fr))!important;
-              gap:4px!important;
-              padding:.25rem .45rem .4rem!important;
-              background:rgb(28 25 23)!important;
-              border-bottom:1px solid rgba(68,64,60,.78)!important;
+          npm init -y >/dev/null
+          npm install --no-audit --no-fund playwright
+          npx playwright install --with-deps chromium
+      - name: Run live icon rail inspection
+        id: runtime
+        continue-on-error: true
+        run: |
+          cat > /tmp/m36-icons.cjs <<'NODE'
+          const fs=require('fs'),http=require('http'),cp=require('child_process');
+          const {chromium}=require(process.cwd()+'/node_modules/playwright');
+          const html='Wayward_MOD_v3.36.html';
+          const report={head:cp.execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim(),boot:[],views:[],errors:[],verdict:'FAIL'};
+          const wait=ms=>new Promise(r=>setTimeout(r,ms));
+          const server=http.createServer((req,res)=>{
+            if(String(req.url||'').split('?')[0]!=='/Wayward_MOD_v3.36.html'){res.writeHead(404);res.end();return;}
+            res.writeHead(200,{'content-type':'text/html; charset=utf-8','cache-control':'no-store'});
+            fs.createReadStream(html).pipe(res);
+          });
+          async function click(page,re){
+            const b=page.getByRole('button',{name:re}).first();
+            if(!await b.count().catch(()=>0)||!await b.isVisible().catch(()=>false))return false;
+            await b.evaluate(e=>e.click());await wait(400);return true;
+          }
+          async function boot(page){
+            const actions=[];
+            for(let i=0;i<70;i++){
+              const ready=await page.evaluate(()=>!!(document.querySelector('.mobile-layout')&&document.querySelector('.mobile-action-panel')&&document.querySelector('.mobile-action-scroll'))).catch(()=>false);
+              if(ready){report.boot.push({ok:true,actions});return;}
+              if(await click(page,/^예$/)){actions.push('age');continue;}
+              if(await click(page,/이해하고 동의합니다/)){actions.push('consent');continue;}
+              if(await click(page,/계속하기/)){actions.push('continue');continue;}
+              if(actions.includes('wife')&&await click(page,/엘레나/)){actions.push('Elena');continue;}
+              if(!actions.includes('wife')&&await click(page,/아내/)){actions.push('wife');continue;}
+              if(await click(page,/엘레나/)){actions.push('Elena');continue;}
+              if(await click(page,/^새 게임$/)){actions.push('new game');continue;}
+              if(await click(page,/건너뛰기/)){actions.push('skip prologue');continue;}
+              if(await click(page,/^다음$/)){actions.push('next prologue');continue;}
+              await wait(200);
             }
-            .mobile-action-panel .mobile-action-scroll .m36-mobile-choice-gauge {
-              display:none!important;
+            throw new Error('Gameplay entry failed; actions='+JSON.stringify(actions)+'; tail='+(await page.locator('body').innerText().catch(()=>'' )).slice(-1000));
+          }
+          async function inspect(page,label){
+            const m=await page.evaluate(label=>{
+              function rect(el){if(!el)return null;const r=el.getBoundingClientRect(),s=getComputedStyle(el);return {x:+r.x.toFixed(2),y:+r.y.toFixed(2),right:+r.right.toFixed(2),bottom:+r.bottom.toFixed(2),width:+r.width.toFixed(2),height:+r.height.toFixed(2),display:s.display,opacity:s.opacity,direction:s.flexDirection,color:s.color,background:s.backgroundColor};}
+              function lum(c){const m=String(c).match(/rgba?\(([^)]+)\)/);if(!m)return null;const q=m[1].split(',').slice(0,3).map(Number).map(v=>v/255).map(v=>v<=.04045?v/12.92:Math.pow((v+.055)/1.055,2.4));return .2126*q[0]+.7152*q[1]+.0722*q[2];}
+              function items(root){return root?[...root.querySelectorAll('button,[role="button"]')].filter(el=>{const r=el.getBoundingClientRect();return r.width>0&&r.height>0;}).map(el=>{
+                const r=el.getBoundingClientRect(),s=getComputedStyle(el),svg=el.querySelector('svg'),fg=svg?getComputedStyle(svg).color:s.color,bg=s.backgroundColor,a=lum(fg),b=lum(bg);
+                return {label:(el.getAttribute('aria-label')||el.title||el.innerText||el.textContent||'').trim().slice(0,60),
+                  rect:{x:+r.x.toFixed(2),y:+r.y.toFixed(2),right:+r.right.toFixed(2),bottom:+r.bottom.toFixed(2),width:+r.width.toFixed(2),height:+r.height.toFixed(2),opacity:s.opacity},
+                  color:fg,background:bg,contrast:a===null||b===null?null:+((Math.max(a,b)+.05)/(Math.min(a,b)+.05)).toFixed(2)};
+              }):[];}
+              const launch=document.querySelector('.m34-header .m33-launchers'),tools=document.querySelector('.m34-header .m34-system-tools');
+              const l=items(launch),t=items(tools),all=[...l,...t],overlaps=[];
+              for(let i=0;i<all.length;i++)for(let j=i+1;j<all.length;j++){const a=all[i].rect,b=all[j].rect;if(a.x<b.right&&a.right>b.x&&a.y<b.bottom&&a.bottom>b.y)overlaps.push([all[i].label,all[j].label]);}
+              return {label,viewport:{width:innerWidth,height:innerHeight,clientWidth:document.documentElement.clientWidth,docWidth:document.documentElement.scrollWidth,fullscreen:!!document.fullscreenElement},
+                launchers:rect(launch),launcherCount:l.length,launcherItems:l,systemTools:rect(tools),systemCount:t.length,systemItems:t,overlaps};
+            },label);
+            report.views.push(m);return m;
+          }
+          async function validate(page,label){
+            const m=await inspect(page,label);
+            if(!m.launchers||m.launchers.direction!=='column'||m.launcherCount<3)throw new Error(label+': launchers not in vertical rail');
+            if(!m.systemTools||m.systemTools.direction!=='column'||m.systemCount<4)throw new Error(label+': system tools not in vertical rail');
+            for(const it of [...m.launcherItems,...m.systemItems]){
+              if(it.rect.x < -1||it.rect.right>29.5)throw new Error(label+': control outside left rail '+JSON.stringify(it));
+              if(it.rect.width<16||it.rect.height<16)throw new Error(label+': icon control undersized '+JSON.stringify(it));
+              if(Number(it.rect.opacity)<.95)throw new Error(label+': icon opacity too low '+JSON.stringify(it));
+              if(it.contrast!==null&&it.contrast<3)throw new Error(label+': icon contrast below 3:1 '+JSON.stringify(it));
             }
+            if(m.overlaps.length)throw new Error(label+': controls overlap '+JSON.stringify(m.overlaps));
+            if(m.viewport.docWidth>m.viewport.clientWidth+1)throw new Error(label+': horizontal overflow');
           }
-          .m36-portrait-inline-delta {
-            display:block;
-            width:100%;
-            max-width:100%;
-            min-width:0;
-            overflow:hidden;
-            color:rgb(168 162 158);
-            font-size:.75rem;
-            line-height:1.2;
+          async function main(){
+            let browser;
+            try{
+              await new Promise((ok,no)=>server.listen(4173,'127.0.0.1',ok).once('error',no));
+              browser=await chromium.launch({headless:true,args:['--no-sandbox']});
+              const page=await browser.newPage({viewport:{width:390,height:844},isMobile:true,hasTouch:true,deviceScaleFactor:1});
+              page.on('pageerror',e=>report.errors.push(String(e)));
+              await page.goto('http://127.0.0.1:4173/Wayward_MOD_v3.36.html',{waitUntil:'domcontentloaded',timeout:120000});
+              await boot(page);
+              for(const v of [{w:1280,h:720},{w:915,h:412},{w:720,h:360}]){await page.setViewportSize({width:v.w,height:v.h});await wait(500);await validate(page,v.w+'x'+v.h);}
+              const fsButton=page.getByRole('button',{name:/전체화면/}).first();
+              if(await fsButton.count().catch(()=>0)&&await fsButton.isVisible().catch(()=>false)){
+                await fsButton.click({timeout:2000}).catch(()=>{});await wait(500);
+                if(await page.evaluate(()=>!!document.fullscreenElement)){await validate(page,'fullscreen');report.fullscreen=true;}else report.fullscreen=false;
+              }else report.fullscreen=false;
+              if(report.errors.length)throw new Error('Browser page errors: '+report.errors.join(' | '));
+              report.verdict='PASS';fs.writeFileSync('/tmp/m36-icons-pass','PASS');
+            }catch(e){report.failure=String(e&&e.stack||e).slice(0,5000);}
+            finally{if(browser)await browser.close().catch(()=>{});await new Promise(r=>server.close(r)).catch(()=>{});}
+            fs.writeFileSync('/tmp/m36-icons-report.json',JSON.stringify(report,null,2));
+            fs.writeFileSync('/tmp/m36-icons-report.md','# M36 Landscape Icon Rail Verification — 2026-10-16\n\nResult: **'+report.verdict+'**\n\nJSON evidence:\n'+JSON.stringify(report,null,2)+'\n');
+            console.log(JSON.stringify(report));
+            if(report.verdict!=='PASS')process.exitCode=1;
           }
-          .m36-portrait-inline-delta>.px-3.py-2 {
-            padding:0!important;
-            background:transparent!important;
-            font-size:.62rem!important;
-          }
-          .m36-portrait-inline-delta>.px-3.py-2>.flex:first-child {
-            flex-wrap:nowrap!important;
-            overflow-x:auto!important;
-            white-space:nowrap!important;
-            max-width:100%;
-            gap:.25rem .5rem!important;
-          }
-          .m36-portrait-inline-delta>.px-3.py-2>.flex:first-child>span {
-            flex:0 0 auto!important;
-          }
-          </style>"""
-
-          targets=[needle,body_tag]
-          found={x:set() for x in targets}
-          overlap=b""
-          offset=0
-          with p.open("rb") as f:
-            while True:
-              chunk=f.read(256*1024)
-              if not chunk: break
-              buf=overlap+chunk
-              base=offset-len(overlap)
-              for target in targets:
-                pos=0
-                while True:
-                  i=buf.find(target,pos)
-                  if i<0: break
-                  found[target].add(base+i)
-                  pos=i+1
-              offset+=len(chunk)
-              overlap=buf[-4096:]
-
-          spans=sorted(found[needle])
-          bodies=sorted(found[body_tag])
-          if len(spans)!=1:
-            raise SystemExit(f"Expected one portrait fallback span, found {len(spans)}")
-          if not bodies:
-            raise SystemExit("Closing body tag not found")
-          if b'm36-landscape-gauge-and-portrait-delta-20261014' in p.open("rb").read(0):
-            raise SystemExit("Unexpected existing patch marker")
-          body_pos=bodies[-1]
-          with p.open("rb") as f:
-            f.seek(body_pos+len(body_tag))
-            tail=f.read(128)
-          if b"</html>" not in tail:
-            raise SystemExit("The final body tag was not followed by the HTML close tag")
-
-          edits=[
-            (spans[0],spans[0]+len(needle),replacement),
-            (body_pos,body_pos+len(body_tag),style+body_tag)
-          ]
-          if edits[0][1]>=edits[1][0]:
-            raise SystemExit("Patch locations overlap")
-          tmp=p.with_name(p.name+".m36tmp")
-          def copy_n(src,dst,count):
-            remaining=count
-            while remaining:
-              part=src.read(min(128*1024,remaining))
-              if not part: raise EOFError("Unexpected EOF during bounded copy")
-              dst.write(part)
-              remaining-=len(part)
-
-          with p.open("rb") as src, tmp.open("wb") as dst:
-            cursor=0
-            for start,end,data in edits:
-              src.seek(cursor)
-              copy_n(src,dst,start-cursor)
-              dst.write(data)
-              cursor=end
-            src.seek(cursor)
-            while True:
-              part=src.read(128*1024)
-              if not part: break
-              dst.write(part)
-
-          os.replace(tmp,p)
-
-          # Verify the two intended edits in bounded chunks; never materialize the full HTML in memory.
-          required=[b'm36-portrait-inline-delta',b'm36-landscape-gauge-and-portrait-delta-20261014',
-                    b'display:grid!important',b'children:xe})']
-          counts={x:0 for x in required}
-          overlap=b""
-          with p.open("rb") as f:
-            offset=0
-            while True:
-              chunk=f.read(256*1024)
-              if not chunk: break
-              buf=overlap+chunk
-              for marker in required:
-                counts[marker]+=buf.count(marker)
-              offset+=len(chunk)
-              overlap=buf[-4096:]
-          if counts[required[0]]<1 or counts[required[1]]!=1 or counts[required[2]]<1:
-            raise SystemExit(f"Post-patch verification failed: {counts}")
-          if counts[required[3]]!=0:
-            raise SystemExit("Old fallback markup unexpectedly remains")
-          print("PATCH_OK")
-          print("FILE_BYTES",p.stat().st_size)
-          print("PORTRAIT_DELTA_AND_LANDSCAPE_GAUGE_MARKERS",counts)
-          PY
-          git diff --check
-          # Syntax-check the inserted expression independently.
-          python3 - <<'PY'
-          from pathlib import Path
-          p=Path("Wayward_MOD_v3.36.html")
-          needle=b'm36-portrait-inline-delta",children:'
-          with p.open("rb") as f:
-            overlap=b""; found=False
-            while True:
-              c=f.read(256*1024)
-              if not c: break
-              if needle in overlap+c: found=True; break
-              overlap=(overlap+c)[-4096:]
-          if not found: raise SystemExit("Inserted portrait delta expression not found")
-          Path("/tmp/m36-patch-expression.js").write_text(
-            'function render(u,m312State,Rt,sMe,rMe,nOe,xe){return u.jsx("div",{className:"m36-portrait-inline-delta",children:(m312State.lastActionDelta&&(sMe(m312State.lastActionDelta).length>0||(Rt.getState().devMode&&rMe(m312State.lastActionDelta).length>0)))?u.jsx(nOe,{delta:m312State.lastActionDelta,ageSlot:m312State.slot}):(xe==="대기 중"?"변화 기록 없음":xe)})}\n',
-            encoding="utf-8")
-          PY
-          node --check /tmp/m36-patch-expression.js
-          touch /tmp/m36-mobile-patch-success
-      - name: Commit patch and remove temporary workflow
+          main().catch(e=>{console.error(e&&e.stack||e);process.exitCode=1;});
+          NODE
+          node /tmp/m36-icons.cjs
+      - name: Save report and remove temporary runners
         if: always()
-        shell: bash
         run: |
           set -euo pipefail
+          mkdir -p idea
+          if [ -f /tmp/m36-icons-report.md ]; then cp /tmp/m36-icons-report.md idea/M36_LANDSCAPE_ICON_RAIL_VERIFY_20261016.md
+          else printf '%s\n' '# M36 Landscape Icon Rail Verification — 2026-10-16' '' 'Result: **FAIL**' 'No report generated; inspect Actions logs.' > idea/M36_LANDSCAPE_ICON_RAIL_VERIFY_20261016.md
+          fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          rm -f .github/workflows/m36-landscape-gauge-portrait-delta-fix-20261014.yml
-          if [ -f /tmp/m36-mobile-patch-success ]; then
-            git add Wayward_MOD_v3.36.html .github/workflows
-            git commit -m "fix(mobile): show landscape gauges and portrait status deltas"
+          git rm -f .github/workflows/m36-landscape-gauge-portrait-delta-fix-20261014.yml .github/workflows/m36-landscape-icon-rail-verify-20261016.yml
+          git add idea/M36_LANDSCAPE_ICON_RAIL_VERIFY_20261016.md
+          if [ -f /tmp/m36-icons-pass ]; then
+            git commit -m "test(mobile): verify landscape icon rail visibility and remove runners"
           else
-            git add -A .github/workflows
-            if ! git diff --cached --quiet; then
-              git commit -m "chore: remove temporary mobile status patch runner"
-            fi
+            git commit -m "test(mobile): report landscape icon rail diagnostics and remove runners"
           fi
-          if ! git diff --cached --quiet || [ -f /tmp/m36-mobile-patch-success ]; then
-            git push origin mobile-migration-v1
-          fi
+          git push origin HEAD:mobile-migration-v1
+      - name: Require icon rail runtime pass
+        if: always()
+        run: test -f /tmp/m36-icons-pass
