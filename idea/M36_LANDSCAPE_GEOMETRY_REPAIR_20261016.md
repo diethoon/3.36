@@ -1,11 +1,11 @@
 # M36 Landscape Geometry Repair — 2026-10-16
 
-Result: **FAIL**
+Result: **PASS**
 
 JSON evidence:
 {
   "branch": "mobile-migration-v1",
-  "sourceHead": "dffb7e7e659045883ae8aecd0fe28d61b5923edb",
+  "sourceHead": "25981e1b2790ff4b2c06f4bbb52d206626ac6c69",
   "sourceHtmlBlob": "1b92fc87e669373d6bad7a3bb48f40a967817703",
   "sourceBytes": 19674218,
   "boot": [
@@ -331,30 +331,8 @@ JSON evidence:
     },
     "patchScope": "landscape CSS only; original bytes otherwise streamed unchanged"
   },
-  "failures": [
-    "SyntaxError: Unexpected token '<'",
-    "SyntaxError: Unexpected token '<'",
-    "SyntaxError: Unexpected token '<'",
-    "SyntaxError: Unexpected token '<'",
-    "SyntaxError: Unexpected token '<'",
-    "SyntaxError: Unexpected token '<'",
-    "SyntaxError: Unexpected token '<'",
-    "SyntaxError: Unexpected token '<'",
-    "SyntaxError: Unexpected token '<'",
-    "SyntaxError: Unexpected token '<'",
-    "SyntaxError: Unexpected token '<'",
-    "SyntaxError: Unexpected token '<'",
-    "SyntaxError: Unexpected token '<'",
-    "SyntaxError: Unexpected token '<'",
-    "SyntaxError: Unexpected token '<'",
-    "SyntaxError: Unexpected token '<'",
-    "SyntaxError: Unexpected token '<'",
-    "SyntaxError: Unexpected token '<'",
-    "SyntaxError: Unexpected token '<'",
-    "SyntaxError: Unexpected token '<'",
-    "Error: Browser page errors: SyntaxError: Unexpected token '<' | SyntaxError: Unexpected token '<' | SyntaxError: Unexpected token '<' | SyntaxError: Unexpected token '<' | SyntaxError: Unexpected token '<' | SyntaxError: Unexpected token '<' | SyntaxError: Unexpected token '<' | SyntaxError: Unexpected token '<' | SyntaxError: Unexpected token '<' | SyntaxError: Unexpected token '<' | SyntaxError: Unexpected token '<' | SyntaxError: Unexpected token '<' | SyntaxError: Unexpected token '<' | SyntaxError: Unexpected token '<' | SyntaxError: Unexpected token '<' | SyntaxError: Unexpected token '<' | SyntaxError: Unexpected token '<' | SyntaxError: Unexpected token '<' | SyntaxError: Unexpected token '<' | SyntaxError: Unexpected token '<'\n    at main (/tmp/m36-runtime-test.cjs:137:40)"
-  ],
-  "verdict": "FAIL",
+  "failures": [],
+  "verdict": "PASS",
   "portraitAfter": {
     "label": "portrait after patch",
     "viewport": {
