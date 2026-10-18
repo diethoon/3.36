@@ -1,0 +1,7 @@
+[
+  ["name:'Maid',", "name:'메이드',"],
+  ["return text||'Maid'}", "return text||'메이드'}"],
+  ["'기본값: Maid'", "'기본값: 메이드'"],
+  ["el('h2','ww1-title','Waitress')", "el('h2','ww1-title','웨이트리스')"],
+  ["desktop?'Waitress':'W'", "desktop?'웨이트리스':'W'"]
+]

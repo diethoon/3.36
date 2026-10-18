@@ -1,0 +1,10 @@
+[
+  [
+    "${offer.destination}로 배달을 떠납니다",
+    "${offer.destination}(으)로 배달을 떠납니다"
+  ],
+  [
+    "    const heading=[...document.querySelectorAll('h3')].find(node=>{\n      const text=node.textContent.trim();\n      return text==='외출 중'||text==='Away'||text.startsWith('배달 중');\n    });\n    if(heading){",
+    "    const isAway=node=>{\n      const text=node.textContent.trim();\n      return text==='외출 중'||text==='Away'||text.startsWith('배달 중');\n    };\n    // 10-04: the errand card heading is a div (drawn twice: wide and narrow layout); older builds used one h3\n    const cards=[...document.querySelectorAll('div[class*=\"border-amber-700\"] > div.uppercase.tracking-wider:first-child')].filter(isAway);\n    const headings=cards.length?cards:[...document.querySelectorAll('h3')].filter(isAway).slice(0,1);\n    for(const heading of headings){"
+  ]
+]

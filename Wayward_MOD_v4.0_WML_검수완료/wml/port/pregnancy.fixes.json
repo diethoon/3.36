@@ -1,0 +1,4 @@
+[
+  ["      !getCurrentState()?.activeScene?.patron\n    )return originalDispatch(action);","      !getCurrentState()?.activeScene?.patron||\n      getCurrentState()?.errandSession // 10-04: errand/sleep waits are capped by the game, never step them\n    )return originalDispatch(action);"],
+  ["        if(!after)break;\n","        if(!after)break;\n        if(!before?.errandSession!==!after.errandSession)break; // an errand started or ended: stop stepping\n"]
+]

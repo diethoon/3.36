@@ -1,0 +1,6 @@
+[
+  [
+    "    let found = null;\n    try { found = api.imageBackend?.()?.baseUrl ?? null; } catch {}\n    const base = (found || (prefs.imageBackendMode === 'custom' && prefs.imageBackendUrl\n      ? prefs.imageBackendUrl : 'http://127.0.0.1:8189')).replace(/\\/+$/, '');",
+    "    // (WML) 게임이 찾은 그림 서버가 그림을 그릴 수 있을 때만 요청해요. 서버를 못 찾았을 때 기본 주소로 보내지 않고,\n    // 이미지 생성 도구에서 게임 중 생성을 꺼 둔 때도 보내지 않아요. 게임이 서버를 찾는 동안 잠깐(최대 10초) 기다려요.\n    let conn = null;\n    for (let i = 0; i < 20; i++) {\n      try { conn = api.imageBackend?.() ?? null; } catch { conn = null; }\n      if (conn && conn.baseUrl) break;\n      await new Promise(r => setTimeout(r, 500));\n    }\n    if (!conn || !conn.baseUrl || !conn.comfyui) return;\n    if (globalThis.__WW_STUDIO_OFFLINE_ONLY__ === true) return;\n    const base = conn.baseUrl.replace(/\\/+$/, '');"
+  ]
+]

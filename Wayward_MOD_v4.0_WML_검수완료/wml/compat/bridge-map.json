@@ -1,0 +1,668 @@
+{
+ "from": "2026-09-30",
+ "to": "2026-10-04",
+ "generated": "2026-10-05T22:18:52.199Z",
+ "map": {
+  "re": "ae",
+  "g": "_",
+  "Y": "Y",
+  "Ce": "$e",
+  "vt": "bt",
+  "Qt": "Qt",
+  "Bt": "Pt",
+  "Rt": "At",
+  "C9": "wV",
+  "be": "_e",
+  "Ft": "Yt",
+  "bt": "pt",
+  "Qhe": "eme",
+  "_L": "n8",
+  "gL": "o8",
+  "dp": "Hp",
+  "v0": "ak",
+  "wc": "Bc",
+  "Xi": "hl",
+  "f2e": "mje",
+  "mY": "rF",
+  "nY": "K7",
+  "hhe": "lue",
+  "o3": "bO",
+  "Va": "hs",
+  "C3": "XO",
+  "Vr": "Xr",
+  "Jre": "Jle",
+  "_d": "Bd",
+  "Pb": "_w",
+  "iO": "CP",
+  "gT": "u$",
+  "pT": "d$",
+  "Yb": "vw",
+  "r8": "VB",
+  "Lf": "gp",
+  "Ob": "gw",
+  "MMe": "HOe",
+  "CMe": "POe",
+  "qMe": "JOe",
+  "Is": "Cs",
+  "I3e": "HPe",
+  "gPe": "w6e",
+  "dd": "Md",
+  "Zl": "mh",
+  "tl": "ul",
+  "cPe": "f6e",
+  "nae": "nhe",
+  "aH": "VL",
+  "f$": "T5",
+  "aae": "ahe",
+  "iae": "ihe",
+  "vpe": "pye",
+  "rae": "rhe",
+  "Pm": "ff",
+  "L6": "IB",
+  "MY": "$F",
+  "LIe": "PAe",
+  "j": "N",
+  "fc": "Dc",
+  "cb": "Wb",
+  "ph": "Eh",
+  "i9": "Kq",
+  "uPe": "g6e",
+  "iPe": "d6e",
+  "d3": "jO",
+  "tPe": "r6e",
+  "ND": "qD",
+  "mc": "Mc",
+  "w4e": "$He",
+  "Z": "Z",
+  "u": "u",
+  "gh": "Rh"
+ },
+ "detail": [
+  {
+   "old": "re",
+   "name": "ae",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "re=gb()(_b((e,t)=>({state:_c(),started:!1,selectingArchetype:!1,selectingBuilder:!1,select",
+   "newHead": "ae=Wf()(Vb((e,t)=>({state:Pc(),started:!1,selectingArchetype:!1,selectingBuilder:!1,select"
+  },
+  {
+   "old": "g",
+   "name": "_",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function g(e){const t=e.characters[e.primaryCharacterId];if(!t)throw new Error(`[character",
+   "newHead": "function _(e){const t=e.characters[e.primaryCharacterId];if(!t)throw new Error(`[character"
+  },
+  {
+   "old": "Y",
+   "name": "Y",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function Y(e){var t;return(t=e.activeScene)==null?void 0:t.patron}",
+   "newHead": "function Y(e){var t;return(t=e.activeScene)==null?void 0:t.patron}"
+  },
+  {
+   "old": "Ce",
+   "name": "$e",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function Ce(e,t){var o,n;for(const s of Xi)if((n=(o=e.locations)==null?void 0:o[s])!=null&",
+   "newHead": "function $e(e,t){var o,n;for(const s of hl)if((n=(o=e.locations)==null?void 0:o[s])!=null&"
+  },
+  {
+   "old": "vt",
+   "name": "_e",
+   "how": "exact×4/position",
+   "score": 0.8,
+   "oldHead": "function vt(e){return Hn(e,pe)}",
+   "newHead": "function _e(e){return Yn(e,Re)}"
+  },
+  {
+   "old": "Qt",
+   "name": "Qt",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function Qt(e,t,o){if(o<=0)return e;const n=e.incomeBreakdownToday??{};return{...e,economy",
+   "newHead": "function Qt(e,t,o){if(o<=0)return e;const n=e.incomeBreakdownToday??{};return{...e,economy"
+  },
+  {
+   "old": "Bt",
+   "name": "Pt",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function Bt(e,t,o){var i,l;const n=e.locations??mh();let s=null;for(const h of Xi)if((i=n[",
+   "newHead": "function Pt(e,t,o){var i,l;const n=e.locations??jh();let s=null;for(const h of hl)if((i=n["
+  },
+  {
+   "old": "Rt",
+   "name": "At",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "Rt=gb()(_b(e=>({...wD,set:t=>e(t)}),{name:\"tavern-settings\",version:3,migrate:e=>({...wD,.",
+   "newHead": "At=Wf()(Vb(e=>({...PD,set:t=>e(t)}),{name:\"tavern-settings\",version:3,migrate:e=>({...PD,."
+  },
+  {
+   "old": "C9",
+   "name": "wV",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function C9(e,t){const o=j3(e,t);return(o==null?void 0:o.shortname)??\"elena\"}",
+   "newHead": "function wV(e,t){const o=zO(e,t);return(o==null?void 0:o.shortname)??\"elena\"}"
+  },
+  {
+   "old": "be",
+   "name": "_e",
+   "how": "exact×4/position",
+   "score": 0.8,
+   "oldHead": "function be(e){return Hn(e,Me)}",
+   "newHead": "function _e(e){return Yn(e,Re)}"
+  },
+  {
+   "old": "Ft",
+   "name": "Yt",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function Ft(e,t,o){return e.customers.some(n=>n.id===t)?Bt(e,t,o):e}",
+   "newHead": "function Yt(e,t,o){return e.customers.some(n=>n.id===t)?Pt(e,t,o):e}"
+  },
+  {
+   "old": "bt",
+   "name": "pt",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function bt(e,t,o,n){const s=Ce(e,Me);let r=Bt(e,Me,t);if(t===\"bathhouse\"&&s!==\"bathhouse\"",
+   "newHead": "function pt(e,t,o,n){const s=$e(e,Re);let r=Pt(e,Re,t);if(t===\"bathhouse\"&&s!==\"bathhouse\""
+  },
+  {
+   "old": "Qhe",
+   "name": "eme",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function Qhe(e,t=Math.random){const o=ML(e),n=DL(e,t()*10);return n.length===0?\"modest\":n.",
+   "newHead": "function eme(e,t=Math.random){const o=w8(e),n=k8(e,t()*10);return n.length===0?\"modest\":n."
+  },
+  {
+   "old": "_L",
+   "name": "n8",
+   "how": "fuzzy (next 0.08)",
+   "score": 0.71,
+   "oldHead": "function _L(e){const t=[e.character];return e.characterId&&e.characterId!==\"wife\"&&t.push(",
+   "newHead": "function n8(e){const t=[e.character];return e.characterId&&e.characterId!==\"wife\"&&t.push("
+  },
+  {
+   "old": "gL",
+   "name": "o8",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function gL(e,t,o,n,s,r){var k;const a=eL(e.sceneVariant),i=C9(e.archetypeId,e.generatedAr",
+   "newHead": "function o8(e,t,o,n,s,r){var k;const a=H6(e.sceneVariant),i=wV(e.archetypeId,e.generatedAr"
+  },
+  {
+   "old": "dp",
+   "name": "Hp",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "async function dp(e,t={}){var a,i;const o=await cb();if(!o)return null;(!Pa||!Us)&&J2(o);c",
+   "newHead": "async function Hp(e,t={}){var a,i;const o=await Wb();if(!o)return null;(!Ya||!zs)&&aN(o);c"
+  },
+  {
+   "old": "v0",
+   "name": "ak",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function v0(e){const t=e.imagePath.split(\"\\\\\").join(\"/\"),o=()=>t.split(\"/\").map(encodeURIC",
+   "newHead": "function ak(e){const t=e.imagePath.split(\"\\\\\").join(\"/\"),o=()=>t.split(\"/\").map(encodeURIC"
+  },
+  {
+   "old": "wc",
+   "name": "Bc",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function wc(e){const o=e%ho*Z3;let n=Qq+Math.floor(o/60);const s=o%60;n>=24&&(n-=24);const",
+   "newHead": "function Bc(e){const o=e%ho*b4;let n=Pz+Math.floor(o/60);const s=o%60;n>=24&&(n-=24);const"
+  },
+  {
+   "old": "Xi",
+   "name": "hl",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "Xi=[\"taproom\",\"back_room\",\"bedroom\",\"elena_room\",\"upstairs_hall\",\"upstairs_room_2\",\"bathho",
+   "newHead": "hl=[\"taproom\",\"back_room\",\"bedroom\",\"elena_room\",\"upstairs_hall\",\"upstairs_room_2\",\"bathho"
+  },
+  {
+   "old": "f2e",
+   "name": "mje",
+   "how": "exact×2/position",
+   "score": 0.8,
+   "oldHead": "f2e=new Set([\"taproom\",\"back_room\",\"upstairs_hall\",\"upstairs_room_2\",\"bedroom\",\"elena_room",
+   "newHead": "mje=new Set([\"taproom\",\"back_room\",\"upstairs_hall\",\"upstairs_room_2\",\"bedroom\",\"elena_room"
+  },
+  {
+   "old": "mY",
+   "name": "rF",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "mY={taproom:new Set([\"back_room\",\"upstairs_hall\",\"upstairs_room_2\",\"bathroom\",\"kitchen\"]),",
+   "newHead": "rF={taproom:new Set([\"back_room\",\"upstairs_hall\",\"upstairs_room_2\",\"bathroom\",\"kitchen\"]),"
+  },
+  {
+   "old": "nY",
+   "name": "K7",
+   "how": "exact×4/position",
+   "score": 0.8,
+   "oldHead": "nY={taproom:\"홀\",back_room:\"뒷방\",bedroom:\"침실\",elena_room:\"그녀의 방\",upstairs_hall:\"위층\",upstairs",
+   "newHead": "K7={taproom:\"the taproom\",back_room:\"the back room\",bedroom:\"the bedroom\",elena_room:\"her "
+  },
+  {
+   "old": "hhe",
+   "name": "lue",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function hhe(e){return e===\"upstairs_hall\"||e===\"upstairs_room_2\"?\"bedroom\":e===\"bathroom\"",
+   "newHead": "function lue(e){return e===\"upstairs_hall\"||e===\"upstairs_room_2\"?\"bedroom\":e===\"bathroom\""
+  },
+  {
+   "old": "o3",
+   "name": "bO",
+   "how": "exact×4/position",
+   "score": 0.8,
+   "oldHead": "o3={taproom:\"홀\",back_room:\"뒷방\",bedroom:\"침실\",elena_room:\"그녀의 방\",upstairs_hall:\"객실\",upstairs",
+   "newHead": "bO={taproom:\"Taproom\",back_room:\"Back Room\",bedroom:\"Bedroom\",elena_room:\"Her Room\",upstai"
+  },
+  {
+   "old": "Va",
+   "name": "hs",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function Va(e,t){const o=e.logSeq??0,n=[...e.log,{...t,slot:t.slot??e.slot,seq:o}];return{",
+   "newHead": "function hs(e,t){const o=e.logSeq??0,n=[...e.log,{...t,slot:t.slot??e.slot,seq:o}];return{"
+  },
+  {
+   "old": "C3",
+   "name": "XO",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function C3(e,t){var o,n,s,r;return((n=(o=e.activeScene)==null?void 0:o.patron)==null?void",
+   "newHead": "function XO(e,t){var o,n,s,r;return((n=(o=e.activeScene)==null?void 0:o.patron)==null?void"
+  },
+  {
+   "old": "gh",
+   "status": "unmatched",
+   "oldHead": "function gh(e){var o;const t=(o=e.activeScene)==null?void 0:o.patron;return t?new Set([t.c",
+   "newHead": ""
+  },
+  {
+   "old": "Vr",
+   "name": "Xr",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function Vr(e){var t;return(t=e.activeScene)==null?void 0:t.bathhouse}",
+   "newHead": "function Xr(e){var t;return(t=e.activeScene)==null?void 0:t.bathhouse}"
+  },
+  {
+   "old": "Jre",
+   "name": "Jle",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function Jre(){const e=pE.reduce((o,n)=>o+n,0);let t=Math.random()*e;for(let o=0;o<Tv.leng",
+   "newHead": "function Jle(){const e=CR.reduce((o,n)=>o+n,0);let t=Math.random()*e;for(let o=0;o<mx.leng"
+  },
+  {
+   "old": "_d",
+   "name": "Bd",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function _d(e,t){const o=pf[t];return!(o.food&&e.readyFood<(o.food??0)||o.beer&&e.supplies",
+   "newHead": "function Bd(e,t){const o=Uf[t];return!(o.food&&e.readyFood<(o.food??0)||o.beer&&e.supplies"
+  },
+  {
+   "old": "Pb",
+   "name": "_w",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function Pb(e,t){const o=pf[t];return{...e,readyFood:e.readyFood-(o.food??0),supplies:{...",
+   "newHead": "function _w(e,t){const o=Uf[t];return{...e,readyFood:e.readyFood-(o.food??0),supplies:{..."
+  },
+  {
+   "old": "iO",
+   "name": "CP",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function iO(e,t){const o=pf[t],n=[];return o.food&&e.readyFood<o.food&&n.push(\"food\"),o.be",
+   "newHead": "function CP(e,t){const o=Uf[t],n=[];return o.food&&e.readyFood<o.food&&n.push(\"food\"),o.be"
+  },
+  {
+   "old": "gT",
+   "name": "u$",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function gT(e,t){for(const o of JQ[t])if(_d(e,o))return o;return null}",
+   "newHead": "function u$(e,t){for(const o of see[t])if(Bd(e,o))return o;return null}"
+  },
+  {
+   "old": "pT",
+   "name": "d$",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function pT(e){return tV[e]}",
+   "newHead": "function d$(e){return Wz[e]}"
+  },
+  {
+   "old": "Yb",
+   "name": "vw",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function Yb(e,t,o){return $O(e,t,o?IT(o):1)}",
+   "newHead": "function vw(e,t,o){return KP(e,t,o?$$(o):1)}"
+  },
+  {
+   "old": "r8",
+   "name": "VB",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function r8(e,t){if(t.roundsOrdered!==1)return e;const o=Sr(t),n=e.wordCarriedToday??{loca",
+   "newHead": "function VB(e,t){if(t.roundsOrdered!==1)return e;const o=Nr(t),n=e.wordCarriedToday??{loca"
+  },
+  {
+   "old": "Lf",
+   "name": "gp",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function Lf(e){var o;let t={...e,slot:e.slot+1};{const n=g(t);if((o=n.aftermathTags)!=null",
+   "newHead": "function gp(e){var o;let t={...e,slot:e.slot+1};{const n=_(t);if((o=n.aftermathTags)!=null"
+  },
+  {
+   "old": "Ob",
+   "name": "gw",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function Ob(e){var n;const t=e.tavern;if(!t)return 20;let o=20;return(((n=t.qualityUpgrade",
+   "newHead": "function gw(e){var n;const t=e.tavern;if(!t)return 20;let o=20;return(((n=t.qualityUpgrade"
+  },
+  {
+   "old": "MMe",
+   "name": "HOe",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function MMe(e){return[`images-${e}.js`,...Array.from({length:CMe},(t,o)=>`images-${e}-${o",
+   "newHead": "function HOe(e){return[`images-${e}.js`,...Array.from({length:POe},(t,o)=>`images-${e}-${o"
+  },
+  {
+   "old": "CMe",
+   "name": "POe",
+   "how": "literal×21",
+   "score": 0.85,
+   "oldHead": "CMe=2",
+   "newHead": "POe=2"
+  },
+  {
+   "old": "qMe",
+   "name": "JOe",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "async function qMe(){const e=ph();if(!e.baseUrl)return null;try{const t=await fetch(`${e.b",
+   "newHead": "async function JOe(){const e=Eh();if(!e.baseUrl)return null;try{const t=await fetch(`${e.b"
+  },
+  {
+   "old": "Is",
+   "name": "Cs",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function Is(e){const t=ph().baseUrl;return t===null?null:`${t}${e.startsWith(\"/\")?e:`/${e}",
+   "newHead": "function Cs(e){const t=Eh().baseUrl;return t===null?null:`${t}${e.startsWith(\"/\")?e:`/${e}"
+  },
+  {
+   "old": "I3e",
+   "name": "HPe",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function I3e(e){const t=Is(\"/api/image-hit\");if(t)try{fetch(t,{method:\"POST\",headers:{\"Con",
+   "newHead": "function HPe(e){const t=Cs(\"/api/image-hit\");if(t)try{fetch(t,{method:\"POST\",headers:{\"Con"
+  },
+  {
+   "old": "gPe",
+   "name": "w6e",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function gPe({onClose:e}){const t=ph(),[o,n]=Z.useState([dd[0]]),[s,r]=Z.useState(1e3),[a,",
+   "newHead": "function w6e({onClose:e}){const t=Eh(),[o,n]=Z.useState([Md[0]]),[s,r]=Z.useState(1e3),[a,"
+  },
+  {
+   "old": "dd",
+   "name": "Md",
+   "how": "exact×28/position",
+   "score": 0.8,
+   "oldHead": "dd=[\"elena\",\"mara\",\"pippa\"]",
+   "newHead": "Md=[\"elena\",\"mara\",\"pippa\"]"
+  },
+  {
+   "old": "Zl",
+   "name": "mh",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "Zl=[{id:\"elena_farmgirl\",name:\"엘레나\",shortname:\"elena\",tagline:\"농가 출신 여성. 19세. 결혼한 지 3주 됨.\"",
+   "newHead": "mh=[{id:\"elena_farmgirl\",name:\"Elena\",shortname:\"elena\",tagline:\"A farm girl. Nineteen. Ma"
+  },
+  {
+   "old": "tl",
+   "name": "ul",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function tl(e){return Zl.find(t=>t.id===e)}",
+   "newHead": "function ul(e){return mh.find(t=>t.id===e)}"
+  },
+  {
+   "old": "cPe",
+   "name": "f6e",
+   "how": "exact×15/position",
+   "score": 0.8,
+   "oldHead": "cPe={elena:\"elena_farmgirl\",mara:\"mara_citygirl\",pippa:\"pippa_waif\"}",
+   "newHead": "f6e={elena:\"elena_farmgirl\",mara:\"mara_citygirl\",pippa:\"pippa_waif\"}"
+  },
+  {
+   "old": "nae",
+   "name": "nhe",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function nae(e,t,o,n=50,s=1){return o>=aH?!1:Math.random()<f$(e)*aae(t)*iae(n)*s}",
+   "newHead": "function nhe(e,t,o,n=50,s=1){return o>=VL?!1:Math.random()<T5(e)*ahe(t)*ihe(n)*s}"
+  },
+  {
+   "old": "aH",
+   "name": "VL",
+   "how": "literal×12",
+   "score": 0.85,
+   "oldHead": "aH=8",
+   "newHead": "VL=8"
+  },
+  {
+   "old": "f$",
+   "name": "T5",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function f$(e){const t=oh(e),o=t<6?t+24:t;return o<17?0:o<20?.015+(o-17)*.004:o<23?.03:o<2",
+   "newHead": "function T5(e){const t=gh(e),o=t<6?t+24:t;return o<17?0:o<20?.015+(o-17)*.004:o<23?.03:o<2"
+  },
+  {
+   "old": "aae",
+   "name": "ahe",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function aae(e){return .4+e/100*1.1}",
+   "newHead": "function ahe(e){return .4+e/100*1.1}"
+  },
+  {
+   "old": "iae",
+   "name": "ihe",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function iae(e){return .1+e/100*1.4}",
+   "newHead": "function ihe(e){return .1+e/100*1.4}"
+  },
+  {
+   "old": "vpe",
+   "name": "pye",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function vpe(e,t){for(const o of[\"bill\",\"hail\"])if(Math.random()<kpe(e,o)*t)return o;retur",
+   "newHead": "function pye(e,t){for(const o of[\"bill\",\"hail\"])if(Math.random()<fye(e,o)*t)return o;retur"
+  },
+  {
+   "old": "rae",
+   "name": "rhe",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function rae(e){return f$(e)/sae}",
+   "newHead": "function rhe(e){return T5(e)/she}"
+  },
+  {
+   "old": "Pm",
+   "name": "ff",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function Pm(e,t=[],o=[],n,s,r){var W,V;if(s&&!r&&Math.random()<.3){const J=mee(s,t);if(J){",
+   "newHead": "function ff(e,t=[],o=[],n,s,r){var W,F;if(s&&!r&&Math.random()<.3){const X=jae(s,t);if(X){"
+  },
+  {
+   "old": "L6",
+   "name": "IB",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function L6(e,t){return Math.min(.95,.35+t/190)}",
+   "newHead": "function IB(e,t){return Math.min(.95,.35+t/190)}"
+  },
+  {
+   "old": "MY",
+   "name": "$F",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "MY=[{id:\"spring_festival\",minDay:21,cooldownDays:60,weight:.08,eligible(e){const t=HH(e.da",
+   "newHead": "$F=[{id:\"spring_festival\",minDay:21,cooldownDays:60,weight:.08,eligible(e){const t=T6(e.da"
+  },
+  {
+   "old": "LIe",
+   "name": "PAe",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function LIe(e,t){var n;let o={...e,pendingEvent:void 0};switch(t){case\"scenario_traveling",
+   "newHead": "function PAe(e,t){var n;let o={...e,pendingEvent:void 0};switch(t){case\"scenario_traveling"
+  },
+  {
+   "old": "j",
+   "name": "N",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function j(e,t,o){return Va(e,{text:t,coLocated:St(e),...o?{eventCategory:o}:{}})}",
+   "newHead": "function N(e,t,o){return hs(e,{text:t,coLocated:kt(e),...o?{eventCategory:o}:{}})}"
+  },
+  {
+   "old": "fc",
+   "name": "Dc",
+   "how": "fuzzy (next 0.10)",
+   "score": 0.85,
+   "oldHead": "function fc(e,t,o,n){if(C1){const m=o.scene??o.patronScene;if(!m||!C1.has(m))return}const ",
+   "newHead": "function Dc(e,t,o,n){if($T){const f=o.scene??o.patronScene;if(!f||!$T.has(f))return}const "
+  },
+  {
+   "old": "cb",
+   "name": "Wb",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "async function cb(){return sm||(sm=(async()=>{await iF();const e=[];km=await PMe(\"2026-09-",
+   "newHead": "async function Wb(){return jm||(jm=(async()=>{await VU();const e=[];Vm=await WOe(\"2026-10-"
+  },
+  {
+   "old": "ph",
+   "name": "Eh",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function ph(){return Hi??lF()??Ia}",
+   "newHead": "function Eh(){return Vi??zU()??Ra}"
+  },
+  {
+   "old": "i9",
+   "name": "Kq",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "i9=a9()",
+   "newHead": "Kq=zq()"
+  },
+  {
+   "old": "u",
+   "status": "unmatched",
+   "oldHead": "u=((runtime)=>{const koNameTails170={\"elena\":0,\"mara\":0,\"pippa\":0,\"aldric\":1,\"rolf\":0,\"lor",
+   "newHead": ""
+  },
+  {
+   "old": "uPe",
+   "name": "g6e",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "async function uPe(e){const t=Is(\"/api/batch/enqueue\");if(!t)return null;let o=0,n=0,s=\"\";",
+   "newHead": "async function g6e(e){const t=Cs(\"/api/batch/enqueue\");if(!t)return null;let o=0,n=0,s=\"\";"
+  },
+  {
+   "old": "iPe",
+   "name": "d6e",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function iPe(e){var i;const t=rPe(e),o=aPe(e),n=oPe[t];if(n!==void 0)return(lPe+n)*o;const",
+   "newHead": "function d6e(e){var i;const t=h6e(e),o=c6e(e),n=a6e[t];if(n!==void 0)return(u6e+n)*o;const"
+  },
+  {
+   "old": "d3",
+   "name": "jO",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function d3(){return new Promise(e=>setTimeout(e,0))}",
+   "newHead": "function jO(){return new Promise(e=>setTimeout(e,0))}"
+  },
+  {
+   "old": "tPe",
+   "name": "r6e",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function tPe(e={}){var I,N,E,R;C1=(I=e.scenes)!=null&&I.length?new Set(e.scenes):null,JF=e",
+   "newHead": "function r6e(e={}){var $,j,E,R;$T=($=e.scenes)!=null&&$.length?new Set(e.scenes):null,HG=e"
+  },
+  {
+   "old": "ND",
+   "name": "qD",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function ND(){sm=null,Pa=null,Us=null}",
+   "newHead": "function qD(){jm=null,Ya=null,zs=null}"
+  },
+  {
+   "old": "mc",
+   "name": "Mc",
+   "how": "exact×2/position",
+   "score": 0.8,
+   "oldHead": "function mc({active:e,onClick:t,children:o}){return u.jsx(\"button\",{onClick:t,className:`p",
+   "newHead": "function Mc({active:e,onClick:t,children:o}){return u.jsx(\"button\",{onClick:t,className:`p"
+  },
+  {
+   "old": "w4e",
+   "name": "$He",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function w4e(){var w,k;const e=re(x=>x.state),t=g(e),o=PF(e),n=u4e(e),s=iI(e),r=OF(e),a=(x",
+   "newHead": "function $He(){const e=ae(k=>k.state),t=_(e),o=TG(e),n=xHe(e),s=wN(e),r=SG(e),a=(k,x)=>{co"
+  },
+  {
+   "old": "Z",
+   "name": "Kq",
+   "how": "exact×4/position",
+   "score": 0.8,
+   "oldHead": "Z=D1()",
+   "newHead": "Kq=zq()"
+  }
+ ],
+ "overrides": {
+  "vt": "bt (symbol table: playerLocation)",
+  "u": "u (symbol table: jsx)",
+  "Z": "Z (symbol table: React)",
+  "gh": "Rh (same body, also counts bathhouse guest)"
+ }
+}

@@ -1,0 +1,18 @@
+[
+  [
+    "    next = koSEOriginalReducer(next, { type: \"errand_skip\" });",
+    "    // 10-04 removed errand_skip; finish the errand like the native \"until done\" button\n    next = koSEOriginalReducer(next, { type: \"wait\", until: \"done\" });"
+  ],
+  [
+    "      next = koSEOriginalReducer(next, { type: \"sleep\" });",
+    "      // 10-04 sleep buttons send underway: true, which opens the night errand instead of jumping to morning\n      next = koSEOriginalReducer(next, { type: \"sleep\", underway: true });"
+  ],
+  [
+    "    sleepDepartureResumesOriginalSleep: Number(sleepDepartureResolved.slot || 0) > Number(sleepDepartureBase.slot || 0) &&",
+    "    sleepDepartureResumesOriginalSleep: sleepDepartureResolved.errandSession?.reason === \"night\" &&"
+  ],
+  [
+    "  const candidates = [...document.querySelectorAll(\"img[src]\")]",
+    "  // WML: only the game's own pictures (inside #root); other mods' panels (maid, brothel, slave …) sit outside it, and their big portraits were taken as her picture\n  const candidates = [...(document.getElementById(\"root\") || document).querySelectorAll(\"img[src]\")]"
+  ]
+]

@@ -1,0 +1,20 @@
+{
+  "name": "wayward-mod-loader",
+  "version": "0.2.0",
+  "private": true,
+  "type": "module",
+  "description": "Wayward Mod Loader: build a modded game HTML from the vanilla build, hooks + API runtime, translation layer, version porting (the MCP server is the separate wml-mcp package)",
+  "scripts": {
+    "build": "node tools/build.mjs",
+    "build:ko": "node tools/build.mjs --lang ko",
+    "port": "node tools/port-symbols.mjs",
+    "pack-mods": "node tools/pack-mods.mjs"
+  },
+  "dependencies": {
+    "acorn": "^8.14.0",
+    "acorn-walk": "^8.3.4",
+    "eslint-scope": "^9.1.2",
+    "esrecurse": "^4.3.0",
+    "estraverse": "^5.3.0"
+  }
+}
