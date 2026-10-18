@@ -1,37 +1,55 @@
 name: Inspect Ibuki addon archive
+
 on:
   push:
-    branches: [ibuki-analysis]
-    paths: [.github/workflows/inspect-ibuki.yml]
+    branches:
+      - ibuki-analysis
+
 permissions:
   contents: write
+
 jobs:
   unpack:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout analysis branch
+        uses: actions/checkout@v4
         with:
           ref: ibuki-analysis
-      - name: Extract addon archive
+      - name: Extract and verify addon archive
+        shell: bash
         run: |
           python - <<'PY'
-          import zipfile, pathlib
-          z=zipfile.ZipFile('WifeAddon_ibuki_WML_preload_fixed.zip')
-          out=pathlib.Path('ibuki-unpacked')
-          out.mkdir(exist_ok=True)
-          for item in z.infolist():
-              p=pathlib.PurePosixPath(item.filename)
-              if p.is_absolute() or '..' in p.parts:
-                  raise SystemExit('unsafe path: '+item.filename)
-              if item.is_dir(): continue
-              dest=out.joinpath(*p.parts[1:])
-              dest.parent.mkdir(parents=True, exist_ok=True)
-              dest.write_bytes(z.read(item))
+          from pathlib import Path, PurePosixPath
+          from zipfile import ZipFile
+          import hashlib
+          archive = Path("WifeAddon_ibuki_WML_preload_fixed.zip")
+          if not archive.is_file():
+              raise SystemExit(f"Archive not found: {archive}")
+          out = Path("ibuki-unpacked")
+          with ZipFile(archive) as z:
+              for item in z.infolist():
+                  p = PurePosixPath(item.filename)
+                  if p.is_absolute() or ".." in p.parts:
+                      raise SystemExit("Unsafe archive path: " + item.filename)
+                  if item.is_dir():
+                      continue
+                  rel = Path(*p.parts[1:])
+                  target = out / rel
+                  target.parent.mkdir(parents=True, exist_ok=True)
+                  data = z.read(item)
+                  target.write_bytes(data)
+                  print(f"{len(data):>7} bytes  sha256={hashlib.sha256(data).hexdigest()}  {target}")
           PY
-      - name: Commit extracted source for inspection
+      - name: Commit extracted source
+        shell: bash
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add ibuki-unpacked
+          if git diff --cached --quiet; then
+            echo "No extracted changes."
+            exit 0
+          fi
           git commit -m "chore: unpack Ibuki addon for analysis"
           git push origin ibuki-analysis
