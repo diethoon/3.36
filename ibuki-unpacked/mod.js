@@ -28,7 +28,8 @@
     setup(api) {
       // The actual character registration happened above during preload.
       // Keep setup() for WML bookkeeping and future compatibility.
-      api.warn('legacy preload registration executed before the game module');
+      // Legacy registration already ran during preload; this is expected, not an error.
+      // Do not emit a warning here: it was the source of the reported runtime message.
     },
   });
 })();
