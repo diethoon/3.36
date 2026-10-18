@@ -10,6 +10,7 @@ permissions:
 
 jobs:
   package:
+    if: ${{ !contains(github.event.head_commit.message, 'build: package corrected Ibuki WML addon') }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout analysis branch
@@ -40,6 +41,10 @@ jobs:
           with zipfile.ZipFile(out) as z:
               print("ZIP integrity:", z.testzip() or "OK")
               print("Entries:", ", ".join(z.namelist()))
+              mod = z.read("WifeAddon_ibuki/mod.js").decode("utf-8")
+              if "api.warn('legacy preload registration executed before the game module')" in mod:
+                  raise SystemExit("FAIL: stale warning remains in packaged mod.js")
+              print("Verified: misleading preload warning absent from packaged mod.js")
           PY
       - name: Commit packaged ZIP
         shell: bash
