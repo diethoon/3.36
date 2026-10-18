@@ -2,9 +2,9 @@
 // 원본: Addon_Newwife_ibuki.js. WML은 setup()을 첫 렌더 전에 실행합니다.
 // addon-compat가 옛 아내 등록 API를 연결하고, setup() 끝에서 아내 목록에 반영합니다.
 WML.define({
-  id: 'wifeaddon_ibuki',
-  name: '캐릭터 애드온: 이부키',
-  version: '1.0.1',
+  id: 'ibuki-wml-native-fixed',
+  name: '캐릭터 애드온: 이부키 (WML 수정판)',
+  version: '1.0.2',
   game: '>=2026-10-04',
   description: '아내 선택지에 이부키를 추가하고, 이미지 서버가 연결된 경우 선택 화면 초상화를 요청합니다.',
   requires: ['addon-compat'],
