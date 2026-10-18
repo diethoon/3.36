@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "id": "WifeAddon_ibuki",
+  "name": "캐릭터 애드온: 이부키",
+  "version": "1.0.0-wml-preload",
+  "entry": "Addon_Newwife_ibuki.js",
+  "load": "preload",
+  "enabledByDefault": true,
+  "requires": {
+    "mods": [],
+    "bindings": []
+  },
+  "patchProfiles": [
+    "wife_registry"
+  ],
+  "supportedBuilds": [
+    "2026-09-30"
+  ]
+}
