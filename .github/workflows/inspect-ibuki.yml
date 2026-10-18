@@ -31,7 +31,7 @@ jobs:
           python - <<'PY'
           from pathlib import Path
           import zipfile, hashlib
-          out = Path("WifeAddon_ibuki_WML_preload_fixed.zip")
+          out = Path("WifeAddon_ibuki_WML_native_fixed.zip")
           with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as z:
               for p in sorted(Path("/tmp/WifeAddon_ibuki").iterdir()):
                   z.write(p, "WifeAddon_ibuki/" + p.name)
@@ -55,7 +55,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+users.noreply.github.com"
-          git add WifeAddon_ibuki_WML_preload_fixed.zip
+          git add WifeAddon_ibuki_WML_native_fixed.zip
           if git diff --cached --quiet; then
             echo "Packaged ZIP already current."
             exit 0
