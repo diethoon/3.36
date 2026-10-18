@@ -17,55 +17,6 @@ jobs:
         uses: actions/checkout@v4
         with:
           ref: ibuki-analysis
-      - name: Inspect actual WML game wife registry
-        shell: bash
-        run: |
-          set -euo pipefail
-          git fetch --no-tags --depth=1 origin wml
-          python - <<'PY'
-          from pathlib import Path
-          import subprocess, re
-          source_path = "Wayward_MOD_v4.0_WML_검수완료/Wayward_MOD_v4.0_검수완료.html"
-          p = subprocess.run(["git", "show", "FETCH_HEAD:" + source_path],
-                             check=True, capture_output=True)
-          html = p.stdout.decode("utf-8", errors="replace")
-          patterns = [
-              "__WAYWARD_WIFE_ADDONS__", "__WAYWARD_ADDON_API__", "wife_registry",
-              "patchProfiles", "pippa_waif", "WIFE_ADDONS", "wifeAddons",
-              "registerWife", "register_wife", "AddNewwife", "wife_registry",
-              "WML.define", "legacy preload registration",
-          ]
-          out = [
-              "WAYWARD WML GAME-SOURCE FORENSICS",
-              f"source={source_path}",
-              f"bytes={len(p.stdout)} chars={len(html)}",
-              "",
-          ]
-          spans = []
-          for needle in patterns:
-              positions = [m.start() for m in re.finditer(re.escape(needle), html, re.I)]
-              out.append(f"TERM {needle!r}: {len(positions)} match(es)")
-              for pos in positions[:12]:
-                  spans.append((max(0, pos-500), min(len(html), pos+1000), needle, pos))
-          spans.sort()
-          merged = []
-          for a,b,needle,pos in spans:
-              if merged and a <= merged[-1][1]:
-                  merged[-1][1] = max(merged[-1][1], b)
-                  merged[-1][2].append((needle,pos))
-              else:
-                  merged.append([a,b,[(needle,pos)]])
-          out.append("")
-          for i,(a,b,hits) in enumerate(merged[:35],1):
-              out.append(f"--- EXCERPT {i} offsets {a}:{b}; hits={hits} ---")
-              chunk = html[a:b]
-              # keep report printable and bounded; expose only small source regions
-              out.append(chunk.replace("\r","").replace("\n"," ")[:1800])
-              out.append("")
-          report = "\n".join(out)
-          Path("ibuki-unpacked/registry-forensics.txt").write_text(report, encoding="utf-8")
-          print(report[:24000])
-          PY
       - name: Package corrected addon
         shell: bash
         run: |
@@ -95,14 +46,14 @@ jobs:
                   raise SystemExit("FAIL: stale warning remains in packaged mod.js")
               print("Verified: misleading preload warning absent from packaged mod.js")
           PY
-      - name: Commit diagnosis and packaged ZIP
+      - name: Commit packaged ZIP
         shell: bash
         run: |
           git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add WifeAddon_ibuki_WML_preload_fixed.zip ibuki-unpacked/registry-forensics.txt
+          git config user.email "41898282+users.noreply.github.com"
+          git add WifeAddon_ibuki_WML_preload_fixed.zip
           if git diff --cached --quiet; then
-            echo "Package and forensics report already current."
+            echo "Packaged ZIP already current."
             exit 0
           fi
           git commit -m "build: package corrected Ibuki WML addon"
