@@ -1,6 +1,19 @@
-Wayward Mod Manager 캐릭터 애드온
+이부키 캐릭터 애드온 — WML 네이티브 모드
 
-1. 이 ZIP을 풉니다.
-2. WifeAddon_ibuki 폴더를 모드 매니저의 mods 폴더 안에 넣습니다.
-3. 모드 매니저에서 '이부키' 캐릭터 애드온을 체크하고 설치합니다.
-4. 대상 빌드: 2026-09-30 / load: preload / patchProfiles: wife_registry
+대상: Wayward WML 빌드 2026-10-04 이상
+WML 모드 ID: wifeaddon_ibuki
+필수 모드: addon-compat
+
+설치
+1. WML 모드 관리자에서 이 ZIP을 가져옵니다.
+2. WML 모드 관리자에서 '캐릭터 애드온: 이부키'를 켭니다.
+3. addon-compat가 설치되어 있고 켜져 있는지 확인합니다.
+4. 모드를 적용한 뒤 게임을 새로 시작합니다.
+
+작동 방식
+- 원본 아내 정의는 WML setup()에서 실행됩니다.
+- addon-compat 등록 API를 통해 게임의 아내 프리셋·이름·ID 목록에 추가합니다.
+- 이미지 서버가 실제로 연결되어 있고 ComfyUI 백엔드가 확인된 경우에만 선택 화면 초상화 생성을 요청합니다.
+- 이 ZIP은 이전 preload 스크립트 주입 방식을 사용하지 않습니다.
+
+문제가 생기면 WML 모드 관리자에 표시되는 모드 오류와 대상 게임 빌드를 확인하세요.
