@@ -4,7 +4,7 @@
 WML.define({
   id: 'wifeaddon_ibuki',
   name: '캐릭터 애드온: 이부키 (WML 수정판)',
-  version: '1.0.5',
+  version: '1.0.6',
   game: '>=2026-10-04',
   description: '아내 선택지에 이부키를 추가하고, 이미지 서버가 연결된 경우 선택 화면 초상화를 요청합니다.',
   setup(api) {
