@@ -1,4 +1,4 @@
-name: Inspect Ibuki addon archive
+name: Build fixed Ibuki addon ZIP
 
 on:
   push:
@@ -9,47 +9,47 @@ permissions:
   contents: write
 
 jobs:
-  unpack:
+  package:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout analysis branch
         uses: actions/checkout@v4
         with:
           ref: ibuki-analysis
-      - name: Extract and verify addon archive
+      - name: Package corrected addon
         shell: bash
         run: |
+          set -euo pipefail
+          test -s ibuki-unpacked/mod.js
+          test -s ibuki-unpacked/Addon_Newwife_ibuki.js
+          rm -rf /tmp/WifeAddon_ibuki
+          mkdir -p /tmp/WifeAddon_ibuki
+          cp ibuki-unpacked/bridge.manifest.json /tmp/WifeAddon_ibuki/
+          cp ibuki-unpacked/Addon_Newwife_ibuki.js /tmp/WifeAddon_ibuki/
+          cp ibuki-unpacked/README.txt /tmp/WifeAddon_ibuki/
+          cp ibuki-unpacked/mod.js /tmp/WifeAddon_ibuki/
           python - <<'PY'
-          from pathlib import Path, PurePosixPath
-          from zipfile import ZipFile
-          import hashlib
-          archive = Path("WifeAddon_ibuki_WML_preload_fixed.zip")
-          if not archive.is_file():
-              raise SystemExit(f"Archive not found: {archive}")
-          out = Path("ibuki-unpacked")
-          with ZipFile(archive) as z:
-              for item in z.infolist():
-                  p = PurePosixPath(item.filename)
-                  if p.is_absolute() or ".." in p.parts:
-                      raise SystemExit("Unsafe archive path: " + item.filename)
-                  if item.is_dir():
-                      continue
-                  rel = Path(*p.parts[1:])
-                  target = out / rel
-                  target.parent.mkdir(parents=True, exist_ok=True)
-                  data = z.read(item)
-                  target.write_bytes(data)
-                  print(f"{len(data):>7} bytes  sha256={hashlib.sha256(data).hexdigest()}  {target}")
+          from pathlib import Path
+          import zipfile, hashlib
+          out = Path("WifeAddon_ibuki_WML_preload_fixed.zip")
+          with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as z:
+              for p in sorted(Path("/tmp/WifeAddon_ibuki").iterdir()):
+                  z.write(p, "WifeAddon_ibuki/" + p.name)
+          data = out.read_bytes()
+          print(f"Built {out}: {len(data)} bytes; sha256={hashlib.sha256(data).hexdigest()}")
+          with zipfile.ZipFile(out) as z:
+              print("ZIP integrity:", z.testzip() or "OK")
+              print("Entries:", ", ".join(z.namelist()))
           PY
-      - name: Commit extracted source
+      - name: Commit packaged ZIP
         shell: bash
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add ibuki-unpacked
+          git add WifeAddon_ibuki_WML_preload_fixed.zip
           if git diff --cached --quiet; then
-            echo "No extracted changes."
+            echo "Packaged ZIP already current."
             exit 0
           fi
-          git commit -m "chore: unpack Ibuki addon for analysis"
+          git commit -m "build: package corrected Ibuki WML addon"
           git push origin ibuki-analysis
