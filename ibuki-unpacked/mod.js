@@ -55,7 +55,7 @@ WML.define({
         let found = null;
         try { found = api.imageBackend?.()?.baseUrl ?? null; } catch {}
         if (!found || !(api.imageBackend?.()?.comfyui) || globalThis.__WW_STUDIO_OFFLINE_ONLY__ === true) return;
-        const base = found.replace(/\\/+$/, '');
+        const base = found.replace(/\/+$/, '');
         const prompt = dedupeTags('masterpiece, best quality, 1girl, solo, ' + WIFE.imageBase
           + ', simple medieval tavern dress, long dress, white apron, modest cleavage'
           + ', cowboy shot, leaning on counter, light smile, long sleeves, looking at viewer, warm lighting, medieval tavern background');
