@@ -2,7 +2,7 @@
 
 대상 게임: Wayward WML 빌드 2026-10-04 이상
 WML 모드 ID: ibuki-wml-native-fixed
-버전: 1.0.3
+버전: 1.0.4
 필요한 별도 WML 모드: 없음. 게임의 호환 브리지를 사용합니다.
 
 설치 방법

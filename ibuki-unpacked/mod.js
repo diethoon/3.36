@@ -4,12 +4,12 @@
 WML.define({
   id: 'ibuki-wml-native-fixed',
   name: '캐릭터 애드온: 이부키 (WML 수정판)',
-  version: '1.0.3',
+  version: '1.0.4',
   game: '>=2026-10-04',
   description: '아내 선택지에 이부키를 추가하고, 이미지 서버가 연결된 경우 선택 화면 초상화를 요청합니다.',
   setup(api) {
     // ---- 원본 아내 애드온 ----
-    /* Wayward wife addon: 이부키. Wrapped as a WML mod; registration is completed through addon-compat. */
+    /* Wayward wife addon: 이부키. Wrapped as a WML mod; registration is completed through the WML game compatibility bridge. */
     (() => {
       'use strict';
       const wives = window.__WAYWARD_WIFE_ADDONS__ ||= [];
