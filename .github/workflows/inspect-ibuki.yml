@@ -1,4 +1,4 @@
-name: Build fixed Ibuki addon ZIP
+name: Build corrected Ibuki WML mod ZIP
 
 on:
   push:
@@ -17,18 +17,17 @@ jobs:
         uses: actions/checkout@v4
         with:
           ref: ibuki-analysis
-      - name: Package corrected addon
+      - name: Validate and package native WML mod
         shell: bash
         run: |
           set -euo pipefail
           test -s ibuki-unpacked/mod.js
-          test -s ibuki-unpacked/Addon_Newwife_ibuki.js
+          test -s ibuki-unpacked/README.txt
+          node --check ibuki-unpacked/mod.js
           rm -rf /tmp/WifeAddon_ibuki
           mkdir -p /tmp/WifeAddon_ibuki
-          cp ibuki-unpacked/bridge.manifest.json /tmp/WifeAddon_ibuki/
-          cp ibuki-unpacked/Addon_Newwife_ibuki.js /tmp/WifeAddon_ibuki/
-          cp ibuki-unpacked/README.txt /tmp/WifeAddon_ibuki/
           cp ibuki-unpacked/mod.js /tmp/WifeAddon_ibuki/
+          cp ibuki-unpacked/README.txt /tmp/WifeAddon_ibuki/
           python - <<'PY'
           from pathlib import Path
           import zipfile, hashlib
@@ -39,12 +38,17 @@ jobs:
           data = out.read_bytes()
           print(f"Built {out}: {len(data)} bytes; sha256={hashlib.sha256(data).hexdigest()}")
           with zipfile.ZipFile(out) as z:
-              print("ZIP integrity:", z.testzip() or "OK")
-              print("Entries:", ", ".join(z.namelist()))
+              assert z.testzip() is None, "ZIP integrity failure"
+              names = set(z.namelist())
+              assert names == {"WifeAddon_ibuki/README.txt", "WifeAddon_ibuki/mod.js"}, names
               mod = z.read("WifeAddon_ibuki/mod.js").decode("utf-8")
-              if "api.warn('legacy preload registration executed before the game module')" in mod:
-                  raise SystemExit("FAIL: stale warning remains in packaged mod.js")
-              print("Verified: misleading preload warning absent from packaged mod.js")
+              assert "WML.define({" in mod
+              assert "requires: ['addon-compat']" in mod
+              assert "globalThis.__WML_LEGACY__.registerWives();" in mod
+              assert "document.createElement('script')" not in mod
+              assert "legacy preload registration executed before the game module" not in mod
+              assert "http://127.0.0.1:8189" not in mod
+              print("Verified: native WML wrapper, dependency, wife registration, no preload injection/fallback.")
           PY
       - name: Commit packaged ZIP
         shell: bash
