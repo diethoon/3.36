@@ -179,7 +179,10 @@ async function runTest() {
             walk(v2,p+'.'+k,d+1);
           }
         };
-        walk(value,'
+        walk(value,String.fromCharCode(36),0);
+        return hits;
+      };
+      const status=window.WML&&window.WML.status?window.WML.status():null;
       const legacy=window.__WML_LEGACY__;
       const reg={};
       for(const key of ['Zl','dd','cPe']){try{reg[key]=legacy&&legacy.get?legacy.get(key):null;}catch(e){reg[key]='[get failed: '+String(e)+']';}}
