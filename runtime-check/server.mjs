@@ -121,9 +121,10 @@ async function runTest() {
     page.on('pageerror',e=>{if(pageErrors.length<50)pageErrors.push(String(e).slice(0,800));});
     page.on('console',msg=>{if(msg.type()==='error'&&consoleErrors.length<50)consoleErrors.push(msg.text().slice(0,800));});
     const gameURL = 'http://127.0.0.1:'+PORT+'/'+GAME_REL.split('/').map(encodeURIComponent).join('/');
-    const response = await page.goto(gameURL,{waitUntil:'domcontentloaded',timeout:90000});
-    log('INFO','Game document loaded',{url:gameURL,httpStatus:response?response.status():null});
-    await page.waitForFunction(()=>!!window.WML&&typeof window.WML.install==='function',null,{timeout:90000});
+    const response = await page.goto(gameURL,{waitUntil:'commit',timeout:90000});
+    log('INFO','Game navigation committed',{url:gameURL,httpStatus:response?response.status():null});
+    await page.waitForFunction(()=>!!window.WML&&typeof window.WML.install==='function',null,{timeout:120000});
+    log('INFO','WML install API ready after script evaluation');
     await page.waitForTimeout(2500);
     const ageGateAccepted = await page.evaluate(() => {
       const els = [...document.querySelectorAll('button,[role="button"],input[type="button"],a,[onclick]')];
@@ -153,9 +154,17 @@ async function runTest() {
       ]);
     },fixture);
     log('INFO','WML.install returned',summarize(installResult,0));
-    await page.reload({waitUntil:'domcontentloaded',timeout:90000});
-    await page.waitForFunction(()=>!!window.WML&&typeof window.WML.status==='function',null,{timeout:90000});
-    await page.waitForTimeout(7000);
+    const reloadResponse = await page.reload({waitUntil:'commit',timeout:90000});
+    log('INFO','Post-install reload committed',{httpStatus:reloadResponse?reloadResponse.status():null});
+    await page.waitForFunction(()=>!!window.WML&&typeof window.WML.status==='function',null,{timeout:120000});
+    const ageGateAfterReload = await page.evaluate(() => {
+      const els = [...document.querySelectorAll('button,[role="button"],input[type="button"],a,[onclick]')];
+      const yes = els.find(el => !!el.getClientRects().length && (el.innerText || el.value || '').trim() === '예');
+      if (yes) { yes.click(); return true; }
+      return false;
+    });
+    if (ageGateAfterReload) log('INFO','Dismissed age gate after reload in disposable browser profile');
+    await page.waitForTimeout(5000);
     const afterInstall = await page.evaluate(()=>{
       const summarize = (v,depth) => {
         depth = depth || 0;
