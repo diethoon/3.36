@@ -42,6 +42,10 @@ const mime = {
 };
 const server = http.createServer((req,res) => {
   const u = new URL(req.url || '/', 'http://' + (req.headers.host || 'localhost'));
+  const remoteAddress = req.socket.remoteAddress || '';
+  const localRequest = remoteAddress === '127.0.0.1' || remoteAddress === '::1' || remoteAddress === '::ffff:127.0.0.1';
+  // Never expose the game HTML or test artifacts through the public Render URL.
+  if (!localRequest && u.pathname !== '/' && u.pathname !== '/healthz') { res.writeHead(404); return res.end('Not found'); }
   if (u.pathname === '/healthz') return json(res,200,{ok:true,service:'ibuki-wml-runtime-check',state:result.state});
   if (u.pathname === '/result') return json(res,200,result);
   if (u.pathname === '/logs') return json(res,200,logs);
@@ -280,8 +284,5 @@ async function runTest() {
 }
 server.listen(PORT,'0.0.0.0',()=>{
   log('INFO','HTTP server listening',{port:PORT});
-  runTest().catch(e=>{
-    result=Object.assign({},result,{state:'error',verdict:'HARNESS_ERROR',error:String(e&&e.stack||e).slice(0,4000)});
-    log('ERROR','Unhandled test rejection',result.error);
-  });
+  log('INFO','Public asset access disabled; no game or test execution starts automatically.');
 });
