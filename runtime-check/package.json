@@ -1,0 +1,12 @@
+{
+  "name": "wayward-ibuki-render-runtime-check",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "start": "node runtime-check/server.mjs"
+  },
+  "dependencies": {
+    "playwright": "1.55.0"
+  }
+}
