@@ -125,6 +125,16 @@ async function runTest() {
     log('INFO','Game document loaded',{url:gameURL,httpStatus:response?response.status():null});
     await page.waitForFunction(()=>!!window.WML&&typeof window.WML.install==='function',null,{timeout:90000});
     await page.waitForTimeout(2500);
+    const ageGateAccepted = await page.evaluate(() => {
+      const els = [...document.querySelectorAll('button,[role="button"],input[type="button"],a,[onclick]')];
+      const yes = els.find(el => !!el.getClientRects().length && (el.innerText || el.value || '').trim() === '예');
+      if (yes) { yes.click(); return true; }
+      return false;
+    });
+    if (ageGateAccepted) {
+      log('INFO','Accepted age-gate prompt only in disposable test browser to reach the wife-selection UI');
+      await page.waitForTimeout(1800);
+    }
     const baseline = await page.evaluate(()=>({
       title:document.title,
       bodyText:(document.body&&document.body.innerText||'').slice(0,1800),
@@ -147,6 +157,124 @@ async function runTest() {
     await page.waitForFunction(()=>!!window.WML&&typeof window.WML.status==='function',null,{timeout:90000});
     await page.waitForTimeout(7000);
     const afterInstall = await page.evaluate(()=>{
+      const summarize = (v,depth) => {
+        depth = depth || 0;
+        if (v == null || ['string','number','boolean'].includes(typeof v)) return v;
+        if (typeof v === 'function') return '[Function]';
+        if (depth > 3) return Array.isArray(v) ? '[Array]' : '[Object]';
+        if (Array.isArray(v)) return v.slice(0,300).map(x=>summarize(x,depth+1));
+        try { return Object.fromEntries(Object.entries(v).slice(0,300).map(([k,x])=>[k,summarize(x,depth+1)])); }
+        catch { return String(v); }
+      };
+      const nameHits = value => {
+        const hits = [], seen = new WeakSet();
+        const walk = (x,p,d) => {
+          if (d > 6 || x == null) return;
+          if (typeof x === 'string') { if (/ibuki|이부키/i.test(x) && hits.length < 80) hits.push({path:p,value:x.slice(0,150)}); return; }
+          if (typeof x !== 'object' || seen.has(x)) return;
+          seen.add(x);
+          const entries = Array.isArray(x) ? x.slice(0,400).map((v,i)=>[String(i),v]) : Object.entries(x).slice(0,400);
+          for (const [k,v2] of entries) {
+            if (/ibuki|이부키/i.test(k) && hits.length < 80) hits.push({path:p+'.'+k,value:typeof v2==='string'?v2.slice(0,150):'['+typeof v2+']'});
+            walk(v2,p+'.'+k,d+1);
+          }
+        };
+        walk(value,'
+      const legacy=window.__WML_LEGACY__;
+      const reg={};
+      for(const key of ['Zl','dd','cPe']){try{reg[key]=legacy&&legacy.get?legacy.get(key):null;}catch(e){reg[key]='[get failed: '+String(e)+']';}}
+      const aa=window.__WAYWARD_WIFE_ADDONS__;
+      const addonArray=Array.isArray(aa)?aa.map(w=>({id:w&&w.id||null,name:w&&w.name||null,shortname:w&&w.shortname||null,basedOn:w&&w.basedOn||null})):null;
+      const visible=el=>!!el&&!!el.getClientRects().length&&getComputedStyle(el).visibility!=='hidden';
+      const body=document.body&&document.body.innerText||'';
+      const textMatches=[...document.querySelectorAll('body *')].filter(el=>visible(el)&&el.children.length===0&&/이부키|ibuki/i.test(el.textContent||'')).slice(0,60).map(el=>({
+        tag:el.tagName,text:(el.textContent||'').trim().slice(0,100),id:el.id||'',
+        className:typeof el.className==='string'?el.className.slice(0,140):'',
+        parent:el.parentElement?{tag:el.parentElement.tagName,id:el.parentElement.id||'',className:typeof el.parentElement.className==='string'?el.parentElement.className.slice(0,140):''}:null
+      }));
+      const selects=[...document.querySelectorAll('select')].filter(visible).map(s=>({id:s.id||'',name:s.name||'',options:[...s.options].map(o=>o.textContent.trim()).slice(0,200)}));
+      return {
+        title:document.title,href:location.href,status:summarize(status,0),
+        installed:window.WML&&window.WML.installed?window.WML.installed():null,
+        addonArray,legacyMethods:Object.keys(legacy||{}).filter(k=>typeof legacy[k]==='function'),
+        registrySummary:Object.fromEntries(Object.entries(reg).map(([k,v])=>[k,summarize(v,0)])),
+        registryHits:nameHits(reg),addonArrayHits:nameHits(addonArray),
+        textHasIbuki:/이부키|ibuki/i.test(body),bodyTextStart:body.slice(0,2200),
+        textMatches,selects,labels:[...document.querySelectorAll('label')].filter(visible).map(l=>l.innerText.trim()).filter(Boolean).slice(0,80),
+        visibleButtons:[...document.querySelectorAll('button,[role="button"],input[type="button"],a')].filter(visible).slice(0,80).map(e=>(e.innerText||e.value||e.getAttribute('aria-label')||'').trim().slice(0,110)).filter(Boolean)
+      };
+    });
+    latestScreenshot = await page.screenshot({fullPage:false}).catch(()=>latestScreenshot);
+    log('INFO','Post-install snapshot',afterInstall);
+    const uiTrail=[];
+    for(let step=0;step<10;step++){
+      const snap=await page.evaluate(()=>{
+        const body=document.body&&document.body.innerText||'';
+        const opts=[...document.querySelectorAll('select option')].map(o=>(o.textContent||'').trim()).filter(Boolean);
+        return {textContains:/이부키|ibuki/i.test(body),selectContains:opts.some(x=>/이부키|ibuki/i.test(x)),bodyStart:body.slice(0,1200)};
+      });
+      if(snap.textContains||snap.selectContains){uiTrail.push({step,found:true,snapshot:snap});break;}
+      const clicked=await page.evaluate(()=>{
+        const nodes=[...document.querySelectorAll('button,[role="button"],input[type="button"],a,[onclick]')];
+        const candidates=nodes.map((el,index)=>({el,index,text:(el.innerText||el.value||el.getAttribute('aria-label')||'').trim().replace(/\s+/g,' ').slice(0,100),visible:!!el.getClientRects().length&&getComputedStyle(el).visibility!=='hidden'})).filter(x=>x.visible&&x.text&&x.text.length<100);
+        const patterns=[/아내\s*(선택|목록)/i,/캐릭터\s*선택/i,/인물\s*선택/i,/새\s*게임/i,/새로\s*시작/i,/처음부터/i,/게임\s*시작/i,/시작하기/i];
+        let target=null;
+        for(const pat of patterns){target=candidates.find(x=>pat.test(x.text));if(target)break;}
+        if(!target)return null;
+        candidates[target.index].el.click();
+        return {text:target.text,index:target.index};
+      });
+      if(!clicked){uiTrail.push({step,noStartControl:true,snapshot:snap});break;}
+      uiTrail.push({step,clicked});
+      await page.waitForTimeout(900);
+      latestScreenshot=await page.screenshot({fullPage:false}).catch(()=>latestScreenshot);
+    }
+    const finalUI=await page.evaluate(()=>{
+      const body=document.body&&document.body.innerText||'';
+      const visible=el=>!!el.getClientRects().length&&getComputedStyle(el).visibility!=='hidden';
+      const options=[...document.querySelectorAll('select option')].map(o=>(o.textContent||'').trim()).filter(Boolean);
+      const leafMatches=[...document.querySelectorAll('body *')].filter(el=>visible(el)&&el.children.length===0&&/이부키|ibuki/i.test(el.textContent||'')).slice(0,80).map(el=>({tag:el.tagName,text:(el.textContent||'').trim().slice(0,100),id:el.id||'',className:typeof el.className==='string'?el.className.slice(0,160):''}));
+      return {bodyHasIbuki:/이부키|ibuki/i.test(body),optionHasIbuki:options.some(x=>/이부키|ibuki/i.test(x)),optionTexts:options.slice(0,160),leafMatches,bodyTextStart:body.slice(0,2500)};
+    });
+    const regBlob=JSON.stringify(afterInstall.registrySummary||{});
+    const wifeInRuntimeRegistry=/이부키|ibuki_addon|shortname.{0,30}ibuki/i.test(regBlob)||(afterInstall.registryHits||[]).some(x=>/이부키|ibuki/i.test(JSON.stringify(x)));
+    const installedList=Array.isArray(afterInstall.installed)?afterInstall.installed:[];
+    const installedOk=installedList.some(x=>(typeof x==='string'?x:(x&& (x.id||x.modId)||'')).toLowerCase()==='wifeaddon_ibuki')
+      ||installedList.some(x=>/wifeaddon_ibuki|ibuki/i.test(JSON.stringify(x)));
+    const status=afterInstall.status||{};
+    const hasModuleFailure=(status.failed||[]).some(x=>/wifeaddon_ibuki|ibuki/i.test(JSON.stringify(x)));
+    const wifeVisible=finalUI.optionHasIbuki||finalUI.leafMatches.some(x=>/이부키|ibuki/i.test(x.text))||finalUI.bodyHasIbuki;
+    result=Object.assign({},result,{
+      state:'complete',finishedAt:new Date().toISOString(),
+      verdict:installedOk&&!hasModuleFailure&&wifeInRuntimeRegistry&&wifeVisible?'PASS':
+        installedOk&&!hasModuleFailure&&wifeInRuntimeRegistry?'REGISTRY_PASS_UI_NOT_CONFIRMED':'FAIL',
+      game:{relativePath:GAME_REL,bytes:fs.statSync(GAME_FILE).size,httpStatus:response?response.status():null},
+      installResult:summarize(installResult,0),installedOk,hasModuleFailure,wifeInRuntimeRegistry,wifeVisible,
+      postInstall:afterInstall,uiTrail,finalUI,blockedRequests,pageErrors,consoleErrors,
+      testNotes:[
+        'Fresh isolated headless Chromium browser profile.',
+        'Installed all three original addon package files through window.WML.install(), the same API called by the WML manager.',
+        'Reloaded the game and inspected WML module status, the legacy wife registry and the visible UI.',
+        'Image-generation requests were blocked; no image generation was performed.'
+      ]
+    });
+    log('RESULT',result.verdict,{installedOk,hasModuleFailure,wifeInRuntimeRegistry,wifeVisible,blockedRequests:blockedRequests.length,pageErrors:pageErrors.slice(0,15),consoleErrors:consoleErrors.slice(0,15)});
+  } catch(e) {
+    result=Object.assign({},result,{state:'error',finishedAt:new Date().toISOString(),verdict:'HARNESS_ERROR',error:String(e&&e.stack||e).slice(0,4000)});
+    log('ERROR','Runtime test harness failed',result.error);
+  } finally {
+    if(browser) await browser.close().catch(()=>{});
+  }
+}
+server.listen(PORT,'0.0.0.0',()=>{
+  log('INFO','HTTP server listening',{port:PORT});
+  runTest().catch(e=>{
+    result=Object.assign({},result,{state:'error',verdict:'HARNESS_ERROR',error:String(e&&e.stack||e).slice(0,4000)});
+    log('ERROR','Unhandled test rejection',result.error);
+  });
+});
+,0); return hits;
+      };
       const status=window.WML&&window.WML.status?window.WML.status():null;
       const legacy=window.__WML_LEGACY__;
       const reg={};
