@@ -1,7 +1,8 @@
 import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
-import { chromium } from 'playwright';
+import chromiumBinary from '@sparticuz/chromium';
+import { chromium as playwrightChromium } from 'playwright-core';
 
 const ROOT = path.resolve(process.cwd());
 const PORT = Number(process.env.PORT || 10000);
@@ -103,7 +104,8 @@ async function runTest() {
       if (!fs.existsSync(fp)) throw new Error('Addon fixture missing: '+fp);
       fixture[name] = fs.readFileSync(fp,'utf8');
     }
-    browser = await chromium.launch({headless:true,args:['--no-sandbox','--disable-dev-shm-usage']});
+    chromiumBinary.setGraphicsMode = false;
+    browser = await playwrightChromium.launch({headless:true,args:chromiumBinary.args,executablePath:await chromiumBinary.executablePath()});
     const context = await browser.newContext({viewport:{width:1440,height:960},locale:'ko-KR'});
     const blockedRequests = [];
     await context.route('**/api/image/generate**',async route=>{
