@@ -1,44 +1,56 @@
 # Wayward Save Share Worker
 
-Cloudflare Worker backend for Wayward's optional one-time save sharing and WML account cloud saves.
+Cloudflare Worker backend for one-time save-sharing codes and WML account saves using OPAQUE authentication and client-side encryption.
 
-## Bindings
+## Security model
 
+- Account registration/login uses the pinned dependency @serenity-kit/opaque@1.1.0. The client does not submit the user's password to the Worker. D1 stores an OPAQUE registration record rather than a password hash derived from the user's password.
+- Account saves are encrypted on the user's device using AES-256-GCM. The key is derived locally from OPAQUE's client-only exportKey using HKDF-SHA-256. The Worker receives and stores only the encrypted envelope, not plaintext game state or the encryption key.
+- The WML mod pins the OPAQUE server public key and refuses account registration/login while the key is unset or mismatched.
+- This does not protect against a deliberately modified game/mod bundle that captures typed input before the OPAQUE client sees it. Users should install the trusted release.
+- One-time codes deliberately remain a separate convenience mode: six mixed-case letters/numbers, seven-day expiry, and deletion after a successful first load. They are not end-to-end encrypted. Anyone who obtains a code before its first successful use can redeem it, so do not publish it openly.
+
+## Bindings and private server setup
+
+Cloudflare bindings:
 - D1: DB → wayward-save-share-db
 - R2: SAVE_OBJECTS → wayward-save-share-files
 
-## Deploy safely
+Generate an OPAQUE server setup once on a trusted local computer using the CLI included with the pinned package. Use the package's create-server-setup command, then derive its public key with get-server-public-key.
 
-1. Apply schema.sql to the existing production D1 database first. It uses CREATE TABLE IF NOT EXISTS and keeps the original save_shares table and codes intact.
-2. Then deploy index.js as the Worker source.
-3. Check GET /api/health. The expected fields include schema: "ready" and accountSchema: "ready".
-4. Confirm both one-time sharing and a test account's save/list/load/delete round-trip before announcing the feature.
+1. Store the complete server setup only as the Cloudflare Worker secret OPAQUE_SERVER_SETUP. Never commit or share this value.
+2. Put only the derived public key in the WML mod's OPAQUE_SERVER_PUBLIC_KEY constant, replacing SET_AFTER_GENERATING_OPAQUE_SERVER_SETUP. This public key is meant to be public.
+3. Keep the private setup secret stable and backed up securely. Replacing it will invalidate existing OPAQUE credentials.
+4. Apply schema.sql to the existing D1 database before deploying the Worker. The script is additive and does not delete existing save_shares rows or R2 objects.
+5. Run npm install and npm run build in this directory, then deploy the generated index.js (not index.src.js) to the Worker.
+6. Check GET /api/health for accountSchema: "ready" and opaqueAuth: "ready".
 
-Do not deploy the Worker account routes before applying schema.sql: existing one-time routes remain compatible, but account routes require the new tables.
+Never generate a production setup secret in a public workflow or commit it to the repository. Automated tests generate an ephemeral test setup.
 
-## One-time code API (existing behavior)
+## Build and test
 
-- POST /api/share?title=... with the raw JSON save payload. Returns a six-character mixed-case alphanumeric code. Code metadata expires after seven days.
-- POST /api/import with {"code":"aB3xY7"} returns the raw save JSON and consumes the code atomically. A code is accepted only once.
-- Maximum payload is 20 MiB.
+The GitHub Actions workflow pins the OPAQUE dependency and bundles:
+- index.src.js → standalone index.js
+- wml/mods/cloud-save/opaque-client-entry.js → wml/mods/cloud-save/opaque-client.bundle.js
 
-## Account API (new)
+It then runs JavaScript syntax checks, schema checks and integration tests against in-memory SQLite and R2 test doubles.
 
-- POST /api/account/register — JSON {"username":"...","password":"..."}; creates an account and starts a session.
-- POST /api/account/login — returns a bearer token with a 30-day expiry.
-- POST /api/account/logout — revokes the current session.
-- GET /api/account/saves — returns metadata for the account's 1–5 slots.
-- GET /api/account/saves/1 — downloads the snapshot for slot 1.
-- PUT /api/account/saves/1?title=... — creates/replaces slot 1 with a JSON snapshot.
-- DELETE /api/account/saves/1 — deletes slot 1.
+The integration test covers OPAQUE registration/login, incorrect passwords, proof that the old password-forwarding endpoints are disabled, AES-GCM encrypt/decrypt and tamper detection, authenticated slot CRUD and the five-slot limit, and preserved one-time-code behavior.
 
-Slot numbers are restricted by both route validation and the database CHECK constraint. The table has a primary key on (account_id, slot), so an account cannot have more than five slots.
+## API
 
-## Security
+- POST /api/opaque/register/start and /api/opaque/register/finish
+- POST /api/opaque/login/start and /api/opaque/login/finish
+- POST /api/account/logout
+- GET /api/account/saves
+- GET|PUT|DELETE /api/account/saves/:slot (slots 1–5)
+- POST /api/share and /api/import (existing one-time-code flow)
 
-- Passwords are stored as a per-account random salt plus PBKDF2-HMAC-SHA-256 hash; plaintext passwords are not stored.
-- Login/signup attempts are rate-limited by a 15-minute window using a hash of the request IP rather than the raw IP address.
-- Session tokens are random 256-bit bearer secrets. Only SHA-256 token hashes are stored in D1.
-- Account requests require Authorization: Bearer. All requests use no-store cache headers.
-- R2 objects stay private; they are served only through authenticated Worker handlers. Account saves use the accounts/ prefix, distinct from the shares/ prefix with its seven-day R2 lifecycle policy.
-- No email recovery flow exists in this version; users who forget their password cannot recover the account.
+The old password-forwarding endpoints POST /api/account/register and POST /api/account/login return HTTP 410.
+
+## Limits and recovery
+
+- Maximum five account slots; each encrypted request is limited by the Worker request-body cap.
+- Account saves remain until the user deletes or overwrites them.
+- Sessions expire after 30 days.
+- No email-based password reset exists. Forgetting the password means the OPAQUE export key cannot be recreated, so existing encrypted account saves cannot be decrypted.
