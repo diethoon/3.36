@@ -56,6 +56,14 @@ jobs:
           node --input-type=module --check < "Wayward_MOD_v4.0_WML_검수완료/wml/mods/cloud-save/crypto.js"
           node --input-type=module --check < "workers/wayward-save-share/index.src.js"
           node --input-type=module --check < "workers/wayward-save-share/index.js"
+      - name: Verify cloud-save bindings against the shipped game
+        working-directory: Wayward_MOD_v4.0_WML_검수완료/wml
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install --no-audit --no-fund --no-package-lock
+          node tools/mod-symbols.mjs --mod cloud-save --check
+          ! grep -q "importSaveFromJSON\\|prepareNativeLoad\\|restoreNativeModData\\|koPrepareLoadedState30\\|m31Load" mods/cloud-save/mod.js
       - name: Exercise OPAQUE and encrypted Worker API
         run: node --no-warnings workers/wayward-save-share/test-worker.mjs
       - name: Validate additive D1 schema and slot limit
