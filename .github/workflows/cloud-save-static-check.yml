@@ -10,6 +10,7 @@ on:
       - "Wayward_MOD_v4.0_WML_검수완료/wml/mods/mods.js"
       - "workers/wayward-save-share/index.js"
       - "workers/wayward-save-share/schema.sql"
+      - "workers/wayward-save-share/test-worker.mjs"
   pull_request:
     branches:
       - wml
@@ -18,6 +19,7 @@ on:
       - "Wayward_MOD_v4.0_WML_검수완료/wml/mods/mods.js"
       - "workers/wayward-save-share/index.js"
       - "workers/wayward-save-share/schema.sql"
+      - "workers/wayward-save-share/test-worker.mjs"
 
 permissions:
   contents: read
@@ -36,6 +38,8 @@ jobs:
           set -euo pipefail
           node --input-type=module --check < "Wayward_MOD_v4.0_WML_검수완료/wml/mods/cloud-save/mod.js"
           node --input-type=module --check < "workers/wayward-save-share/index.js"
+      - name: Exercise Worker API with D1/R2 test doubles
+        run: node --no-warnings workers/wayward-save-share/test-worker.mjs
       - name: Validate D1 schema and slot limit
         shell: bash
         run: |
