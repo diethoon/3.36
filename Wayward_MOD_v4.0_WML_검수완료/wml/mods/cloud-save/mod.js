@@ -415,10 +415,25 @@ WML.define({
       }
     }
 
-    // Insert the entry into the actual game hamburger/pause menu, using
-    // a clone of the game's own "불러오기" button to retain native styling.
-    // If the target menu component is not present on another game build,
-    // keep a WML dock button as a fallback rather than breaking the whole mode.
+    // Prefer the native hamburger/pause menu. Some localized/game builds render
+    // a slightly different button tree, so keep a WML-dock fallback until a
+    // successful native insertion has actually been observed.
+    let fallbackDockButton = null;
+    let nativeMenuEntrySeen = false;
+    function ensureDockFallback() {
+      if (fallbackDockButton || nativeMenuEntrySeen) return;
+      fallbackDockButton = api.ui.addButton({
+        label: '클라우드세이브',
+        title: '계정 저장과 1회성 코드',
+        onClick: open,
+      });
+    }
+    function removeDockFallback() {
+      if (!fallbackDockButton) return;
+      try { fallbackDockButton.remove(); } catch (_) { /* best effort */ }
+      fallbackDockButton = null;
+    }
+
     if (api.has('pauseMenu')) {
       api.hook('pauseMenu', {
         around(next, props) {
@@ -452,9 +467,11 @@ WML.define({
             if (!state.inserted && result.type === 'div' &&
                 p.className === 'flex flex-col gap-2' && Array.isArray(p.children)) {
               const rows = p.children;
-              const loadIndex = rows.findIndex(item =>
-                item && item.props && item.props.children === '불러오기'
-              );
+              const loadIndex = rows.findIndex(item => {
+                const label = item && item.props ? item.props.children : null;
+                return typeof label === 'string' &&
+                  ['불러오기', 'Load', 'Load Game', 'Load Save'].includes(label.trim());
+              });
               if (loadIndex >= 0) {
                 const original = rows[loadIndex];
                 const cloudButton = {
@@ -487,15 +504,19 @@ WML.define({
             }
             return result;
           }
-          return patch(tree);
+
+          const patchedTree = patch(tree);
+          if (state.inserted) {
+            nativeMenuEntrySeen = true;
+            removeDockFallback();
+          } else if (!nativeMenuEntrySeen) {
+            ensureDockFallback();
+          }
+          return patchedTree;
         },
       });
     } else {
-      api.ui.addButton({
-        label: '클라우드세이브',
-        title: '계정 저장과 1회성 코드',
-        onClick: open,
-      });
+      ensureDockFallback();
     }
     api.onBack(() => {
       if (!isConnected()) return false;
