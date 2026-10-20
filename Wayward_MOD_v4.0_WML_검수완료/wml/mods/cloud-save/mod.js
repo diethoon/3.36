@@ -14,8 +14,16 @@ WML.define({
     restoreNativeModData: { raw: { '2026-10-04': 'm31Load' }, doc: '저장본의 MOD 데이터를 복원 상태에 적용합니다.' },
     pauseMenu: { raw: { '2026-10-04': 'N6e' }, doc: '우측 상단 삼선 버튼이 여는 게임 기본 일시 정지 메뉴.' },
   },
-  setup(api) {
+  async setup(api) {
+    await api.loadScript('opaque-client.bundle.js');
+    await api.loadScript('crypto.js');
+    if (!globalThis.WMLCloudOpaque || !globalThis.WMLCloudOpaque.client || !globalThis.WMLCloudSaveCrypto) {
+      throw new Error('클라우드세이브 보안 모듈을 불러오지 못했습니다.');
+    }
+    await globalThis.WMLCloudOpaque.ready;
     const ENDPOINT = 'https://wayward-save-share.trpgengine.workers.dev';
+    const OPAQUE_SERVER_PUBLIC_KEY = 'SET_AFTER_GENERATING_OPAQUE_SERVER_SETUP';
+    const OPAQUE_SERVER_ID = 'wayward-save-share.trpgengine.workers.dev';
     const h = api.ui.h;
     const button = api.ui.button;
     const secret = api.secret;
@@ -23,6 +31,7 @@ WML.define({
     let view = { page: 'home' };
     let message = '';
     let username = api.settings.get({ username: '' }).username || '';
+    let authState = readStoredAuth();
     let slots = [];
     let fields = {};
     let drafts = {};
@@ -48,7 +57,38 @@ WML.define({
       document.head.appendChild(style);
     }
 
-    function currentToken() { return secret.get(); }
+    function readStoredAuth() {
+      try {
+        const value = JSON.parse(secret.get() || '{}');
+        return { token: typeof value.token === 'string' ? value.token : '',
+          exportKey: typeof value.exportKey === 'string' ? value.exportKey : '' };
+      } catch (_) { return { token: '', exportKey: '' }; }
+    }
+    function currentToken() { return authState.token; }
+    function persistAuth(token, exportKey) {
+      if (typeof token !== 'string' || !token || typeof exportKey !== 'string' || !exportKey) {
+        throw new Error('안전한 계정 세션을 만들지 못했습니다. 다시 로그인해 주세요.');
+      }
+      authState = { token, exportKey };
+      secret.set(JSON.stringify(authState));
+    }
+    function clearAuth() { authState = { token: '', exportKey: '' }; secret.set(''); }
+    function opaqueClient() {
+      const client = globalThis.WMLCloudOpaque && globalThis.WMLCloudOpaque.client;
+      if (!client) throw new Error('OPAQUE 보안 모듈을 사용할 수 없습니다. 모드 파일을 다시 설치해 주세요.');
+      return client;
+    }
+    function assertPinnedServerKey(value) {
+      if (!OPAQUE_SERVER_PUBLIC_KEY || OPAQUE_SERVER_PUBLIC_KEY.startsWith('SET_AFTER_')) {
+        throw new Error('인증 서버 공개키 설정이 아직 완료되지 않았습니다.');
+      }
+      if (typeof value !== 'string' || value !== OPAQUE_SERVER_PUBLIC_KEY) {
+        throw new Error('인증 서버 신원을 확인하지 못했습니다. 공식 모드 파일과 서버 설정을 확인해 주세요.');
+      }
+    }
+    function opaqueIdentifiers(id) {
+      return { client: String(id).trim().toLowerCase(), server: OPAQUE_SERVER_ID };
+    }
     function isConnected() { return !!(win && win.el && win.el.isConnected); }
     function render() {
       if (win && win.refresh && isConnected()) win.refresh();
@@ -129,7 +169,7 @@ WML.define({
       if (contentType.includes('application/json')) data = await res.json().catch(() => null);
       if (!res.ok) {
         if (res.status === 401 && useAuth !== false) {
-          secret.set('');
+          clearAuth();
           username = '';
           api.settings.set({ username: '' });
         }
@@ -191,41 +231,68 @@ WML.define({
       const id = (fields.username && fields.username.value || '').trim();
       const password = fields.password && fields.password.value || '';
       if (!id || !password) throw new Error('아이디와 비밀번호를 입력해 주세요.');
-      const result = await request('/api/account/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username: id, password }),
+      const client = opaqueClient();
+      const identifiers = opaqueIdentifiers(id);
+      const { clientLoginState, startLoginRequest } = client.startLogin({
+        password, keyStretching: 'memory-constrained',
+      });
+      const started = await request('/api/opaque/login/start', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: id, startLoginRequest }),
       }, false);
-      if (!result.data || !result.data.token) throw new Error('로그인 응답이 올바르지 않습니다.');
-      secret.set(result.data.token);
-      username = result.data.username || id;
-      api.settings.set({ username: username });
+      const loginResult = client.finishLogin({
+        clientLoginState, loginResponse: started.data.loginResponse,
+        password, keyStretching: 'memory-constrained', identifiers,
+      });
+      if (!loginResult) throw new Error('아이디 또는 비밀번호가 올바르지 않습니다.');
+      assertPinnedServerKey(loginResult.serverStaticPublicKey);
+      const completed = await request('/api/opaque/login/finish', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ flowId: started.data.flowId, finishLoginRequest: loginResult.finishLoginRequest }),
+      }, false);
+      if (!completed.data || !completed.data.token) throw new Error('로그인 응답이 올바르지 않습니다.');
+      persistAuth(completed.data.token, loginResult.exportKey);
+      username = completed.data.username || id;
+      api.settings.set({ username });
       await loadAccountSlots();
       show({ page: 'account' }, username + ' 계정으로 로그인했습니다.');
     }
+
     async function register() {
       const id = (fields.username && fields.username.value || '').trim();
       const password = fields.password && fields.password.value || '';
       const confirm = fields.confirm && fields.confirm.value || '';
       if (!id || !password) throw new Error('아이디와 비밀번호를 입력해 주세요.');
       if (password !== confirm) throw new Error('비밀번호가 서로 다릅니다.');
-      const result = await request('/api/account/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username: id, password }),
+      const client = opaqueClient();
+      const identifiers = opaqueIdentifiers(id);
+      const { clientRegistrationState, registrationRequest } =
+        client.startRegistration({ password, keyStretching: 'memory-constrained' });
+      const started = await request('/api/opaque/register/start', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: id, registrationRequest }),
       }, false);
-      if (!result.data || !result.data.token) throw new Error('계정 생성 응답이 올바르지 않습니다.');
-      secret.set(result.data.token);
-      username = result.data.username || id;
-      api.settings.set({ username: username });
+      const registration = client.finishRegistration({
+        clientRegistrationState, registrationResponse: started.data.registrationResponse,
+        password, keyStretching: 'memory-constrained', identifiers,
+      });
+      assertPinnedServerKey(registration.serverStaticPublicKey);
+      const completed = await request('/api/opaque/register/finish', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: id, registrationRecord: registration.registrationRecord }),
+      }, false);
+      if (!completed.data || !completed.data.token) throw new Error('계정 생성 응답이 올바르지 않습니다.');
+      persistAuth(completed.data.token, registration.exportKey);
+      username = completed.data.username || id;
+      api.settings.set({ username });
       await loadAccountSlots();
-      show({ page: 'account' }, '계정이 생성되었습니다. 복구 코드를 별도로 보관하는 기능은 아직 제공되지 않으므로 비밀번호를 잊지 마세요.');
+      show({ page: 'account' }, '계정이 생성되었습니다. 비밀번호를 잊으면 복구할 수 없으니 안전하게 보관해 주세요.');
     }
     async function logout() {
       try {
         if (currentToken()) await request('/api/account/logout', { method: 'POST' });
       } catch (_) { /* clear the local token even when the session already expired */ }
-      secret.set('');
+      clearAuth();
       username = '';
       api.settings.set({ username: '' });
       slots = [];
@@ -234,17 +301,25 @@ WML.define({
     async function saveAccountSlot(slot) {
       const snap = getSnapshot();
       const title = defaultTitle(snap.state);
+      if (!authState.exportKey) throw new Error('세이브 암호화 키가 없습니다. 다시 로그인해 주세요.');
+      const encrypted = await globalThis.WMLCloudSaveCrypto.encryptSnapshot(
+        snap, authState.exportKey, username.toLowerCase()
+      );
       await request('/api/account/saves/' + slot + '?title=' + encodeURIComponent(title), {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(snap),
+        body: JSON.stringify(encrypted),
       });
       await loadAccountSlots();
       show({ page: 'account' }, '저장 슬롯 ' + slot + '에 저장했습니다.');
     }
     async function loadAccountSlot(slot) {
       const result = await request('/api/account/saves/' + slot);
-      applySnapshot(result.data);
+      if (!authState.exportKey) throw new Error('세이브 복호화 키가 없습니다. 다시 로그인해 주세요.');
+      const snapshot = await globalThis.WMLCloudSaveCrypto.decryptSnapshot(
+        result.data, authState.exportKey, username.toLowerCase()
+      );
+      applySnapshot(snapshot);
       if (win) win.close();
       message = '';
     }
@@ -297,7 +372,7 @@ WML.define({
         addTitle(root, '클라우드세이브');
         addText(root, '사용할 방식을 선택하세요.');
         addButton(root, '로그인', () => {
-          if (currentToken()) {
+          if (currentToken() && authState.exportKey) {
             busy = true;
             message = '저장 목록을 불러오는 중…';
             render();
@@ -336,7 +411,7 @@ WML.define({
         addMessage(root);
       } else if (page === 'onetime') {
         addTitle(root, '1회성 코드');
-        addText(root, '세이브는 7일 후 만료됩니다. 코드를 사용해 불러오면 즉시 사용할 수 없게 됩니다.');
+        addText(root, '세이브는 7일 후 만료되며, 한 번 불러오면 코드와 파일이 삭제됩니다. 다만 코드를 먼저 아는 사람은 최초 1회 불러올 수 있으므로 공개 게시물에 올리지 말고 신뢰하는 상대에게만 전달하세요. 계정 세이브의 종단 간 암호화와는 다른 방식입니다.');
         addButton(root, '세이브', saveOneTime, true);
         addButton(root, '로드', () => show({ page: 'code-load' }));
         addButton(root, '뒤로', () => show({ page: 'home' }));
