@@ -171,7 +171,7 @@ jobs:
 
             payload_file="$RUNNER_TEMP/opaque-secret-payload.json"
             response_file="$RUNNER_TEMP/opaque-secret-response.json"
-            chmod 600 "$RUNNER_TEMP"
+            umask 077
             jq -n --arg text "$setup" '{name:"OPAQUE_SERVER_SETUP", text:$text, type:"secret_text"}' > "$payload_file"
             chmod 600 "$payload_file"
             code="$(curl --silent --show-error --output "$response_file" --write-out '%{http_code}'               -X PUT               -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN"               -H "Content-Type: application/json"               --data-binary "@$payload_file"               "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/scripts/wayward-save-share/secrets")"
