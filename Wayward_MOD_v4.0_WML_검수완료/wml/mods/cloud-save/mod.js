@@ -12,6 +12,7 @@ WML.define({
     nativeSaveJSON: { raw: { '2026-10-04': 'VDe' }, doc: '게임의 기본 세이브 형식(JSON)을 만들며 MOD 데이터도 포함합니다.' },
     prepareNativeLoad: { raw: { '2026-10-04': 'koPrepareLoadedState30' }, doc: '게임 기본 저장본을 불러오기 전에 상태를 정리합니다.' },
     restoreNativeModData: { raw: { '2026-10-04': 'm31Load' }, doc: '저장본의 MOD 데이터를 복원 상태에 적용합니다.' },
+    pauseMenu: { raw: { '2026-10-04': 'N6e' }, doc: '우측 상단 삼선 버튼이 여는 게임 기본 일시 정지 메뉴.' },
   },
   setup(api) {
     const ENDPOINT = 'https://wayward-save-share.trpgengine.workers.dev';
@@ -412,11 +413,88 @@ WML.define({
       }
     }
 
-    api.ui.addButton({
-      label: '클라우드세이브',
-      title: '계정 저장과 1회성 코드',
-      onClick: open,
-    });
+    // Insert the entry into the actual game hamburger/pause menu, using
+    // a clone of the game's own "불러오기" button to retain native styling.
+    // If the target menu component is not present on another game build,
+    // keep a WML dock button as a fallback rather than breaking the whole mode.
+    if (api.has('pauseMenu')) {
+      api.hook('pauseMenu', {
+        around(next, props) {
+          const tree = next(props);
+          const state = { inserted: false };
+          function patch(node) {
+            if (!node || typeof node !== 'object') return node;
+            if (Array.isArray(node)) {
+              let changed = false;
+              const out = node.map(child => {
+                const value = patch(child);
+                if (value !== child) changed = true;
+                return value;
+              });
+              return changed ? out : node;
+            }
+            const nodeProps = node.props;
+            if (!nodeProps) return node;
+            let result = node;
+            const children = nodeProps.children;
+            let nextChildren = children;
+            if (Array.isArray(children)) {
+              nextChildren = children.map(child => patch(child));
+            } else if (children && typeof children === 'object') {
+              nextChildren = patch(children);
+            }
+            if (nextChildren !== children) {
+              result = { ...node, props: { ...nodeProps, children: nextChildren } };
+            }
+            const p = result.props || {};
+            if (!state.inserted && result.type === 'div' &&
+                p.className === 'flex flex-col gap-2' && Array.isArray(p.children)) {
+              const rows = p.children;
+              const loadIndex = rows.findIndex(item =>
+                item && item.props && item.props.children === '불러오기'
+              );
+              if (loadIndex >= 0) {
+                const original = rows[loadIndex];
+                const cloudButton = {
+                  ...original,
+                  key: 'wml-cloud-save-pause-menu',
+                  props: {
+                    ...original.props,
+                    onClick: () => {
+                      if (typeof props.onClose === 'function') props.onClose();
+                      open();
+                    },
+                    title: '클라우드세이브',
+                    'aria-label': '클라우드세이브',
+                    children: '클라우드세이브',
+                  },
+                };
+                result = {
+                  ...result,
+                  props: {
+                    ...p,
+                    children: [
+                      ...rows.slice(0, loadIndex + 1),
+                      cloudButton,
+                      ...rows.slice(loadIndex + 1),
+                    ],
+                  },
+                };
+                state.inserted = true;
+              }
+            }
+            return result;
+          }
+          return patch(tree);
+        },
+      });
+    } else {
+      api.ui.addButton({
+        label: '클라우드세이브',
+        title: '계정 저장과 1회성 코드',
+        onClick: open,
+      });
+    }
     api.onBack(() => {
       if (!isConnected()) return false;
       if (view.page === 'home') { win.close(); return true; }
