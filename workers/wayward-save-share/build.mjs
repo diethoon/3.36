@@ -19,6 +19,7 @@ await build({
 
 await build({
   entryPoints: [resolve(cloudMode, "opaque-client-entry.js")],
+  nodePaths: [resolve(here, "node_modules")],
   bundle: true,
   format: "iife",
   platform: "browser",
