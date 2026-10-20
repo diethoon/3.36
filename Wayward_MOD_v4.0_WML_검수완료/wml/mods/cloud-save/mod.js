@@ -217,9 +217,7 @@ WML.define({
       // Hand the native-format envelope to the game's own import action. This keeps
       // schema migration, MOD-data restoration, RNG restoration, and load side effects
       // in the same code path as the game's ordinary "import save" UI.
-      const gameStore = api.fn('store');
-      const storeState = gameStore && typeof gameStore.getState === 'function'
-        ? gameStore.getState() : null;
+      const storeState = api.store.get();
       const importSave = storeState && storeState.importSaveFromJSON;
       if (typeof importSave !== 'function') {
         throw new Error('이 게임 빌드에서 기본 세이브 가져오기 기능을 찾지 못했습니다. 게임 파일을 같은 WML 버전으로 다시 빌드해 주세요.');
