@@ -2,41 +2,39 @@
 
 ## 기능
 
-- WML 도크의 **클라우드세이브** 버튼에서 진입합니다.
+- 게임 삼선 메뉴의 **클라우드세이브**에서 진입하며, 메뉴 구조가 다른 빌드에는 WML 도크 버튼을 보조 진입점으로 제공합니다.
 - 첫 화면: **로그인 / 1회성 코드**.
-- 계정: 아이디 생성·로그인, 고정 저장 슬롯 5개, 덮어쓰기·불러오기·삭제.
-- 1회성 코드: 저장하면 6자리 영문·숫자 코드가 발급됩니다. 기존 Worker 정책대로 7일 후 만료되며, 로드가 성공한 요청에서 서버의 코드 레코드와 R2 객체를 삭제합니다.
-- 세이브는 현재 게임 상태를 JSON 스냅샷으로 저장합니다. 게임 버전이 다르면 잘못된 복원을 막기 위해 로드를 거부합니다.
+- 계정: OPAQUE 비밀번호 비공개 인증, 계정당 5개 슬롯, 저장·덮어쓰기·불러오기·삭제.
+- 계정 세이브는 기기에서 AES-256-GCM으로 암호화됩니다. Worker에는 암호문만 저장되고 복호화 키는 전송되지 않습니다.
+- 1회성 코드: 6자리 영문·숫자 코드, 7일 만료, 첫 로드 성공 시 서버에서 삭제. 하지만 첫 사용 전에 코드를 확보한 사람은 불러올 수 있으므로 공개 게시물에 올리지 말고 신뢰하는 상대에게만 전달하세요. 계정 저장과 달리 이 기능은 종단 간 암호화가 아닙니다.
+- 동일한 게임 엔진 버전의 세이브만 불러옵니다.
 
-## 설치
+## 설치 파일
 
-이 모드는 WML 0.7.0 / Wayward MOD v4.0 (엔진 2026-10-04) 기준입니다.
+wml/mods/cloud-save/ 폴더에 다음 파일이 필요합니다.
 
-1. 게임 HTML과 함께 있는 wml/mods/cloud-save/mod.js를 업데이트합니다.
-2. wml/mods/mods.js에 cloud-save가 포함되어 있는지 확인합니다.
-3. 게임을 새로고침하고 왼쪽 아래 WML 도크의 **클라우드세이브** 버튼을 엽니다.
+- mod.js
+- crypto.js
+- opaque-client.bundle.js
+- README.md
 
-## 서버 준비
+wml/mods/mods.js의 WML.enable([...]) 목록에 "cloud-save"가 포함되어 있어야 합니다.
 
-이 모드는 https://wayward-save-share.trpgengine.workers.dev 의 계정 API를 사용합니다. 소스 코드가 배포 브랜치에 올라오는 것만으로 운영 Worker는 바뀌지 않습니다.
+## 계정 기능 활성화 전 필수 설정
 
-1. 먼저 운영 D1 데이터베이스 wayward-save-share-db에 이 저장소의 workers/wayward-save-share/schema.sql을 실행합니다. 기존 save_shares 테이블과 코드는 그대로 유지되며, 계정 테이블만 추가됩니다.
-2. Worker wayward-save-share에 workers/wayward-save-share/index.js 내용을 배포합니다.
-3. GET /api/health 응답에서 accountSchema: "ready"가 오는지 확인합니다.
-4. 계정 API를 배포하기 전에는 기존 1회성 공유 기능만 사용 가능합니다.
+1. 신뢰할 수 있는 로컬 PC에서 @serenity-kit/opaque@1.1.0 CLI의 create-server-setup 명령으로 서버 비밀 설정을 생성합니다.
+2. 전체 출력값은 Cloudflare Worker Secret OPAQUE_SERVER_SETUP에만 넣습니다. GitHub 저장소, 이슈, 채팅에는 올리지 마세요.
+3. 같은 CLI의 get-server-public-key 명령으로 공개키를 구합니다.
+4. 공개키만 이 모드의 OPAQUE_SERVER_PUBLIC_KEY 상수에 입력하고 커밋합니다. SET_AFTER_GENERATING_OPAQUE_SERVER_SETUP 상태에서는 로그인과 가입이 의도적으로 차단됩니다.
+5. 운영 D1에 workers/wayward-save-share/schema.sql을 적용하고, 빌드된 workers/wayward-save-share/index.js를 Worker에 배포합니다. index.src.js는 npm 의존성이 있는 원본이므로 Dashboard에 직접 붙여넣지 마세요.
 
-## 계정 규칙
+서버 비밀 설정은 한 번 만들고 안전하게 보관해야 합니다. 이 설정을 교체하면 기존 OPAQUE 인증 기록을 사용할 수 없습니다.
 
-- 아이디: 영문자·숫자·밑줄 3~24자 (대소문자 구분 없이 유일).
-- 비밀번호: 10~128자.
-- 비밀번호는 PBKDF2-HMAC-SHA-256 솔트 해시로 저장하며, 평문 비밀번호는 서버에 저장하지 않습니다.
-- 세션 토큰은 30일 후 만료되고, D1에는 토큰 해시만 저장합니다.
-- 한 계정에서 쓸 수 있는 슬롯은 서버의 CHECK(slot BETWEEN 1 AND 5)와 PRIMARY KEY(account_id, slot)로 최대 5개로 제한됩니다.
-- 개별 저장은 최대 20 MiB입니다. 세이브는 사용자가 삭제하거나 덮어쓰기할 때까지 유지됩니다.
-- 이메일 기반 비밀번호 재설정은 구현되어 있지 않습니다. 비밀번호를 잊으면 현재 버전에서는 계정 접근을 복구할 수 없습니다.
+## 보안 및 계정 복구
 
-## 주의
-
-- WML의 게임 상태를 복원하는 방식이므로, 같은 게임 엔진 버전의 저장본만 불러옵니다.
-- 계정 세이브는 R2의 accounts/ 접두사에 저장되며 기존 7일짜리 shares/ 객체 만료 정책과 분리됩니다.
-- 계정 저장/불러오기와 계정 생성은 운영 Worker 및 D1 마이그레이션 배포 후에만 작동합니다.
+- 아이디: 영문자·숫자·밑줄 3~24자. 비밀번호: 10~128자.
+- 비밀번호 원문은 Worker로 보내지 않습니다. 서버에는 OPAQUE 인증 기록만 저장됩니다.
+- 복호화 키는 OPAQUE의 클라이언트 exportKey에서 기기 안에서 파생되며 서버로 보내지 않습니다.
+- 로그인 세션과 exportKey는 WML 비밀 저장소에 보관됩니다.
+- 비밀번호를 잊으면 암호화 세이브를 복구할 수 없습니다. 이메일 복구 기능은 없습니다.
+- 악의적으로 변조된 모드가 입력 시점에 비밀번호를 훔치는 공격까지 OPAQUE가 막아 주지는 않습니다. 모드는 신뢰할 수 있는 배포 경로에서 받으세요.
