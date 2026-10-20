@@ -9,7 +9,8 @@ CREATE TABLE IF NOT EXISTS save_shares (
 CREATE INDEX IF NOT EXISTS idx_save_shares_expires_at
 ON save_shares(expires_at);
 
--- Account credentials: passwords are salted PBKDF2-SHA-256 hashes, never plaintext.
+-- Identity table. Legacy password columns remain for compatibility with an unreleased draft;
+-- OPAQUE authentication never reads them and the new code writes unrelated random placeholders.
 CREATE TABLE IF NOT EXISTS cloud_accounts (
   id TEXT PRIMARY KEY NOT NULL,
   username TEXT NOT NULL,
@@ -20,6 +21,23 @@ CREATE TABLE IF NOT EXISTS cloud_accounts (
 );
 
 -- Only a SHA-256 hash of the opaque bearer token is stored.
+CREATE TABLE IF NOT EXISTS cloud_opaque_credentials (
+  account_id TEXT PRIMARY KEY NOT NULL,
+  registration_record TEXT NOT NULL,
+  created_at INTEGER NOT NULL,
+  FOREIGN KEY(account_id) REFERENCES cloud_accounts(id) ON DELETE CASCADE
+);
+CREATE TABLE IF NOT EXISTS cloud_opaque_flows (
+  flow_id TEXT PRIMARY KEY NOT NULL,
+  account_id TEXT,
+  username_norm TEXT NOT NULL,
+  server_login_state TEXT NOT NULL,
+  created_at INTEGER NOT NULL,
+  expires_at INTEGER NOT NULL,
+  FOREIGN KEY(account_id) REFERENCES cloud_accounts(id) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS idx_cloud_opaque_flows_expiry ON cloud_opaque_flows(expires_at);
+
 CREATE TABLE IF NOT EXISTS cloud_sessions (
   token_hash TEXT PRIMARY KEY NOT NULL,
   account_id TEXT NOT NULL,
