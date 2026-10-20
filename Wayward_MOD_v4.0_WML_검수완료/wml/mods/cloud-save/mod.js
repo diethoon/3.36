@@ -28,8 +28,8 @@ WML.define({
     let win = null;
     let view = { page: 'home' };
     let message = '';
-    let username = api.settings.get({ username: '' }).username || '';
     let authState = readStoredAuth();
+    let username = authState.username || api.settings.get({ username: '' }).username || '';
     let slots = [];
     let fields = {};
     let drafts = {};
@@ -58,19 +58,33 @@ WML.define({
     function readStoredAuth() {
       try {
         const value = JSON.parse(secret.get() || '{}');
-        return { token: typeof value.token === 'string' ? value.token : '',
-          exportKey: typeof value.exportKey === 'string' ? value.exportKey : '' };
-      } catch (_) { return { token: '', exportKey: '' }; }
+        return {
+          token: typeof value.token === 'string' ? value.token : '',
+          exportKey: typeof value.exportKey === 'string' ? value.exportKey : '',
+          username: typeof value.username === 'string' ? value.username : '',
+        };
+      } catch (_) { return { token: '', exportKey: '', username: '' }; }
     }
     function currentToken() { return authState.token; }
-    function persistAuth(token, exportKey) {
-      if (typeof token !== 'string' || !token || typeof exportKey !== 'string' || !exportKey) {
+    function currentUsername() {
+      const normalized = String(authState.username || username || '').trim().toLowerCase();
+      if (!normalized) throw new Error('계정 아이디를 확인할 수 없습니다. 다시 로그인해 주세요.');
+      // Migrate sessions created before username was bundled with the export key.
+      if (authState.token && authState.exportKey && authState.username !== normalized) {
+        authState = { ...authState, username: normalized };
+        secret.set(JSON.stringify(authState));
+      }
+      return normalized;
+    }
+    function persistAuth(token, exportKey, accountUsername) {
+      const normalizedUsername = String(accountUsername || '').trim().toLowerCase();
+      if (typeof token !== 'string' || !token || typeof exportKey !== 'string' || !exportKey || !normalizedUsername) {
         throw new Error('안전한 계정 세션을 만들지 못했습니다. 다시 로그인해 주세요.');
       }
-      authState = { token, exportKey };
+      authState = { token, exportKey, username: normalizedUsername };
       secret.set(JSON.stringify(authState));
     }
-    function clearAuth() { authState = { token: '', exportKey: '' }; secret.set(''); }
+    function clearAuth() { authState = { token: '', exportKey: '', username: '' }; secret.set(''); }
     function opaqueClient() {
       const client = globalThis.WMLCloudOpaque && globalThis.WMLCloudOpaque.client;
       if (!client) throw new Error('OPAQUE 보안 모듈을 사용할 수 없습니다. 모드 파일을 다시 설치해 주세요.');
@@ -224,7 +238,7 @@ WML.define({
       const savedMods = snapshot.state.mods && typeof snapshot.state.mods === 'object' &&
         !Array.isArray(snapshot.state.mods) ? snapshot.state.mods : {};
       const restored = { ...snapshot.state, mods: { ...savedMods, ...modData } };
-      api.store.update(() => restored);
+      api.store.set(current => ({ ...current, state: restored, started: true }));
     }
     async function loadAccountSlots() {
       const result = await request('/api/account/saves');
@@ -255,9 +269,9 @@ WML.define({
         body: JSON.stringify({ flowId: started.data.flowId, finishLoginRequest: loginResult.finishLoginRequest }),
       }, false);
       if (!completed.data || !completed.data.token) throw new Error('로그인 응답이 올바르지 않습니다.');
-      persistAuth(completed.data.token, loginResult.exportKey);
       username = completed.data.username || id;
       api.settings.set({ username });
+      persistAuth(completed.data.token, loginResult.exportKey, username);
       await loadAccountSlots();
       show({ page: 'account' }, username + ' 계정으로 로그인했습니다.');
     }
@@ -286,9 +300,9 @@ WML.define({
         body: JSON.stringify({ username: id, registrationRecord: registration.registrationRecord }),
       }, false);
       if (!completed.data || !completed.data.token) throw new Error('계정 생성 응답이 올바르지 않습니다.');
-      persistAuth(completed.data.token, registration.exportKey);
       username = completed.data.username || id;
       api.settings.set({ username });
+      persistAuth(completed.data.token, registration.exportKey, username);
       await loadAccountSlots();
       show({ page: 'account' }, '계정이 생성되었습니다. 비밀번호를 잊으면 복구할 수 없으니 안전하게 보관해 주세요.');
     }
@@ -307,7 +321,7 @@ WML.define({
       const title = defaultTitle(snap.state);
       if (!authState.exportKey) throw new Error('세이브 암호화 키가 없습니다. 다시 로그인해 주세요.');
       const encrypted = await globalThis.WMLCloudSaveCrypto.encryptSnapshot(
-        snap, authState.exportKey, username.toLowerCase()
+        snap, authState.exportKey, currentUsername()
       );
       await request('/api/account/saves/' + slot + '?title=' + encodeURIComponent(title), {
         method: 'PUT',
@@ -321,7 +335,7 @@ WML.define({
       const result = await request('/api/account/saves/' + slot);
       if (!authState.exportKey) throw new Error('세이브 복호화 키가 없습니다. 다시 로그인해 주세요.');
       const snapshot = await globalThis.WMLCloudSaveCrypto.decryptSnapshot(
-        result.data, authState.exportKey, username.toLowerCase()
+        result.data, authState.exportKey, currentUsername()
       );
       applySnapshot(snapshot);
       if (win) win.close();
