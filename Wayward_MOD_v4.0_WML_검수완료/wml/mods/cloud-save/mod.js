@@ -494,6 +494,144 @@ WML.define({
       }
     }
 
+    // On the title screen, offer cloud loading beside the native new/load actions.
+    // This is DOM-only: the game's own menu actions and cloud-save workflows stay untouched.
+    const TITLE_NEW_GAME_LABELS = [
+      '새 게임', '새로 시작', 'New Game', 'Start New Game', 'Start Game',
+    ];
+    const TITLE_LOAD_LABELS = [
+      '불러오기', '게임 불러오기', '세이브 불러오기',
+      'Load', 'Load Game', 'Load Save',
+    ];
+    let titleMenuObserver = null;
+    let titleMenuSyncQueued = false;
+
+    function normalizedMenuText(node) {
+      return String(node && (node.innerText || node.textContent) || '')
+        .replace(/\\s+/g, ' ').trim().toLocaleLowerCase();
+    }
+    function isVisibleMenuControl(node) {
+      if (!node || !node.isConnected || node.closest('[data-wml-ui="true"]')) return false;
+      const rect = node.getBoundingClientRect();
+      const style = window.getComputedStyle(node);
+      return rect.width > 0 && rect.height > 0 &&
+        style.display !== 'none' && style.visibility !== 'hidden' && style.opacity !== '0';
+    }
+    function findVisibleMenuControl(labels) {
+      const wanted = new Set(labels.map(label => label.toLocaleLowerCase()));
+      const interactive = document.querySelectorAll(
+        'button,[role="button"],a,[tabindex],input[type="button"],input[type="submit"]'
+      );
+      for (const node of interactive) {
+        if (wanted.has(normalizedMenuText(node)) && isVisibleMenuControl(node)) return node;
+      }
+      // Some game builds use a clickable div instead of a native button.
+      for (const node of document.querySelectorAll('div,li,span')) {
+        if (!wanted.has(normalizedMenuText(node)) || !isVisibleMenuControl(node)) continue;
+        const style = window.getComputedStyle(node);
+        if (style.cursor === 'pointer' || node.hasAttribute('onclick') ||
+            node.getAttribute('role') === 'button' || node.hasAttribute('tabindex')) return node;
+      }
+      return null;
+    }
+    function hasNearbyMenu(newGame, load) {
+      if (!newGame || !load || newGame === load ||
+          newGame.contains(load) || load.contains(newGame)) return false;
+      const newAncestors = new Map();
+      let node = newGame;
+      for (let depth = 0; node && depth <= 4; depth++, node = node.parentElement) {
+        newAncestors.set(node, depth);
+      }
+      node = load;
+      for (let depth = 0; node && depth <= 4; depth++, node = node.parentElement) {
+        if (newAncestors.has(node) && node !== document.body && node !== document.documentElement) {
+          return newAncestors.get(node) + depth <= 5;
+        }
+      }
+      return false;
+    }
+    function syncTitleScreenCloudButton() {
+      const existing = document.querySelector('[data-wml-cloud-title-load="true"]');
+      const newGame = findVisibleMenuControl(TITLE_NEW_GAME_LABELS);
+      const nativeLoad = findVisibleMenuControl(TITLE_LOAD_LABELS);
+      if (!newGame || !nativeLoad || !hasNearbyMenu(newGame, nativeLoad)) {
+        if (existing) existing.remove();
+        return;
+      }
+      if (existing && existing.isConnected && existing.parentElement === nativeLoad.parentElement) return;
+      if (existing) existing.remove();
+
+      const cloudLoad = nativeLoad.cloneNode(false);
+      cloudLoad.removeAttribute('id');
+      cloudLoad.setAttribute('data-wml-cloud-title-load', 'true');
+      cloudLoad.setAttribute('data-wml-ui', 'true');
+      cloudLoad.setAttribute('title', '클라우드 불러오기');
+      cloudLoad.setAttribute('aria-label', '클라우드 불러오기');
+      cloudLoad.setAttribute('role', cloudLoad.getAttribute('role') || 'button');
+      if (cloudLoad.tagName === 'BUTTON') cloudLoad.type = 'button';
+      else if (!cloudLoad.hasAttribute('tabindex')) cloudLoad.tabIndex = 0;
+      cloudLoad.textContent = '클라우드 불러오기';
+      const activate = event => {
+        event.preventDefault();
+        event.stopPropagation();
+        open();
+      };
+      cloudLoad.addEventListener('click', activate);
+      cloudLoad.addEventListener('keydown', event => {
+        if (event.key === 'Enter' || event.key === ' ') activate(event);
+      });
+      nativeLoad.insertAdjacentElement('afterend', cloudLoad);
+    }
+    function treeHasTitleMenuLabel(node) {
+      if (!node) return false;
+      if (node.nodeType === 3) {
+        const text = normalizedMenuText(node);
+        return TITLE_NEW_GAME_LABELS.concat(TITLE_LOAD_LABELS)
+          .some(label => label.toLocaleLowerCase() === text);
+      }
+      if (node.nodeType !== 1) return false;
+      if (node.matches && node.matches('[data-wml-cloud-title-load="true"]')) return true;
+      if (TITLE_NEW_GAME_LABELS.concat(TITLE_LOAD_LABELS)
+          .some(label => normalizedMenuText(node) === label.toLocaleLowerCase())) return true;
+      if (node.querySelector) {
+        const candidates = node.querySelectorAll(
+          'button,[role="button"],a,[tabindex],input[type="button"],input[type="submit"],div,li,span'
+        );
+        for (const candidate of candidates) {
+          if (candidate.matches('[data-wml-cloud-title-load="true"]')) return true;
+          const text = normalizedMenuText(candidate);
+          if (TITLE_NEW_GAME_LABELS.concat(TITLE_LOAD_LABELS)
+              .some(label => label.toLocaleLowerCase() === text)) return true;
+        }
+      }
+      return false;
+    }
+    function scheduleTitleMenuSync() {
+      if (titleMenuSyncQueued) return;
+      titleMenuSyncQueued = true;
+      Promise.resolve().then(() => {
+        titleMenuSyncQueued = false;
+        syncTitleScreenCloudButton();
+      });
+    }
+    function installTitleScreenCloudButton() {
+      if (titleMenuObserver) return;
+      const start = () => {
+        if (!document.body || titleMenuObserver) return;
+        titleMenuObserver = new MutationObserver(records => {
+          const relevant = records.some(record =>
+            [...record.addedNodes, ...record.removedNodes].some(treeHasTitleMenuLabel)
+          );
+          if (relevant) scheduleTitleMenuSync();
+        });
+        titleMenuObserver.observe(document.body, { childList: true, subtree: true });
+        syncTitleScreenCloudButton();
+      };
+      if (document.body) start();
+      else document.addEventListener('DOMContentLoaded', start, { once: true });
+    }
+    installTitleScreenCloudButton();
+
     // Prefer the native hamburger/pause menu. Some localized/game builds render
     // a slightly different button tree, so keep a WML-dock fallback until a
     // successful native insertion has actually been observed.
