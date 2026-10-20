@@ -508,7 +508,7 @@ WML.define({
 
     function normalizedMenuText(node) {
       return String(node && (node.innerText || node.textContent) || '')
-        .replace(/\\s+/g, ' ').trim().toLocaleLowerCase();
+        .replace(/\s+/g, ' ').trim().toLocaleLowerCase();
     }
     function isVisibleMenuControl(node) {
       if (!node || !node.isConnected || node.closest('[data-wml-ui="true"]')) return false;
