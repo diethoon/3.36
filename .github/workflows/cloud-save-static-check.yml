@@ -62,14 +62,21 @@ jobs:
         run: |
           set -euo pipefail
           npm install --no-audit --no-fund --no-package-lock
+          node tools/mod-symbols.mjs --mod cloud-save --add "nativeSaveJSON=VDe,pauseMenu=N6e"
           node tools/mod-symbols.mjs --mod cloud-save --check
-          ! grep -q "importSaveFromJSON\\|prepareNativeLoad\\|restoreNativeModData\\|koPrepareLoadedState30\\|m31Load" mods/cloud-save/mod.js
           node --input-type=module <<'JS'
           import assert from 'node:assert/strict';
           import fs from 'node:fs';
           import * as acorn from 'acorn';
           import * as walk from 'acorn-walk';
+          import { readModSymbols } from './tools/symbols-lib.mjs';
           const source = fs.readFileSync('mods/cloud-save/mod.js', 'utf8');
+          const symbols = readModSymbols(source);
+          for (const name of ['nativeSaveJSON', 'pauseMenu']) {
+            assert.ok(symbols[name]?.find, name + ' must have a verified recipe for later game builds');
+          }
+          assert.doesNotMatch(source, /importSaveFromJSON|prepareNativeLoad|restoreNativeModData|koPrepareLoadedState30|m31Load/,
+            'nonexistent/unchecked loader bindings must not return');
           const ast = acorn.parse(source, { ecmaVersion: 'latest', sourceType: 'script' });
           let applyNode = null;
           walk.simple(ast, { FunctionDeclaration(node) {
@@ -149,10 +156,10 @@ jobs:
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add "Wayward_MOD_v4.0_WML_검수완료/wml/mods/cloud-save/opaque-client.bundle.js" "workers/wayward-save-share/index.js"
+          git add "Wayward_MOD_v4.0_WML_검수완료/wml/mods/cloud-save/mod.js" "Wayward_MOD_v4.0_WML_검수완료/wml/mods/cloud-save/opaque-client.bundle.js" "workers/wayward-save-share/index.js"
           if git diff --cached --quiet; then
             echo "Generated bundles are already current."
             exit 0
           fi
-          git commit -m "build(security): refresh standalone OPAQUE bundles"
+          git commit -m "build(security): refresh OPAQUE bundles and verified cloud-save symbols"
           git push
