@@ -98,6 +98,7 @@ jobs:
           grep -q "/api/opaque/login/start" "workers/wayward-save-share/index.src.js"
           grep -q "wayward-cloud-save-encrypted" "workers/wayward-save-share/index.src.js"
           grep -q "legacy_password_auth_disabled" "workers/wayward-save-share/index.src.js"
+          ! grep -q "derivePasswordHash\|PASSWORD_ITERATIONS\|PBKDF2" "workers/wayward-save-share/index.src.js"
           echo "OPAQUE and encrypted-save contract passed."
       - name: Commit generated self-contained bundles
         if: github.event_name == 'push' && github.ref == 'refs/heads/feature/wml-cloud-save-20261020'
