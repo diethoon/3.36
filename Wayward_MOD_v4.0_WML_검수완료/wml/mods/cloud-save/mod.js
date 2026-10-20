@@ -550,6 +550,33 @@ WML.define({
       }
       return false;
     }
+    function enableCloudTitleButton(buttonNode) {
+      buttonNode.removeAttribute('id');
+      buttonNode.removeAttribute('disabled');
+      buttonNode.removeAttribute('aria-disabled');
+      buttonNode.removeAttribute('data-disabled');
+      buttonNode.removeAttribute('inert');
+      if ('disabled' in buttonNode) buttonNode.disabled = false;
+      buttonNode.setAttribute('data-wml-cloud-title-load', 'true');
+      buttonNode.setAttribute('data-wml-ui', 'true');
+      buttonNode.setAttribute('title', '클라우드 불러오기');
+      buttonNode.setAttribute('aria-label', '클라우드 불러오기');
+      buttonNode.setAttribute('aria-disabled', 'false');
+      buttonNode.setAttribute('role', buttonNode.getAttribute('role') || 'button');
+      if (buttonNode.tagName === 'BUTTON') buttonNode.type = 'button';
+      else if (!buttonNode.hasAttribute('tabindex')) buttonNode.tabIndex = 0;
+      // Some game builds apply disabled styling as ordinary class names instead
+      // of a :disabled selector. Strip those state-only classes on the clone.
+      for (const name of [...buttonNode.classList]) {
+        if (/disabled|cursor-not-allowed|pointer-events-none/i.test(name) ||
+            /^opacity-(?:[0-9]|[1-9][0-9])$/.test(name)) {
+          buttonNode.classList.remove(name);
+        }
+      }
+      buttonNode.style.removeProperty('opacity');
+      buttonNode.style.removeProperty('pointer-events');
+      buttonNode.style.removeProperty('cursor');
+    }
     function syncTitleScreenCloudButton() {
       const existing = document.querySelector('[data-wml-cloud-title-load="true"]');
       const newGame = findVisibleMenuControl(TITLE_NEW_GAME_LABELS);
@@ -558,18 +585,16 @@ WML.define({
         if (existing) existing.remove();
         return;
       }
-      if (existing && existing.isConnected && existing.parentElement === nativeLoad.parentElement) return;
+      if (existing && existing.isConnected && existing.parentElement === nativeLoad.parentElement) {
+        enableCloudTitleButton(existing);
+        return;
+      }
       if (existing) existing.remove();
 
+      // Clone the native Load button for consistent layout, but never inherit its
+      // disabled appearance/state: native Load is disabled when no local saves exist.
       const cloudLoad = nativeLoad.cloneNode(false);
-      cloudLoad.removeAttribute('id');
-      cloudLoad.setAttribute('data-wml-cloud-title-load', 'true');
-      cloudLoad.setAttribute('data-wml-ui', 'true');
-      cloudLoad.setAttribute('title', '클라우드 불러오기');
-      cloudLoad.setAttribute('aria-label', '클라우드 불러오기');
-      cloudLoad.setAttribute('role', cloudLoad.getAttribute('role') || 'button');
-      if (cloudLoad.tagName === 'BUTTON') cloudLoad.type = 'button';
-      else if (!cloudLoad.hasAttribute('tabindex')) cloudLoad.tabIndex = 0;
+      enableCloudTitleButton(cloudLoad);
       cloudLoad.textContent = '클라우드 불러오기';
       const activate = event => {
         event.preventDefault();
