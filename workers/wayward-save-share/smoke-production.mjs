@@ -33,9 +33,9 @@ const saveCrypto = globalThis.WMLCloudSaveCrypto;
 assert.ok(saveCrypto, "Cloud-save crypto module did not initialize");
 await opaque.ready;
 
-async function requestJson(path, body, token = "") {
+async function requestJson(path, body, token = "", method = "POST") {
   const response = await fetch(endpoint + path, {
-    method: "POST",
+    method,
     headers: {
       "Content-Type": "application/json",
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -132,7 +132,7 @@ try {
     modData: { "cloud-save": { encryptedRoundTrip: true } },
   };
   const encrypted = await saveCrypto.encryptSnapshot(snapshot, login.exportKey, username.toLowerCase());
-  await requestJson("/api/account/saves/1?title=Automated%20smoke%20test", encrypted, sessionToken);
+  await requestJson("/api/account/saves/1?title=Automated%20smoke%20test", encrypted, sessionToken, "PUT");
 
   const loadResponse = await fetch(endpoint + "/api/account/saves/1", {
     headers: { Authorization: `Bearer ${sessionToken}` },
