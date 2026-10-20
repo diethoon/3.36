@@ -214,23 +214,17 @@ WML.define({
           String(snapshot.gameVersion || '') !== String(api.game || '')) {
         throw new Error('다른 게임 버전에서 만든 세이브입니다. 같은 WML 게임 버전에서 불러와 주세요.');
       }
-      // Hand the native-format envelope to the game's own import action. This keeps
-      // schema migration, MOD-data restoration, RNG restoration, and load side effects
-      // in the same code path as the game's ordinary "import save" UI.
-      const storeState = api.store.get();
-      const importSave = storeState && storeState.importSaveFromJSON;
-      if (typeof importSave !== 'function') {
-        throw new Error('이 게임 빌드에서 기본 세이브 가져오기 기능을 찾지 못했습니다. 게임 파일을 같은 WML 버전으로 다시 빌드해 주세요.');
+      // WML's store API exposes the Zustand state/dispatch pair, not a JSON-import
+      // method. The cloud snapshot is restricted to the exact same engine version,
+      // so apply the already-native state directly and reattach WML mod data.
+      const modData = snapshot.modData == null ? {} : snapshot.modData;
+      if (!modData || typeof modData !== 'object' || Array.isArray(modData)) {
+        throw new Error('세이브 MOD 데이터 형식이 올바르지 않습니다.');
       }
-      const envelope = {
-        format: snapshot.nativeFormat,
-        gameVersion: String(snapshot.gameVersion || api.game || ''),
-        savedAt: new Date(Number(snapshot.savedAt) || Date.now()).toISOString(),
-        state: snapshot.state,
-        modData: snapshot.modData || {},
-      };
-      const imported = importSave(JSON.stringify(envelope));
-      if (imported !== true) throw new Error('게임의 기본 불러오기가 세이브를 거부했습니다.');
+      const savedMods = snapshot.state.mods && typeof snapshot.state.mods === 'object' &&
+        !Array.isArray(snapshot.state.mods) ? snapshot.state.mods : {};
+      const restored = { ...snapshot.state, mods: { ...savedMods, ...modData } };
+      api.store.update(() => restored);
     }
     async function loadAccountSlots() {
       const result = await request('/api/account/saves');
