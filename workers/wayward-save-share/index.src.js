@@ -458,6 +458,7 @@ async function opaqueLoginStart(request, env) {
 
 async function opaqueLoginFinish(request, env) {
   const unavailable = opaqueUnavailable(env); if (unavailable) return unavailable;
+  const limited = await authRateLimit(request, env, "opaque-login-finish", 15); if (limited) return limited;
   let body; try { body = await request.json(); }
   catch { return errorMessageForClient("invalid_json", "로그인 완료 요청 형식이 올바르지 않습니다."); }
   const flowId = typeof body?.flowId === "string" ? body.flowId : "";

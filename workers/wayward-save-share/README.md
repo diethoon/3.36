@@ -50,6 +50,7 @@ The old password-forwarding endpoints POST /api/account/register and POST /api/a
 
 ## Limits and recovery
 
+- Authentication requests are limited per IP in 15-minute windows: registration start and finish allow 8 each; login start and finish allow 15 each. Excess requests receive HTTP 429 with a `Retry-After` value.
 - Maximum five account slots; each encrypted request is limited by the Worker request-body cap.
 - Account saves remain until the user deletes or overwrites them.
 - Sessions expire after 30 days.

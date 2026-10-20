@@ -59,7 +59,7 @@ const ctx = {
 const base = "https://worker.test";
 async function call(path, options = {}) {
   const headers = new Headers(options.headers || {});
-  headers.set("CF-Connecting-IP", "203.0.113.19");
+  headers.set("CF-Connecting-IP", options.ip || "203.0.113.19");
   if (options.token) headers.set("Authorization", "Bearer " + options.token);
   let body;
   if (options.body !== undefined) {
@@ -151,6 +151,24 @@ assert.ok(login, "correct password completes OPAQUE login");
 assert.equal(login.username, username);
 assert.equal(login.exportKey, registered.exportKey, "client exportKey is stable across registration/login");
 assert.equal(await opaqueLogin(username, "Incorrect-password-for-test"), null, "wrong password fails");
+
+// Login completion gets the same per-IP window as login start: 15 requests
+// are allowed in one 15-minute window, and the 16th must receive HTTP 429.
+const rateLimitTestIp = "198.51.100.88";
+for (let attempt = 1; attempt <= 15; attempt += 1) {
+  const response = await call("/api/opaque/login/finish", {
+    method: "POST", ip: rateLimitTestIp,
+    body: { flowId: "bad", finishLoginRequest: "bad" },
+  });
+  assert.equal(response.status, 401, `login finish request ${attempt} should be processed before the limit`);
+}
+const rateLimitedFinish = await call("/api/opaque/login/finish", {
+  method: "POST", ip: rateLimitTestIp,
+  body: { flowId: "bad", finishLoginRequest: "bad" },
+});
+assert.equal(rateLimitedFinish.status, 429, "16th login-finish request is rate-limited");
+assert.ok(Number(rateLimitedFinish.headers.get("Retry-After")) > 0, "rate-limit response supplies Retry-After");
+
 assert.equal((await call("/api/account/saves")).status, 401, "save API requires authentication");
 
 const sourceSnapshot = {
