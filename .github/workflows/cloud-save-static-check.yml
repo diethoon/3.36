@@ -64,6 +64,40 @@ jobs:
           npm install --no-audit --no-fund --no-package-lock
           node tools/mod-symbols.mjs --mod cloud-save --check
           ! grep -q "importSaveFromJSON\\|prepareNativeLoad\\|restoreNativeModData\\|koPrepareLoadedState30\\|m31Load" mods/cloud-save/mod.js
+          node --input-type=module <<'JS'
+          import assert from 'node:assert/strict';
+          import fs from 'node:fs';
+          import * as acorn from 'acorn';
+          import * as walk from 'acorn-walk';
+          const source = fs.readFileSync('mods/cloud-save/mod.js', 'utf8');
+          const ast = acorn.parse(source, { ecmaVersion: 'latest', sourceType: 'script' });
+          let applyNode = null;
+          walk.simple(ast, { FunctionDeclaration(node) {
+            if (node.id && node.id.name === 'applySnapshot') applyNode = node;
+          }});
+          assert.ok(applyNode, 'applySnapshot function must exist');
+          const makeApply = Function('api', `return (${source.slice(applyNode.start, applyNode.end)})`);
+          let restoredState = null;
+          const api = { game: '2026-10-04', store: { update(fn) { restoredState = fn(); } } };
+          const applySnapshot = makeApply(api);
+          const snapshot = {
+            schema: 'wayward-cloud-save', version: 1, nativeFormat: 1,
+            game: '2026-10-04', gameVersion: '2026-10-04', savedAt: Date.now(),
+            state: { day: 4, rng: { seed: 123 }, mods: { existing: { ok: true }, overlap: 'old' } },
+            modData: { 'cloud-save': { sample: 1 }, overlap: 'saved' },
+          };
+          applySnapshot(snapshot);
+          assert.deepEqual(restoredState, {
+            day: 4, rng: { seed: 123 },
+            mods: { existing: { ok: true }, overlap: 'saved', 'cloud-save': { sample: 1 } },
+          }, 'same-version game state, RNG, and WML mod data must be restored');
+          const accepted = restoredState;
+          assert.throws(() => applySnapshot({ ...snapshot, game: '2026-09-30' }), /다른 게임 버전/);
+          assert.strictEqual(restoredState, accepted, 'wrong-version save must not mutate game state');
+          assert.throws(() => applySnapshot({ ...snapshot, modData: [] }), /MOD 데이터/);
+          assert.strictEqual(restoredState, accepted, 'invalid mod data must not mutate game state');
+          console.log('Cloud-save state-restore checks passed.');
+          JS
       - name: Exercise OPAQUE and encrypted Worker API
         run: node --no-warnings workers/wayward-save-share/test-worker.mjs
       - name: Validate additive D1 schema and slot limit
