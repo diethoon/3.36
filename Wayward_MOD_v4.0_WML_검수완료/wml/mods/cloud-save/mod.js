@@ -9,8 +9,8 @@ WML.define({
   game: '>=2026-10-04',
   description: '계정 저장 슬롯 5개와 7일 만료 1회성 세이브 코드를 제공합니다.',
   symbols: {
-    nativeSaveJSON: { raw: { '2026-10-04': 'VDe' }, doc: '게임의 기본 세이브 형식(JSON)을 만들며 MOD 데이터도 포함합니다.' },
-    pauseMenu: { raw: { '2026-10-04': 'N6e' }, doc: '우측 상단 삼선 버튼이 여는 게임 기본 일시 정지 메뉴.' },
+    "nativeSaveJSON": {"raw":{"2026-10-04":"VDe"},"doc":"게임의 기본 세이브 형식(JSON)을 만들며 MOD 데이터도 포함합니다.","find":{"all":["gameVersion:"],"like":"function [\\w$]+\\([\\w$]+,[\\w$]+\\)\\{const [\\w$]+=\\{format:[\\w$]+,gameVersion:[\\w$]+,savedAt:new [\\w$]+\\(\\)\\.toISOString\\(\\),state:[\\w$]+\\([\\w$]+\\) ,modData:[\\w$]+\\([\\w$]+\\) \\};return [\\w$]+\\.stringify\\([\\w$]+,null,2\\)\\}","len":150,"any":["modData:","format:","savedAt:",".toISOString",".stringify","state:"]}},
+    "pauseMenu": {"raw":{"2026-10-04":"N6e"},"doc":"우측 상단 삼선 버튼이 여는 게임 기본 일시 정지 메뉴.","find":{"all":["\"support\""],"len":2849,"any":["\"save\"",".returnToTitle","\"changelog\"","\"settings\"","onDone:","\"load\""]}}
   },
   async setup(api) {
     await api.loadScript('opaque-client.bundle.js');
