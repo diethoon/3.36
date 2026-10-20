@@ -385,7 +385,7 @@ WML.define({
         addMessage(root);
       } else if (page === 'login') {
         addTitle(root, '클라우드 계정 로그인');
-        addText(root, '계정에 저장한 세이브를 여러 기기에서 이용할 수 있습니다.');
+        addText(root, 'OPAQUE 인증으로 비밀번호 원문을 서버에 전송하지 않습니다. 계정 세이브도 기기에서 암호화되어 여러 기기에서 안전하게 이용할 수 있습니다.');
         addField(root, 'username', '아이디', 'text', username, 'username');
         addField(root, 'password', '비밀번호', 'password', '', 'current-password');
         const row = h('div', { class: 'wml-cloud-actions' });
@@ -402,7 +402,7 @@ WML.define({
         addMessage(root);
       } else if (page === 'register') {
         addTitle(root, '아이디 생성');
-        addText(root, '아이디는 영문자·숫자·밑줄로 3~24자, 비밀번호는 10자 이상이어야 합니다.');
+        addText(root, '아이디는 영문자·숫자·밑줄로 3~24자, 비밀번호는 10~128자입니다. OPAQUE 인증으로 비밀번호 원문을 서버에 보내지 않습니다. 비밀번호를 잊으면 암호화 세이브를 복구할 수 없습니다.');
         addField(root, 'username', '아이디', 'text', username, 'username');
         addField(root, 'password', '비밀번호', 'password', '', 'new-password');
         addField(root, 'confirm', '비밀번호 확인', 'password', '', 'new-password');
