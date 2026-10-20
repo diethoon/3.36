@@ -281,6 +281,7 @@ WML.define({
         if (busy) return;
         busy = true;
         message = '처리 중…';
+        render();
         Promise.resolve().then(fn).catch(err => {
           message = String(err && err.message || err || '요청에 실패했습니다.');
           render();
@@ -316,6 +317,7 @@ WML.define({
         row.append(button('로그인', () => {
           if (busy) return;
           busy = true; message = '로그인 중…';
+          render();
           login().catch(err => { message = String(err.message || err); render(); })
             .finally(() => { busy = false; if (isConnected()) render(); });
         }, { primary: true }));
