@@ -8,6 +8,11 @@ WML.define({
   version: '1.0.0',
   game: '>=2026-10-04',
   description: '계정 저장 슬롯 5개와 7일 만료 1회성 세이브 코드를 제공합니다.',
+  symbols: {
+    nativeSaveJSON: { raw: { '2026-10-04': 'VDe' }, doc: '게임의 기본 세이브 형식(JSON)을 만들며 MOD 데이터도 포함합니다.' },
+    prepareNativeLoad: { raw: { '2026-10-04': 'koPrepareLoadedState30' }, doc: '게임 기본 저장본을 불러오기 전에 상태를 정리합니다.' },
+    restoreNativeModData: { raw: { '2026-10-04': 'm31Load' }, doc: '저장본의 MOD 데이터를 복원 상태에 적용합니다.' },
+  },
   setup(api) {
     const ENDPOINT = 'https://wayward-save-share.trpgengine.workers.dev';
     const h = api.ui.h;
@@ -19,6 +24,7 @@ WML.define({
     let username = api.settings.get({ username: '' }).username || '';
     let slots = [];
     let fields = {};
+    let drafts = {};
     let busy = false;
 
     const styleId = 'wml-cloud-save-style';
@@ -51,6 +57,7 @@ WML.define({
       view = nextView;
       message = notice || '';
       fields = {};
+      drafts = {};
       if (isConnected()) win.setTitle('클라우드세이브');
       render();
     }
@@ -90,7 +97,8 @@ WML.define({
       const input = document.createElement('input');
       input.className = 'wml-cloud-input';
       input.type = type || 'text';
-      input.value = value || '';
+      input.value = Object.prototype.hasOwnProperty.call(drafts, key) ? drafts[key] : (value || '');
+      input.addEventListener('input', () => { drafts[key] = input.value; });
       input.autocomplete = autocomplete || 'off';
       input.setAttribute('data-wml-ui', 'true');
       if (key === 'code') {
@@ -132,14 +140,22 @@ WML.define({
       if (!state || typeof state !== 'object' || Array.isArray(state)) {
         throw new Error('게임이 시작된 뒤에 세이브할 수 있습니다.');
       }
-      const cloned = JSON.parse(JSON.stringify(state));
+      // Use the game's own native save serializer so its normalization and MOD data
+      // (including m31Data) match ordinary manual save slots.
+      const native = JSON.parse(api.fn('nativeSaveJSON')(state, String(api.game || '')));
+      if (!native || native.format !== 1 || !native.state || typeof native.state !== 'object') {
+        throw new Error('게임의 기본 세이브 형식을 만들지 못했습니다.');
+      }
       return {
         schema: 'wayward-cloud-save',
         version: 1,
         game: String(api.game || ''),
+        gameVersion: native.gameVersion,
+        nativeFormat: native.format,
         savedAt: Date.now(),
         title: title || defaultTitle(state),
-        state: cloned,
+        state: native.state,
+        modData: native.modData || {},
       };
     }
     function defaultTitle(state) {
@@ -151,13 +167,19 @@ WML.define({
     }
     function applySnapshot(snapshot) {
       if (!snapshot || snapshot.schema !== 'wayward-cloud-save' || snapshot.version !== 1 ||
-          !snapshot.state || typeof snapshot.state !== 'object' || Array.isArray(snapshot.state)) {
+          snapshot.nativeFormat !== 1 || !snapshot.state ||
+          typeof snapshot.state !== 'object' || Array.isArray(snapshot.state)) {
         throw new Error('지원하지 않는 세이브 형식입니다.');
       }
-      if (String(snapshot.game || '') !== String(api.game || '')) {
+      if (String(snapshot.game || '') !== String(api.game || '') ||
+          String(snapshot.gameVersion || '') !== String(api.game || '')) {
         throw new Error('다른 게임 버전에서 만든 세이브입니다. 같은 WML 게임 버전에서 불러와 주세요.');
       }
-      api.store.update(() => snapshot.state);
+      // Match the native loader: prepare the state, then reattach native MOD data.
+      const prepared = api.fn('prepareNativeLoad')(snapshot.state);
+      const restored = api.fn('restoreNativeModData')(prepared, snapshot.modData || {});
+      if (!restored || typeof restored !== 'object') throw new Error('세이브 상태를 복원하지 못했습니다.');
+      api.store.update(() => restored);
     }
     async function loadAccountSlots() {
       const result = await request('/api/account/saves');
@@ -249,8 +271,7 @@ WML.define({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ code: code }),
       }, false);
-      const snapshot = await result.response.json().catch(() => result.data);
-      applySnapshot(snapshot);
+      applySnapshot(result.data);
       if (win) win.close();
       message = '';
     }
