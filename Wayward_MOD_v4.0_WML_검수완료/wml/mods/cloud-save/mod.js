@@ -20,7 +20,7 @@ WML.define({
     }
     await globalThis.WMLCloudOpaque.ready;
     const ENDPOINT = 'https://wayward-save-share.trpgengine.workers.dev';
-    const OPAQUE_SERVER_PUBLIC_KEY = 'SET_AFTER_GENERATING_OPAQUE_SERVER_SETUP';
+    const OPAQUE_SERVER_PUBLIC_KEY = 'tOjqhUu8YQHl6PKxHyW7C3YtfiYXB-LD0q3niWClo3Q';
     const OPAQUE_SERVER_ID = 'wayward-save-share.trpgengine.workers.dev';
     const h = api.ui.h;
     const button = api.ui.button;
