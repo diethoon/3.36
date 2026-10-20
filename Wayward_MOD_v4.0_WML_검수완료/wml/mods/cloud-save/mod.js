@@ -5,13 +5,11 @@
 WML.define({
   id: 'cloud-save',
   name: '클라우드세이브',
-  version: '1.0.0',
+  version: '1.0.1',
   game: '>=2026-10-04',
   description: '계정 저장 슬롯 5개와 7일 만료 1회성 세이브 코드를 제공합니다.',
   symbols: {
     nativeSaveJSON: { raw: { '2026-10-04': 'VDe' }, doc: '게임의 기본 세이브 형식(JSON)을 만들며 MOD 데이터도 포함합니다.' },
-    prepareNativeLoad: { raw: { '2026-10-04': 'koPrepareLoadedState30' }, doc: '게임 기본 저장본을 불러오기 전에 상태를 정리합니다.' },
-    restoreNativeModData: { raw: { '2026-10-04': 'm31Load' }, doc: '저장본의 MOD 데이터를 복원 상태에 적용합니다.' },
     pauseMenu: { raw: { '2026-10-04': 'N6e' }, doc: '우측 상단 삼선 버튼이 여는 게임 기본 일시 정지 메뉴.' },
   },
   async setup(api) {
@@ -216,11 +214,25 @@ WML.define({
           String(snapshot.gameVersion || '') !== String(api.game || '')) {
         throw new Error('다른 게임 버전에서 만든 세이브입니다. 같은 WML 게임 버전에서 불러와 주세요.');
       }
-      // Match the native loader: prepare the state, then reattach native MOD data.
-      const prepared = api.fn('prepareNativeLoad')(snapshot.state);
-      const restored = api.fn('restoreNativeModData')(prepared, snapshot.modData || {});
-      if (!restored || typeof restored !== 'object') throw new Error('세이브 상태를 복원하지 못했습니다.');
-      api.store.update(() => restored);
+      // Hand the native-format envelope to the game's own import action. This keeps
+      // schema migration, MOD-data restoration, RNG restoration, and load side effects
+      // in the same code path as the game's ordinary "import save" UI.
+      const gameStore = api.fn('store');
+      const storeState = gameStore && typeof gameStore.getState === 'function'
+        ? gameStore.getState() : null;
+      const importSave = storeState && storeState.importSaveFromJSON;
+      if (typeof importSave !== 'function') {
+        throw new Error('이 게임 빌드에서 기본 세이브 가져오기 기능을 찾지 못했습니다. 게임 파일을 같은 WML 버전으로 다시 빌드해 주세요.');
+      }
+      const envelope = {
+        format: snapshot.nativeFormat,
+        gameVersion: String(snapshot.gameVersion || api.game || ''),
+        savedAt: new Date(Number(snapshot.savedAt) || Date.now()).toISOString(),
+        state: snapshot.state,
+        modData: snapshot.modData || {},
+      };
+      const imported = importSave(JSON.stringify(envelope));
+      if (imported !== true) throw new Error('게임의 기본 불러오기가 세이브를 거부했습니다.');
     }
     async function loadAccountSlots() {
       const result = await request('/api/account/saves');
