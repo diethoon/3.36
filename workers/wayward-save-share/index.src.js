@@ -294,19 +294,12 @@ async function importShare(request, env, ctx) {
 const ACCOUNT_SAVE_SLOTS = 5;
 const SESSION_TTL_SECONDS = 30 * 24 * 60 * 60;
 const AUTH_WINDOW_SECONDS = 15 * 60;
-const PASSWORD_ITERATIONS = 210000; // legacy constant; password-hash login is disabled.
 const OPAQUE_SERVER_ID = "wayward-save-share.trpgengine.workers.dev";
 const OPAQUE_FLOW_TTL_SECONDS = 120;
 const textEncoder = new TextEncoder();
 
 function bytesToHex(bytes) {
   return Array.from(bytes, b => b.toString(16).padStart(2, "0")).join("");
-}
-
-function hexToBytes(hex) {
-  const out = new Uint8Array(Math.floor(hex.length / 2));
-  for (let i = 0; i < out.length; i++) out[i] = parseInt(hex.slice(i * 2, i * 2 + 2), 16);
-  return out;
 }
 
 function randomHex(size) {
@@ -316,26 +309,6 @@ function randomHex(size) {
 async function sha256Hex(value) {
   const digest = await crypto.subtle.digest("SHA-256", textEncoder.encode(String(value)));
   return bytesToHex(new Uint8Array(digest));
-}
-
-async function derivePasswordHash(password, saltHex) {
-  const key = await crypto.subtle.importKey(
-    "raw", textEncoder.encode(password), "PBKDF2", false, ["deriveBits"],
-  );
-  const bits = await crypto.subtle.deriveBits({
-    name: "PBKDF2",
-    salt: hexToBytes(saltHex),
-    iterations: PASSWORD_ITERATIONS,
-    hash: "SHA-256",
-  }, key, 256);
-  return bytesToHex(new Uint8Array(bits));
-}
-
-function constantTimeEqual(a, b) {
-  if (typeof a !== "string" || typeof b !== "string" || a.length !== b.length) return false;
-  let difference = 0;
-  for (let i = 0; i < a.length; i++) difference |= a.charCodeAt(i) ^ b.charCodeAt(i);
-  return difference === 0;
 }
 
 function accountUsername(value) {
