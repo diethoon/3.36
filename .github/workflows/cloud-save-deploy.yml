@@ -1,0 +1,298 @@
+name: Deploy Wayward cloud save Worker
+
+on:
+  push:
+    branches:
+      - feature/wml-cloud-save-20261020
+    paths:
+      - ".github/workflows/cloud-save-deploy.yml"
+      - "workers/wayward-save-share/**"
+      - "Wayward_MOD_v4.0_WML_검수완료/wml/mods/cloud-save/**"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: wayward-save-share-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Test, initialize keys, migrate and deploy
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      CLOUDFLARE_D1_DATABASE_ID: ${{ secrets.CLOUDFLARE_D1_DATABASE_ID }}
+    steps:
+      - name: Check out deployment branch
+        uses: actions/checkout@v4
+        with:
+          ref: feature/wml-cloud-save-20261020
+          fetch-depth: 0
+
+      - name: Check Cloudflare credentials without exposing them
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -z "${CLOUDFLARE_API_TOKEN:-}" || -z "${CLOUDFLARE_ACCOUNT_ID:-}" || -z "${CLOUDFLARE_D1_DATABASE_ID:-}" ]]; then
+            echo "::error::A required GitHub Actions secret is missing. Expected CLOUDFLARE_API_TOKEN, CLOUDFLARE_ACCOUNT_ID, and CLOUDFLARE_D1_DATABASE_ID."
+            exit 1
+          fi
+          verify_file="$RUNNER_TEMP/cf-token-verify.json"
+          code="$(curl --silent --show-error --output "$verify_file" --write-out '%{http_code}'             -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN"             https://api.cloudflare.com/client/v4/user/tokens/verify)"
+          if [[ "$code" != "200" ]] || ! jq -e '.success == true and .result.status == "active"' "$verify_file" >/dev/null; then
+            echo "::error::Cloudflare API token verification failed. Check the token's scope and expiry in GitHub Actions secrets."
+            exit 1
+          fi
+          settings_file="$RUNNER_TEMP/worker-settings.json"
+          code="$(curl --silent --show-error --output "$settings_file" --write-out '%{http_code}'             -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN"             "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/scripts/wayward-save-share/settings")"
+          if [[ "$code" != "200" ]] || ! jq -e '.success == true' "$settings_file" >/dev/null; then
+            echo "::error::Cannot inspect the existing Worker. The token needs permission to read and edit Workers Scripts."
+            exit 1
+          fi
+          database_file="$RUNNER_TEMP/worker-database.json"
+          code="$(curl --silent --show-error --output "$database_file" --write-out '%{http_code}'             -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN"             "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/d1/database/$CLOUDFLARE_D1_DATABASE_ID")"
+          if [[ "$code" != "200" ]] || ! jq -e '.success == true and .result.name == "wayward-save-share-db"' "$database_file" >/dev/null; then
+            echo "::error::The configured D1 ID is not the expected wayward-save-share-db database, or the token lacks D1 Read permission."
+            exit 1
+          fi
+          echo "Cloudflare token, Worker and target D1 database verified."
+
+      - name: Install pinned dependencies and build artifacts
+        working-directory: workers/wayward-save-share
+        run: |
+          npm install --no-audit --no-fund --no-package-lock
+          node build.mjs
+
+      - name: Run source, bundle, authentication and schema checks
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module --check < "Wayward_MOD_v4.0_WML_검수완료/wml/mods/cloud-save/mod.js"
+          node --input-type=module --check < "Wayward_MOD_v4.0_WML_검수완료/wml/mods/cloud-save/crypto.js"
+          node --input-type=module --check < "Wayward_MOD_v4.0_WML_검수완료/wml/mods/cloud-save/opaque-client.bundle.js"
+          node --input-type=module --check < "workers/wayward-save-share/index.src.js"
+          node --input-type=module --check < "workers/wayward-save-share/index.js"
+          node --no-warnings workers/wayward-save-share/test-worker.mjs
+          python - <<'PY'
+          import sqlite3
+          from pathlib import Path
+          db = sqlite3.connect(":memory:")
+          db.executescript(Path("workers/wayward-save-share/schema.sql").read_text(encoding="utf-8"))
+          expected = {"save_shares", "cloud_accounts", "cloud_sessions", "cloud_saves",
+                      "cloud_auth_limits", "cloud_opaque_credentials", "cloud_opaque_flows"}
+          actual = {r[0] for r in db.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+          assert expected <= actual, f"Missing tables: {sorted(expected - actual)}"
+          db.execute("INSERT INTO cloud_accounts (id, username, username_norm, password_salt, password_hash, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+                     ("account-test", "account_test", "account_test", "opaque-unused:a", "opaque-unused:b", 1))
+          db.execute("INSERT INTO cloud_saves (account_id, slot, object_key, title, saved_at, byte_length) VALUES (?, ?, ?, ?, ?, ?)",
+                     ("account-test", 5, "accounts/account-test/5.json", "test", 1, 10))
+          try:
+              db.execute("INSERT INTO cloud_saves (account_id, slot, object_key, title, saved_at, byte_length) VALUES (?, ?, ?, ?, ?, ?)",
+                         ("account-test", 6, "accounts/account-test/6.json", "bad", 1, 10))
+          except sqlite3.IntegrityError:
+              pass
+          else:
+              raise AssertionError("slot 6 was accepted")
+          print("Additive D1 schema and five-slot limit passed.")
+          PY
+          grep -q "'/api/opaque/register/start'" "Wayward_MOD_v4.0_WML_검수완료/wml/mods/cloud-save/mod.js"
+          grep -q "'/api/opaque/login/start'" "Wayward_MOD_v4.0_WML_검수완료/wml/mods/cloud-save/mod.js"
+          grep -q "legacy_password_auth_disabled" "workers/wayward-save-share/index.src.js"
+
+      - name: Ensure a stable OPAQUE server key and save generated bundles
+        shell: bash
+        run: |
+          set -euo pipefail
+          mode_file="Wayward_MOD_v4.0_WML_검수완료/wml/mods/cloud-save/mod.js"
+          secret_list="$RUNNER_TEMP/worker-secrets.json"
+          code="$(curl --silent --show-error --output "$secret_list" --write-out '%{http_code}'             -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN"             "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/scripts/wayward-save-share/secrets")"
+          if [[ "$code" != "200" ]] || ! jq -e '.success == true and (.result | type == "array")' "$secret_list" >/dev/null; then
+            echo "::error::Cannot safely inspect existing Worker secret names. No key was generated or changed."
+            exit 1
+          fi
+          has_secret="$(jq '[.result[] | select(.name == "OPAQUE_SERVER_SETUP")] | length' "$secret_list")"
+          has_placeholder=0
+          grep -q "SET_AFTER_GENERATING_OPAQUE_SERVER_SETUP" "$mode_file" && has_placeholder=1 || true
+          if [[ "$has_secret" == "1" && "$has_placeholder" == "1" ]]; then
+            echo "::error::OPAQUE_SERVER_SETUP already exists in Cloudflare but the client public-key pin is unset. Refusing to rotate or guess the existing key."
+            exit 1
+          fi
+
+          if [[ "$has_secret" == "0" ]]; then
+            setup="$(npx --yes @serenity-kit/opaque@1.1.0 create-server-setup 2>/dev/null | tr -d '\r\n')" || {
+              echo "::error::Could not generate an OPAQUE server setup with the pinned package."
+              exit 1
+            }
+            if [[ "${#setup}" -lt 100 || "${#setup}" -gt 300 ]]; then
+              unset setup
+              echo "::error::OPAQUE CLI returned an unexpected setup format; no secret was uploaded."
+              exit 1
+            fi
+            echo "::add-mask::$setup"
+            public_key="$(npx --yes @serenity-kit/opaque@1.1.0 get-server-public-key "$setup" 2>/dev/null | tr -d '\r\n')" || {
+              unset setup
+              echo "::error::Could not derive the OPAQUE public key."
+              exit 1
+            }
+            if [[ -z "$public_key" || "${#public_key}" -gt 256 ]]; then
+              unset setup
+              echo "::error::OPAQUE CLI returned an unexpected public-key format."
+              exit 1
+            fi
+
+            OPAQUE_PUBLIC_KEY="$public_key" python - <<'PY'
+          import os, re
+          from pathlib import Path
+          path = Path("Wayward_MOD_v4.0_WML_검수완료/wml/mods/cloud-save/mod.js")
+          source = path.read_text(encoding="utf-8")
+          key = os.environ["OPAQUE_PUBLIC_KEY"]
+          updated, count = re.subn(
+              r"const OPAQUE_SERVER_PUBLIC_KEY = '[^']*';",
+              "const OPAQUE_SERVER_PUBLIC_KEY = '" + key + "';",
+              source, count=1,
+          )
+          if count != 1:
+              raise SystemExit("Could not locate the unique OPAQUE public-key constant.")
+          path.write_text(updated, encoding="utf-8")
+          PY
+            unset public_key
+
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add "$mode_file" "Wayward_MOD_v4.0_WML_검수완료/wml/mods/cloud-save/opaque-client.bundle.js" "workers/wayward-save-share/index.js"
+            if ! git diff --cached --quiet; then
+              git commit -m "build(cloud-save): pin generated OPAQUE server public key"
+              git push origin HEAD:refs/heads/feature/wml-cloud-save-20261020
+            fi
+
+            payload_file="$RUNNER_TEMP/opaque-secret-payload.json"
+            response_file="$RUNNER_TEMP/opaque-secret-response.json"
+            umask 077
+            jq -n --arg text "$setup" '{name:"OPAQUE_SERVER_SETUP", text:$text, type:"secret_text"}' > "$payload_file"
+            chmod 600 "$payload_file"
+            code="$(curl --silent --show-error --output "$response_file" --write-out '%{http_code}'               -X PUT               -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN"               -H "Content-Type: application/json"               --data-binary "@$payload_file"               "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/scripts/wayward-save-share/secrets")"
+            rm -f "$payload_file"
+            unset setup
+            if [[ "$code" != "200" && "$code" != "201" ]] || ! jq -e '.success == true' "$response_file" >/dev/null; then
+              echo "::error::Could not register OPAQUE_SERVER_SETUP in Cloudflare. The private value was not written to logs or GitHub."
+              exit 1
+            fi
+            echo "Created the OPAQUE setup once, pinned its public key, and registered the Worker secret."
+          else
+            if [[ "$has_placeholder" == "1" ]]; then
+              echo "::error::Public-key pin is missing; refusing to change an existing server key."
+              exit 1
+            fi
+            echo "Existing OPAQUE server secret found; keeping it unchanged."
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add "$mode_file" "Wayward_MOD_v4.0_WML_검수완료/wml/mods/cloud-save/opaque-client.bundle.js" "workers/wayward-save-share/index.js"
+            if ! git diff --cached --quiet; then
+              git commit -m "build(cloud-save): refresh standalone bundles"
+              git push origin HEAD:refs/heads/feature/wml-cloud-save-20261020
+            fi
+          fi
+
+      - name: Prepare deployment config while preserving runtime settings
+        shell: bash
+        run: |
+          set -euo pipefail
+          settings_file="$RUNNER_TEMP/worker-settings-for-deploy.json"
+          code="$(curl --silent --show-error --output "$settings_file" --write-out '%{http_code}'             -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN"             "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/scripts/wayward-save-share/settings")"
+          if [[ "$code" != "200" ]] || ! jq -e '.success == true' "$settings_file" >/dev/null; then
+            echo "::error::Cannot read existing Worker settings; deployment stopped before changing the Worker."
+            exit 1
+          fi
+          export SETTINGS_FILE="$settings_file"
+          node --input-type=module <<'JS'
+          import fs from "node:fs";
+          import path from "node:path";
+          const payload = JSON.parse(fs.readFileSync(process.env.SETTINGS_FILE, "utf8"));
+          const s = payload.result || {};
+          if (!s.compatibility_date) throw new Error("Existing Worker compatibility_date could not be read; refusing to guess.");
+          const bindings = Array.isArray(s.bindings) ? s.bindings : [];
+          const database = bindings.find(b => b.name === "DB" && b.type === "d1");
+          if (database?.id && database.id !== process.env.CLOUDFLARE_D1_DATABASE_ID) {
+            throw new Error("Configured D1 ID does not match the existing DB binding; refusing to switch databases.");
+          }
+          const bucket = bindings.find(b => b.name === "SAVE_OBJECTS" && b.type === "r2_bucket");
+          if (bucket?.bucket_name && bucket.bucket_name !== "wayward-save-share-files") {
+            throw new Error("Existing R2 binding targets a different bucket; refusing to change it.");
+          }
+          const known = new Set(["DB", "SAVE_OBJECTS", "OPAQUE_SERVER_SETUP"]);
+          const extra = bindings.filter(b => !known.has(b.name) && b.type !== "secret_text" && b.type !== "plain_text");
+          if (extra.length) {
+            throw new Error("Unsupported existing Worker binding(s); deployment stopped to preserve them: " +
+              extra.map(b => b.name + ":" + b.type).join(", "));
+          }
+          const vars = bindings.filter(b => b.type === "plain_text");
+          for (const v of vars) if (typeof v.text !== "string") {
+            throw new Error("A plain-text Worker variable could not be preserved safely: " + v.name);
+          }
+          const flags = Array.isArray(s.compatibility_flags) ? s.compatibility_flags : [];
+          const q = v => JSON.stringify(v);
+          let toml = [
+            'name = "wayward-save-share"',
+            'main = "index.js"',
+            'account_id = ' + q(process.env.CLOUDFLARE_ACCOUNT_ID),
+            'compatibility_date = ' + q(s.compatibility_date),
+            'compatibility_flags = ' + q(flags),
+            'workers_dev = true',
+            '',
+            '[[d1_databases]]',
+            'binding = "DB"',
+            'database_name = "wayward-save-share-db"',
+            'database_id = ' + q(process.env.CLOUDFLARE_D1_DATABASE_ID),
+            '',
+            '[[r2_buckets]]',
+            'binding = "SAVE_OBJECTS"',
+            'bucket_name = "wayward-save-share-files"',
+            '',
+          ].join("\n");
+          if (vars.length) {
+            toml += "\n[vars]\n" + vars.map(v => q(v.name) + " = " + q(v.text)).join("\n") + "\n";
+          }
+          fs.writeFileSync(path.resolve("workers/wayward-save-share/.wrangler-deploy.toml"), toml, { mode: 0o600 });
+          JS
+
+      - name: Apply additive D1 schema without deleting existing rows
+        working-directory: workers/wayward-save-share
+        run: npx --yes wrangler@4 d1 execute wayward-save-share-db --remote --file=schema.sql --config=.wrangler-deploy.toml --yes
+
+      - name: Deploy Worker bundle
+        working-directory: workers/wayward-save-share
+        run: npx --yes wrangler@4 deploy --config=.wrangler-deploy.toml
+
+      - name: Verify health and real production account/save flow
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_D1_DATABASE_ID: ${{ secrets.CLOUDFLARE_D1_DATABASE_ID }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          health_file="$RUNNER_TEMP/worker-health.json"
+          ok=0
+          for attempt in 1 2 3 4 5 6; do
+            code="$(curl --silent --show-error --output "$health_file" --write-out '%{http_code}'               "https://wayward-save-share.trpgengine.workers.dev/api/health")" || code="000"
+            if [[ "$code" == "200" ]] && jq -e '.ok == true and .schema == "ready" and .accountSchema == "ready" and .opaqueAuth == "ready"' "$health_file" >/dev/null; then
+              ok=1
+              break
+            fi
+            sleep 5
+          done
+          if [[ "$ok" != "1" ]]; then
+            echo "::error::Worker health check did not reach accountSchema=ready and opaqueAuth=ready. Inspect the sanitized health response in the workflow run."
+            jq '{ok,error,accountSchema,opaqueAuth,schema}' "$health_file" 2>/dev/null || true
+            exit 1
+          fi
+          node workers/wayward-save-share/smoke-production.mjs
+
+      - name: Remove temporary deployment configuration
+        if: always()
+        shell: bash
+        run: rm -f workers/wayward-save-share/.wrangler-deploy.toml
