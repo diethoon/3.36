@@ -284,5 +284,6 @@ async function runTest() {
 }
 server.listen(PORT,'0.0.0.0',()=>{
   log('INFO','HTTP server listening',{port:PORT});
-  log('INFO','Public asset access disabled; no game or test execution starts automatically.');
+  log('INFO','Public asset access disabled; starting isolated local Chromium runtime verification.');
+  setTimeout(() => { runTest().catch(e => log('ERROR','Uncaught runtime verification error',String(e && e.stack || e))); }, 1000);
 });
