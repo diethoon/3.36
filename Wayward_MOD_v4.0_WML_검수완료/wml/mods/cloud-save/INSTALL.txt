@@ -1,0 +1,12 @@
+Wayward Google Drive CloudSave — one-click OAuth build
+
+INSTALL
+1. Extract the cloud-save folder into the game's wml/mods/ folder.
+2. Open wml/mods/mods.js and add 'cloud-save' to the existing WML.enable([...]) list. Do not remove other mod IDs and do not add a duplicate.
+3. Open the game, activate the mod, and choose 클라우드세이브 > Google 계정으로 연결.
+4. In the popup, choose the Google account and approve the app-only Drive data access.
+5. Set a separate save-encryption passphrase (at least 10 characters) when saving. Remember it; it cannot be recovered.
+
+This no-longer asks end users for their own Google Cloud project or OAuth client ID.
+The shared OAuth login bridge must first be deployed and configured by the maintainer. Until then, Google login will report that service setup is incomplete.
+Do not use file:// to launch the game; use HTTPS, localhost, or a private-LAN HTTP server supported by the bridge.
