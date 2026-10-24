@@ -358,10 +358,13 @@ WML.define({
 
     function connectFromClick() {
       if (busy) return;
+      // Open the popup synchronously from the user's click before rendering,
+      // otherwise the browser may treat it as an unsolicited popup.
+      const task = requestGoogleToken();
       busy = true;
       message = 'Google 로그인 창을 여는 중…';
       render();
-      requestGoogleToken()
+      task
         .then(() => refreshSlots())
         .then(() => show({ page: 'home' }, 'Google Drive에 연결했습니다.'))
         .catch(error => {
@@ -486,7 +489,11 @@ WML.define({
         addText(root,
           'Google 계정으로 연결하면 Drive에 직접 저장합니다. 게임 세이브와 암호화 비밀번호는 로그인 중계 서버로 전송되지 않습니다.\n' +
           '브라우저를 다시 열면 연결 버튼을 다시 눌러야 할 수 있습니다.');
-        addButton(root, hasToken() ? '저장 목록 새로고침' : 'Google 계정으로 연결', connectFromClick, true);
+        addButton(root, hasToken() ? '저장 목록 새로고침' : 'Google 계정으로 연결',
+          hasToken() ? () => runAction(async () => {
+            await refreshSlots();
+            show({ page: 'home' }, '저장 목록을 새로고침했습니다.');
+          }) : connectFromClick, true);
         addButton(root, '연결 해제', () => {
           clearToken();
           show({ page: 'home' }, '현재 페이지 메모리에서 Google 연결을 해제했습니다.');
