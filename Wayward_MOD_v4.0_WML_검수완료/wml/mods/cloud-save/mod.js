@@ -428,6 +428,38 @@ WML.define({
       show({ page: 'home' }, '암호화된 세이브 파일을 내보냈습니다. 파일과 암호화 비밀번호를 안전하게 보관하세요.');
     }
 
+    function pickImportFile(slot) {
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = '.json,application/json';
+      input.style.display = 'none';
+      input.addEventListener('change', () => {
+        const file = input.files && input.files[0];
+        input.remove();
+        if (!file) return;
+        show({ page: 'import', slot, file }, '선택한 파일: ' + file.name);
+      }, { once: true });
+      document.body.appendChild(input);
+      input.click();
+    }
+
+    async function importSlot(slot) {
+      const file = view.file;
+      const passphrase = String(fields.passphrase && fields.passphrase.value || '');
+      if (!file) throw new Error('가져올 파일을 선택해 주세요.');
+      if (!passphrase) throw new Error('파일을 내보낼 때 사용한 암호화 비밀번호를 입력해 주세요.');
+      let envelope;
+      try { envelope = JSON.parse(await file.text()); }
+      catch (_) { throw new Error('JSON 세이브 파일을 읽지 못했습니다.'); }
+      const snapshot = await globalThis.WMLGoogleDriveCrypto.decryptSnapshot(envelope, passphrase);
+      if (String(snapshot.game || '') !== String(api.game || '') ||
+          String(snapshot.gameVersion || '') !== String(api.game || '')) {
+        throw new Error('이 세이브와 현재 게임의 버전 정보가 다릅니다.');
+      }
+      await writeSlotEnvelope(slot, envelope);
+      show({ page: 'home' }, '파일을 저장 슬롯 ' + slot + '에 가져왔습니다.');
+    }
+
     function renderSlots(root) {
       addTitle(root, 'Google Drive 저장 슬롯');
       addText(root, '최대 5개 슬롯을 사용합니다. 저장할 때 정한 암호화 비밀번호는 다른 기기에서 불러올 때도 필요합니다.');
@@ -452,6 +484,7 @@ WML.define({
           actions.append(button('파일 내보내기', () => runAction(() => exportSlot(slot))));
           actions.append(button('삭제', () => show({ page: 'delete', slot })));
         }
+        actions.append(button('파일 가져오기', () => pickImportFile(slot)));
         row.append(actions);
         root.append(row);
       }
@@ -495,6 +528,13 @@ WML.define({
         addText(root, '저장할 때 사용한 암호화 비밀번호를 입력하세요. 올바른 비밀번호로 복호화한 뒤 게임을 불러옵니다.');
         addField(root, 'passphrase', '세이브 암호화 비밀번호', 'password', '', 'current-password');
         addButton(root, '복호화하고 불러오기', () => runAction(() => loadSlot(view.slot)), true);
+        addButton(root, '취소', () => show({ page: 'home' }));
+        addMessage(root);
+      } else if (view.page === 'import') {
+        addTitle(root, '파일을 저장 슬롯 ' + view.slot + '에 가져오기');
+        addText(root, '암호화된 JSON 파일만 가져올 수 있습니다. 올바른 암호화 비밀번호로 복호화 검사를 한 뒤 저장합니다. 기존 슬롯이 있으면 덮어씁니다.');
+        addField(root, 'passphrase', '파일을 내보낼 때 사용한 암호화 비밀번호', 'password', '', 'current-password');
+        addButton(root, '확인 후 가져오기', () => runAction(() => importSlot(view.slot)), true);
         addButton(root, '취소', () => show({ page: 'home' }));
         addMessage(root);
       } else if (view.page === 'delete') {
