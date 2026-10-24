@@ -1,0 +1,31 @@
+name: Personal Google Drive cloud-save checks
+
+on:
+  push:
+    branches:
+      - feature/google-drive-private-save-20261024
+    paths:
+      - 'Wayward_MOD_v4.0_WML_검수완료/wml/mods/cloud-save/**'
+      - 'tests/cloud-save-google-drive.crypto.test.mjs'
+      - '.github/workflows/google-drive-private-save-check.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Check mod syntax
+        run: node --check "Wayward_MOD_v4.0_WML_검수완료/wml/mods/cloud-save/mod.js"
+      - name: Check crypto syntax
+        run: node --check "Wayward_MOD_v4.0_WML_검수완료/wml/mods/cloud-save/crypto.js"
+      - name: Test encryption and tamper rejection
+        run: node --test tests/cloud-save-google-drive.crypto.test.mjs
