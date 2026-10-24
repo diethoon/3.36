@@ -17,7 +17,7 @@
 1. **OAuth 설정이 필요합니다.** 이 모드를 처음 쓰기 전에 Google Cloud 프로젝트와 OAuth 클라이언트 ID를 직접 만들어야 합니다. 이 모드가 네 대신 Google 계정 설정을 할 수는 없습니다.
 2. Google Drive의 appDataFolder는 앱 전용의 숨겨진 공간입니다. 일반 Google Drive 화면에서 세이브 파일을 직접 찾아볼 수 없습니다. 파일 내보내기 기능으로 별도 백업을 보관하세요.
 3. **모든 기기에서 동일한 OAuth 클라이언트 ID를 사용해야 합니다.** 앱 전용 저장 공간은 OAuth 앱별로 분리됩니다. 클라이언트 ID를 바꾸면 기존 저장 목록이 보이지 않을 수 있습니다.
-4. 게임은 Google OAuth에서 허용되는 웹 출처로 열어야 합니다. file:// 실행은 지원 대상으로 삼지 않습니다. http://localhost 또는 Google Cloud에서 등록 가능한 HTTPS 출처를 사용하세요. 휴대전화의 AWebServer가 http://192.168.x.x:포트 주소를 쓰는 경우 Google OAuth가 그 출처를 허용하지 않을 수 있습니다. 이 경우 HTTPS 출처를 별도로 마련하지 않으면 해당 기기에서 직접 연결이 안 될 수 있습니다.
+4. 게임은 Google OAuth에서 허용되는 웹 출처로 열어야 합니다. file:// 실행은 지원하지 않습니다. Google은 localhost 예외를 제외하면 원시 IP 주소를 JavaScript 출처로 허용하지 않습니다. AWebServer를 실행한 바로 그 휴대전화의 브라우저라면 http://localhost:포트 또는 http://127.0.0.1:포트로 접속해 테스트하세요(서버가 loopback 연결을 허용해야 합니다). 다른 기기에서 http://192.168.x.x:포트로 접속하는 방식은 Google OAuth에서 거부되므로, 그 경우에는 Google Cloud에 등록 가능한 HTTPS 도메인이 필요합니다.
 5. 테스트용 OAuth 앱에서 Google은 확인 경고를 보여줄 수 있습니다. 개인용으로만 사용하고, 다른 사람을 위한 공개 앱으로 배포하지 마세요.
 6. 세이브 암호화 비밀번호를 잊으면 복구할 수 없습니다. 비밀번호 관리자 등 안전한 곳에 보관하세요.
 7. 버전 정보가 다른 게임은 불러오기를 거부합니다. 서로 다른 HTML 파일이라도 내부 게임 버전 정보가 같으면 호환될 수 있지만, 모든 버전 조합을 보장하지는 않습니다.
@@ -40,6 +40,7 @@
 
 Google의 안내:
 - [Google Identity Services - 웹에서 OAuth 사용](https://developers.google.com/identity/oauth2/web/guides/overview)
+- [Google OAuth JavaScript 출처 규칙](https://developers.google.com/identity/protocols/oauth2/javascript-implicit-flow#origin-validation-rules)
 - [Drive API - 앱 전용 데이터 저장](https://developers.google.com/workspace/drive/api/guides/appdata)
 
 ### 3. 게임에서 연결
