@@ -1,0 +1,87 @@
+name: Package one-click Google Drive cloud-save
+
+on:
+  push:
+    branches:
+      - feature/cloud-save-one-click-oauth-20261025
+    paths:
+      - 'Wayward_MOD_v4.0_WML_검수완료/wml/mods/cloud-save/**'
+      - 'cloud-save-auth/**'
+      - '.github/workflows/package-cloud-save-one-click.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate-and-package:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Check JavaScript syntax
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check 'Wayward_MOD_v4.0_WML_검수완료/wml/mods/cloud-save/mod.js'
+          node --check 'Wayward_MOD_v4.0_WML_검수완료/wml/mods/cloud-save/crypto.js'
+          node --check cloud-save-auth/api/config.js
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          import vm from 'node:vm';
+          const html = fs.readFileSync('cloud-save-auth/index.html', 'utf8');
+          const scripts = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)];
+          if (!scripts.length) throw new Error('OAuth bridge script missing');
+          for (const item of scripts) new vm.Script(item[1], { filename: 'cloud-save-auth/index.html' });
+          console.log('OAuth bridge inline JavaScript syntax OK');
+          NODE
+      - name: Test local save encryption
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import fs from 'node:fs';
+          import vm from 'node:vm';
+          import { webcrypto } from 'node:crypto';
+          const context = vm.createContext({
+            crypto: webcrypto, TextEncoder, TextDecoder, Uint8Array,
+            btoa, atob, Date, JSON, Promise
+          });
+          context.globalThis = context;
+          vm.runInContext(fs.readFileSync('Wayward_MOD_v4.0_WML_검수완료/wml/mods/cloud-save/crypto.js', 'utf8'), context);
+          const api = context.WMLGoogleDriveCrypto;
+          const snapshot = { schema: 'wayward-cloud-save', version: 1, state: { day: 12, gold: 345 } };
+          const passphrase = 'correct horse battery staple 2026';
+          const envelope = await api.encryptSnapshot(snapshot, passphrase);
+          const restored = await api.decryptSnapshot(envelope, passphrase);
+          assert.equal(restored.state.day, 12);
+          assert.equal(restored.state.gold, 345);
+          await assert.rejects(() => api.decryptSnapshot(envelope, 'wrong passphrase'));
+          const tampered = { ...envelope, ciphertext: (envelope.ciphertext[0] === 'A' ? 'B' : 'A') + envelope.ciphertext.slice(1) };
+          await assert.rejects(() => api.decryptSnapshot(tampered, passphrase));
+          await assert.rejects(() => api.decryptSnapshot({ ...envelope, format: 'unknown' }, passphrase));
+          console.log('Crypto round-trip, wrong-passphrase, tamper, and format tests passed');
+          NODE
+      - name: Package WML mod
+        shell: bash
+        run: |
+          set -euo pipefail
+          MOD_DIR='Wayward_MOD_v4.0_WML_검수완료/wml/mods/cloud-save'
+          mkdir -p dist/cloud-save
+          cp -R "$MOD_DIR"/. dist/cloud-save/
+          (cd dist && zip -q -r ../Wayward-Google-Drive-CloudSave-one-click.zip cloud-save)
+          unzip -t Wayward-Google-Drive-CloudSave-one-click.zip
+      - name: Upload ZIP artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Wayward-Google-Drive-CloudSave-one-click
+          path: Wayward-Google-Drive-CloudSave-one-click.zip
+          if-no-files-found: error
+          retention-days: 30
