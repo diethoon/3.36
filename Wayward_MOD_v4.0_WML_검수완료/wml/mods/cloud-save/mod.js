@@ -60,7 +60,7 @@ WML.define({
       document.head.appendChild(style);
     }
 
-    function hasToken() {    function hasToken() {
+    function hasToken() {
       return !!accessToken && Date.now() < tokenExpiresAt - 30000;
     }
 
@@ -128,14 +128,14 @@ WML.define({
     async function driveFetch(path, options) {
       if (!hasToken()) {
         clearToken();
-        throw new Error('Google 연결이 만료되었습니다. Google Drive 연결 버튼을 다시 눌러 주세요.');
+        throw new Error('Google 연결이 만료되었습니다. Google 계정으로 연결 버튼을 다시 눌러 주세요.');
       }
       const opts = Object.assign({ method: 'GET', headers: {} }, options || {});
       opts.headers = Object.assign({}, opts.headers || {}, { Authorization: 'Bearer ' + accessToken });
       const response = await fetch('https://www.googleapis.com' + path, opts);
       if (response.status === 401) {
         clearToken();
-        throw new Error('Google 연결이 만료되었습니다. Google Drive 연결 버튼을 다시 눌러 주세요.');
+        throw new Error('Google 연결이 만료되었습니다. Google 계정으로 연결 버튼을 다시 눌러 주세요.');
       }
       if (!response.ok) {
         let detail = '';
@@ -283,14 +283,14 @@ WML.define({
       message = notice || '';
       fields = {};
       drafts = {};
-      if (isConnected()) win.setTitle('클라우드세이브 (개인 Google Drive)');
+      if (isConnected()) win.setTitle('클라우드세이브 (Google Drive)');
       render();
     }
 
     function openWindow() {
       win = api.ui.window({
         id: 'cloud-save-google-drive-main',
-        title: '클라우드세이브 (개인 Google Drive)',
+        title: '클라우드세이브 (Google Drive)',
         width: 460,
         height: 650,
         render(body) {
@@ -731,7 +731,7 @@ WML.define({
                       if (typeof props.onClose === 'function') props.onClose();
                       open();
                     },
-                    title: '클라우드세이브 (개인 Google Drive)',
+                    title: '클라우드세이브 (Google Drive)',
                     'aria-label': '클라우드세이브',
                     children: '클라우드세이브'
                   }
