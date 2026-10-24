@@ -1,41 +1,69 @@
-# 클라우드세이브 WML 모드
+# 클라우드세이브 — 개인 Google Drive 실험 버전
 
-## 기능
+이 브랜치는 기존 공개 Cloudflare Worker 방식 대신, 브라우저에서 Google Drive API를 직접 호출하는 **개인용 프로토타입**입니다. 기본 wml 브랜치와 별도로 테스트하세요.
 
-- 게임 삼선 메뉴의 **클라우드세이브**에서 진입하며, 메뉴 구조가 다른 빌드에는 WML 도크 버튼을 보조 진입점으로 제공합니다.
-- 시작 화면에서도 **새 게임 / 불러오기**와 함께 **클라우드 불러오기** 버튼을 제공해, 새 게임을 시작하지 않고 기존 세이브를 가져올 수 있습니다.
-- 첫 화면: **로그인 / 1회성 코드**.
-- 계정: OPAQUE 비밀번호 비공개 인증, 계정당 5개 슬롯, 저장·덮어쓰기·불러오기·삭제.
-- 계정 세이브는 기기에서 AES-256-GCM으로 암호화됩니다. Worker에는 암호문만 저장되고 복호화 키는 전송되지 않습니다.
-- 1회성 코드: 6자리 영문·숫자 코드, 7일 만료, 첫 로드 성공 시 서버에서 삭제. 하지만 첫 사용 전에 코드를 확보한 사람은 불러올 수 있으므로 공개 게시물에 올리지 말고 신뢰하는 상대에게만 전달하세요. 계정 저장과 달리 이 기능은 종단 간 암호화가 아닙니다.
-- 동일한 게임 엔진 버전의 세이브만 불러옵니다.
+## 바뀐 점
+
+- 게임 시작 화면의 **클라우드 불러오기**와 게임 메뉴의 **클라우드세이브** 진입 버튼을 유지합니다.
+- Google OAuth로 본인 Google 계정에 연결합니다.
+- 계정당 별도 서버 슬롯 대신, Google Drive의 앱 전용 appDataFolder에 최대 5개 슬롯을 저장합니다.
+- 세이브는 브라우저에서 **PBKDF2-SHA-256 + AES-256-GCM**으로 암호화한 뒤 Drive에 올립니다. 암호화 비밀번호는 서버나 Google API로 전송하지 않습니다.
+- 암호화된 JSON 파일을 내보내고 다시 가져올 수 있습니다. 이 방식이 기존 1회성 코드를 대체합니다.
+- 모드가 실행 중인 동안 Google 액세스 토큰은 메모리에만 보관합니다. 페이지를 새로 열면 Google Drive에 다시 연결해야 합니다.
+- 이 모드는 기존 Cloudflare Worker API를 호출하지 않습니다.
+
+## 먼저 알아둘 제한
+
+1. **OAuth 설정이 필요합니다.** 이 모드를 처음 쓰기 전에 Google Cloud 프로젝트와 OAuth 클라이언트 ID를 직접 만들어야 합니다. 이 모드가 네 대신 Google 계정 설정을 할 수는 없습니다.
+2. Google Drive의 appDataFolder는 앱 전용의 숨겨진 공간입니다. 일반 Google Drive 화면에서 세이브 파일을 직접 찾아볼 수 없습니다. 파일 내보내기 기능으로 별도 백업을 보관하세요.
+3. **모든 기기에서 동일한 OAuth 클라이언트 ID를 사용해야 합니다.** 앱 전용 저장 공간은 OAuth 앱별로 분리됩니다. 클라이언트 ID를 바꾸면 기존 저장 목록이 보이지 않을 수 있습니다.
+4. 게임은 Google OAuth에서 허용되는 웹 출처로 열어야 합니다. file:// 실행은 지원 대상으로 삼지 않습니다. http://localhost 또는 Google Cloud에서 등록 가능한 HTTPS 출처를 사용하세요. 휴대전화의 AWebServer가 http://192.168.x.x:포트 주소를 쓰는 경우 Google OAuth가 그 출처를 허용하지 않을 수 있습니다. 이 경우 HTTPS 출처를 별도로 마련하지 않으면 해당 기기에서 직접 연결이 안 될 수 있습니다.
+5. 테스트용 OAuth 앱에서 Google은 확인 경고를 보여줄 수 있습니다. 개인용으로만 사용하고, 다른 사람을 위한 공개 앱으로 배포하지 마세요.
+6. 세이브 암호화 비밀번호를 잊으면 복구할 수 없습니다. 비밀번호 관리자 등 안전한 곳에 보관하세요.
+7. 버전 정보가 다른 게임은 불러오기를 거부합니다. 서로 다른 HTML 파일이라도 내부 게임 버전 정보가 같으면 호환될 수 있지만, 모든 버전 조합을 보장하지는 않습니다.
+
+## Google Cloud 초기 설정
+
+### 1. Google Cloud 프로젝트 만들기
+
+1. [Google Cloud Console](https://console.cloud.google.com/)에서 개인 프로젝트를 만듭니다.
+2. API 라이브러리에서 **Google Drive API**를 활성화합니다.
+3. Google Auth Platform / OAuth 동의 화면을 설정합니다.
+4. 개인 테스트라면 사용자 유형을 External로 설정한 뒤 게시 상태를 Testing으로 두고, **Test users**에 본인의 Google 계정을 추가합니다.
+
+### 2. OAuth 클라이언트 ID 만들기
+
+1. Credentials에서 **OAuth client ID**를 만듭니다.
+2. 애플리케이션 유형은 **Web application**을 사용합니다.
+3. 모드를 실행할 웹 출처를 **Authorized JavaScript origins**에 등록합니다. 경로가 아니라 출처(프로토콜 + 호스트 + 포트)를 등록해야 합니다.
+4. 생성된 클라이언트 ID를 복사합니다. **Client Secret은 필요하지 않으며, 모드에 입력하거나 저장소에 올리지 마세요.**
+
+Google의 안내:
+- [Google Identity Services - 웹에서 OAuth 사용](https://developers.google.com/identity/oauth2/web/guides/overview)
+- [Drive API - 앱 전용 데이터 저장](https://developers.google.com/workspace/drive/api/guides/appdata)
+
+### 3. 게임에서 연결
+
+1. 이 브랜치의 모드를 설치하고 WML 모드 목록에서 cloud-save를 활성화합니다.
+2. 게임의 클라우드세이브 창을 열고 Google OAuth 클라이언트 ID를 입력합니다.
+3. **Google Drive 연결 / 재연결**을 눌러 본인 계정으로 승인합니다.
+4. 저장 슬롯에서 저장, 덮어쓰기, 불러오기, 삭제를 사용합니다.
+5. 각 저장마다 10자 이상의 암호화 비밀번호를 설정합니다. 같은 저장을 다른 기기에서 열 때도 동일한 비밀번호가 필요합니다.
+
+## 보안 및 서버 관련 참고
+
+- Drive로 가기 전 세이브는 기기에서 암호화됩니다. Drive에는 암호문이 저장됩니다.
+- 암호화 비밀번호와 AES 키를 이 모드가 서버로 보내지 않도록 설계했습니다. 다만 악의적으로 변조된 게임/모드가 입력을 가로채는 위험까지 막아 주는 것은 아닙니다.
+- Google은 Google Drive/API 사용 및 계정 활동을 처리합니다. “별도 게임 서버를 사용하지 않는다”는 뜻이지, 네트워크 활동이 어디에도 기록되지 않는다는 뜻은 아닙니다.
+- **이 변경은 기존 Cloudflare Worker를 삭제하거나 중지하지 않습니다.** 현재 배포된 wayward-save-share 서비스가 공개 상태라면 별도로 Cloudflare 대시보드에서 비활성화하거나 접근을 제한해야 합니다. 이 모드가 Worker를 호출하지 않는 것과 Worker 자체가 중지된 것은 다릅니다.
+- 이번 실험 버전은 기존 Cloudflare 계정 저장이나 1회성 코드 데이터를 자동 이전하지 않습니다. 기존 데이터는 기존 방식에서 별도로 백업해야 합니다.
 
 ## 설치 파일
 
-wml/mods/cloud-save/ 폴더에 다음 파일이 필요합니다.
+이 모드가 사용하는 핵심 파일:
+- wml/mods/cloud-save/mod.js
+- wml/mods/cloud-save/crypto.js
 
-- mod.js
-- crypto.js
-- opaque-client.bundle.js
-- README.md
+기존 opaque-client.bundle.js 파일은 남아 있을 수 있지만 이 실험 버전에서는 사용하지 않습니다. 운영 전에는 반드시 개인 기기에서 Google OAuth 연결, 저장, 불러오기, 새로고침 후 재연결, 파일 내보내기/가져오기까지 테스트하세요.
 
-wml/mods/mods.js의 WML.enable([...]) 목록에 "cloud-save"가 포함되어 있어야 합니다.
-
-## 계정 기능 활성화 전 필수 설정
-
-1. 신뢰할 수 있는 로컬 PC에서 @serenity-kit/opaque@1.1.0 CLI의 create-server-setup 명령으로 서버 비밀 설정을 생성합니다.
-2. 전체 출력값은 Cloudflare Worker Secret OPAQUE_SERVER_SETUP에만 넣습니다. GitHub 저장소, 이슈, 채팅에는 올리지 마세요.
-3. 같은 CLI의 get-server-public-key 명령으로 공개키를 구합니다.
-4. 공개키만 이 모드의 OPAQUE_SERVER_PUBLIC_KEY 상수에 입력하고 커밋합니다. SET_AFTER_GENERATING_OPAQUE_SERVER_SETUP 상태에서는 로그인과 가입이 의도적으로 차단됩니다.
-5. 운영 D1에 workers/wayward-save-share/schema.sql을 적용하고, 빌드된 workers/wayward-save-share/index.js를 Worker에 배포합니다. index.src.js는 npm 의존성이 있는 원본이므로 Dashboard에 직접 붙여넣지 마세요.
-
-서버 비밀 설정은 한 번 만들고 안전하게 보관해야 합니다. 이 설정을 교체하면 기존 OPAQUE 인증 기록을 사용할 수 없습니다.
-
-## 보안 및 계정 복구
-
-- 아이디: 영문자·숫자·밑줄 3~24자. 비밀번호: 10~128자.
-- 비밀번호 원문은 Worker로 보내지 않습니다. 서버에는 OPAQUE 인증 기록만 저장됩니다.
-- 복호화 키는 OPAQUE의 클라이언트 exportKey에서 기기 안에서 파생되며 서버로 보내지 않습니다.
-- 로그인 세션과 exportKey는 WML 비밀 저장소에 보관됩니다.
-- 비밀번호를 잊으면 암호화 세이브를 복구할 수 없습니다. 이메일 복구 기능은 없습니다.
-- 악의적으로 변조된 모드가 입력 시점에 비밀번호를 훔치는 공격까지 OPAQUE가 막아 주지는 않습니다. 모드는 신뢰할 수 있는 배포 경로에서 받으세요.
+이 버전은 개인용 기능을 시험하는 프로토타입이며, 모든 기기·브라우저에서 동작이 확인된 정식 배포 버전은 아닙니다.
