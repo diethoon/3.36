@@ -16,6 +16,8 @@
     button:disabled{opacity:.55;cursor:wait}
     #status{margin-top:14px;white-space:pre-line;font-size:.92rem}
     .note{font-size:.82rem;opacity:.7}
+    .local-file-confirm{display:flex;align-items:flex-start;gap:10px;margin:14px 0;padding:12px;border:1px solid #b7791f;border-radius:10px;font-size:.86rem;line-height:1.45}
+    .local-file-confirm input{margin-top:3px;flex:0 0 auto}
   </style>
 </head>
 <body>
@@ -23,6 +25,10 @@
     <h1>Wayward 클라우드세이브</h1>
     <p>Google 계정으로 연결합니다. 이 페이지는 로그인 후 짧은 수명의 액세스 토큰을 게임 창에 전달할 뿐, 저장 파일이나 비밀번호를 수집하거나 보관하지 않습니다.</p>
     <button id="connect" type="button" disabled>Google 연결 준비 중…</button>
+    <label id="file-mode-confirm" class="local-file-confirm" hidden>
+      <input id="file-confirm" type="checkbox">
+      <span><strong>로컬 파일 연결 확인</strong><br>Wayward 게임을 직접 연 경우에만 체크하세요. file:// 페이지는 브라우저에서 고유한 출처를 확인할 수 없으므로, 이 모드는 HTTPS 실행보다 출처 보호가 약합니다. Google Drive 앱 데이터 권한은 이 앱의 세이브에 사용됩니다.</span>
+    </label>
     <p id="status" role="status" aria-live="polite">연결 요청을 확인하고 있습니다.</p>
     <p class="note">Google Drive 권한은 이 모드의 앱 전용 데이터 공간에만 적용됩니다. 본인이 시작하지 않은 로그인 요청은 승인하지 마세요.</p>
   </main>
@@ -31,15 +37,22 @@
     'use strict';
     const status = document.getElementById('status');
     const button = document.getElementById('connect');
+    const fileConfirmWrap = document.getElementById('file-mode-confirm');
+    const fileConfirm = document.getElementById('file-confirm');
     const params = new URLSearchParams(location.search);
     const targetOrigin = params.get('origin') || '';
     const nonce = params.get('nonce') || '';
+    const fileMode = targetOrigin === 'null';
+    let fileConfirmed = !fileMode;
     let clientId = '';
     let tokenClient = null;
     let completed = false;
 
     function setStatus(text) { status.textContent = text; }
     function isAllowedOrigin(value) {
+      // Opaque file:// origins serialize to "null". This mode is explicitly
+      // confirmed by the user below and uses "*" only for the return postMessage.
+      if (value === 'null') return true;
       let url;
       try { url = new URL(value); } catch (_) { return false; }
       if (url.origin !== value || !['http:', 'https:'].includes(url.protocol) ||
@@ -58,7 +71,11 @@
     }
     function postToGame(type, payload) {
       if (!window.opener || window.opener.closed) return false;
-      window.opener.postMessage(Object.assign({ type, nonce }, payload || {}), targetOrigin);
+      // Browsers require "*" for postMessage to file:// documents because their
+      // origin is opaque. The game additionally checks popup source, bridge origin,
+      // and the high-entropy one-time nonce before accepting the token.
+      const returnOrigin = fileMode ? '*' : targetOrigin;
+      window.opener.postMessage(Object.assign({ type, nonce }, payload || {}), returnOrigin);
       return true;
     }
     function stopWithError(message) {
@@ -82,11 +99,42 @@
       return;
     }
     let referrerOrigin = '';
-    try { referrerOrigin = document.referrer ? new URL(document.referrer).origin : ''; } catch (_) {}
-    if (!window.opener || !referrerOrigin || referrerOrigin !== targetOrigin) {
-      stopWithError('게임 창을 확인할 수 없습니다. 게임 화면에서 다시 로그인해 주세요. 파일 직접 열기는 지원되지 않습니다.');
+    let referrerProtocol = '';
+    try {
+      if (document.referrer) {
+        const referrerUrl = new URL(document.referrer);
+        referrerOrigin = referrerUrl.origin;
+        referrerProtocol = referrerUrl.protocol;
+      }
+    } catch (_) {}
+    if (!window.opener || window.opener.closed) {
+      stopWithError('게임 창을 확인할 수 없습니다. 게임 화면에서 로그인 버튼을 다시 눌러 주세요.');
       return;
     }
+    if (fileMode) {
+      // Some browsers suppress file:// referrers entirely. If a referrer is
+      // present and is not a file URL, reject it rather than accepting an opaque
+      // origin request from an ordinary web page.
+      if (referrerProtocol && referrerProtocol !== 'file:') {
+        stopWithError('로컬 파일 연결 요청과 실제 실행 출처가 일치하지 않습니다. 게임 화면에서 다시 시도해 주세요.');
+        return;
+      }
+      fileConfirmWrap.hidden = false;
+      setStatus('file:// 실행 모드입니다. 브라우저는 이 파일의 출처를 고유하게 확인할 수 없습니다. Wayward를 직접 열어 실행한 경우에만 아래 확인란에 체크하고 연결하세요.');
+    } else if (!referrerOrigin || referrerOrigin !== targetOrigin) {
+      stopWithError('게임 창의 출처를 확인할 수 없습니다. 게임 화면에서 다시 로그인해 주세요.');
+      return;
+    }
+
+    fileConfirm.addEventListener('change', () => {
+      fileConfirmed = fileConfirm.checked;
+      if (tokenClient && !completed) button.disabled = !fileConfirmed;
+      if (fileConfirmed) {
+        setStatus('로컬 파일 모드를 확인했습니다. Google 연결을 눌러 계정을 선택하세요.');
+      } else {
+        setStatus('계속하려면 Wayward를 직접 열어 실행 중인지 확인하고 체크하세요.');
+      }
+    });
 
     fetch('/api/config', { cache: 'no-store', credentials: 'same-origin' })
       .then(async response => {
@@ -122,20 +170,24 @@
             stopWithError(error && error.message || 'Google 로그인 창을 열지 못했습니다. 팝업 설정을 확인해 주세요.');
           }
         });
-        button.disabled = false;
-        button.textContent = 'Google 계정으로 연결';
-        setStatus('아래 버튼을 눌러 Google 계정을 선택하고 Drive 앱 데이터 접근을 승인해 주세요.');
+        button.disabled = fileMode && !fileConfirmed;
+        button.textContent = fileMode ? 'Google 연결 (로컬 파일 모드)' : 'Google 계정으로 연결';
+        if (!fileMode) {
+          setStatus('아래 버튼을 눌러 Google 계정을 선택하고 Drive 앱 데이터 접근을 승인해 주세요.');
+        } else if (fileConfirmed) {
+          setStatus('로컬 파일 모드를 확인했습니다. Google 연결을 눌러 계정을 선택하세요.');
+        }
       })
       .catch(error => stopWithError(String(error && error.message || error)));
     button.addEventListener('click', () => {
-      if (!tokenClient || completed) return;
+      if (!tokenClient || completed || (fileMode && !fileConfirmed)) return;
       button.disabled = true;
       button.textContent = 'Google 로그인 진행 중…';
       setStatus('Google 인증을 진행하고 있습니다. 취소하지 말고 잠시 기다려 주세요.');
       try { tokenClient.requestAccessToken({ prompt: '' }); }
       catch (error) {
-        button.disabled = false;
-        button.textContent = 'Google 계정으로 다시 연결';
+        button.disabled = fileMode && !fileConfirmed;
+        button.textContent = fileMode ? 'Google 연결 (로컬 파일 모드)' : 'Google 계정으로 다시 연결';
         setStatus(String(error && error.message || error));
       }
     });
