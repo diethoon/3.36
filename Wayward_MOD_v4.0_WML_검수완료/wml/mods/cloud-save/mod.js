@@ -537,9 +537,6 @@ WML.define({
         addTitle(root, '개인 Google Drive 세이브');
         addText(root,
           'Google 인증 창에서 로그인한 뒤 진행 상황을 게임 안에서 암호화해 Google Drive 앱 전용 공간에 직접 저장합니다. 인증용 HTTPS 페이지만 사용하며 세이브 중계 서버는 사용하지 않습니다.');
-        if (window.location.protocol === 'http:' && !authLoopback) {
-          addText(root, '게임 실행 주소와 관계없이 별도 HTTPS 인증 창에서 Google 로그인을 처리합니다.', 'wml-gd-small');
-        }
         const authIssue = authAvailabilityMessage();
         if (hasToken()) {
           addButton(root, '저장 목록 새로고침', () => runAction(async () => {
