@@ -29,6 +29,7 @@ WML.define({
     const h = api.ui.h;
     const button = api.ui.button;
     let win = null;
+    let memoWin = null;
     let view = { page: 'home' };
     let message = '';
     let fields = {};
@@ -78,8 +79,8 @@ WML.define({
         '.wml-gd-memo-area{box-sizing:border-box;width:100%;min-height:72px;resize:vertical;padding:9px 11px;border:1px solid var(--wml-border,#7778);border-radius:8px;background:var(--wml-panel,#00000010);color:inherit;font:inherit}' +
         '.wml-gd-small{font-size:.82em;opacity:.72}' +
         '.wml-gd-wrap button{max-width:100%}' +
-        '.wml-gd-memo-overlay{position:fixed;inset:0;z-index:2147483000;display:flex;align-items:center;justify-content:center;padding:20px;background:rgba(0,0,0,.48)}' +
-        '.wml-gd-memo-box{box-sizing:border-box;max-width:min(92vw,480px);max-height:75vh;overflow:auto;padding:16px 18px;border:1px solid var(--wml-border,#7778);border-radius:10px;background:var(--wml-panel,Canvas);color:var(--wml-text,CanvasText);white-space:pre-wrap;overflow-wrap:anywhere;box-shadow:0 8px 30px #0005}';
+        '.wml-gd-memo-content{box-sizing:border-box;max-height:min(58vh,420px);overflow:auto;padding:14px;border:1px solid var(--wml-border,#7778);border-radius:9px;background:var(--wml-panel,#00000010);color:inherit;white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.55;overscroll-behavior:contain}' +
+        '.wml-gd-memo-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:12px}';
       document.head.appendChild(style);
     }
 
@@ -487,20 +488,31 @@ WML.define({
     }
 
     function showMemoPopup(memo) {
-      const overlay = document.createElement('div');
-      overlay.className = 'wml-gd-memo-overlay';
-      const box = document.createElement('div');
-      box.className = 'wml-gd-memo-box';
-      box.setAttribute('role', 'dialog');
-      box.setAttribute('aria-modal', 'true');
-      box.textContent = String(memo || '');
-      overlay.append(box);
-      const close = () => { overlay.remove(); document.removeEventListener('keydown', onKeyDown, true); };
-      const onKeyDown = event => { if (event.key === 'Escape') { event.preventDefault(); close(); } };
-      overlay.addEventListener('click', close);
-      box.addEventListener('click', event => event.stopPropagation());
-      document.addEventListener('keydown', onKeyDown, true);
-      document.body.append(overlay);
+      // Use WML's own window manager rather than appending a document-level overlay.
+      // This keeps the memo above the game's React/modal layers and gives it the same
+      // focus, stacking, and close behavior as the rest of the mod UI.
+      if (memoWin && memoWin.el && memoWin.el.isConnected) {
+        try { memoWin.close(); } catch (_) {}
+      }
+      const text = String(memo || '');
+      memoWin = api.ui.window({
+        id: 'cloud-save-google-drive-memo',
+        title: '저장 메모',
+        width: 420,
+        height: 360,
+        render(body) {
+          body.replaceChildren();
+          const root = h('div', { class: 'wml-gd-wrap', 'data-wml-ui': 'true' });
+          const content = h('div', { class: 'wml-gd-memo-content', role: 'document' }, text || '저장된 메모가 없습니다.');
+          const actions = h('div', { class: 'wml-gd-memo-actions' });
+          actions.append(button('닫기', () => {
+            if (memoWin) memoWin.close();
+            memoWin = null;
+          }, { primary: true }));
+          root.append(content, actions);
+          body.append(root);
+        }
+      });
     }
 
     function renderSlots(root) {
