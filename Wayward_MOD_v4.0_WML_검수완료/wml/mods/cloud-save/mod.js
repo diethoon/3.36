@@ -81,9 +81,12 @@ WML.define({
         try { globalThis.crypto.getRandomValues(nonceBytes); }
         catch (_) { reject(new Error('이 브라우저에서 안전한 로그인 연결을 만들 수 없습니다.')); return; }
         const nonce = Array.from(nonceBytes, byte => byte.toString(16).padStart(2, '0')).join('');
-        const targetOrigin = window.location.origin;
-        if (targetOrigin === 'null' || !/^https?:$/.test(window.location.protocol)) {
-          reject(new Error('파일 직접 열기(file://)는 지원하지 않습니다. HTTPS 또는 웹서버에서 게임을 열어 주세요.'));
+        // file:// pages have an opaque "null" origin. Google OAuth still runs on
+        // our HTTPS bridge; only the return message needs the opaque-origin fallback.
+        const isFileExecution = window.location.protocol === 'file:';
+        const targetOrigin = isFileExecution ? 'null' : window.location.origin;
+        if ((!isFileExecution && targetOrigin === 'null') || !/^(https?|file):$/.test(window.location.protocol)) {
+          reject(new Error('지원하지 않는 실행 주소입니다. file://, HTTP 또는 HTTPS에서 실행해 주세요.'));
           return;
         }
         bridgeUrl.searchParams.set('origin', targetOrigin);
