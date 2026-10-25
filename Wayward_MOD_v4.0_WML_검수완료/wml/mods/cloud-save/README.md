@@ -19,14 +19,14 @@ Google Identity Services의 웹 OAuth 클라이언트 ID는 공개 식별자이�
 3. OAuth 웹 클라이언트의 **승인된 JavaScript 출처**에 실제 게임 실행 출처를 등록합니다. HTTPS를 권장합니다. HTTP는 `localhost` 계열 개발 주소에서만 지원됩니다.
 4. `mod.js` 상단의 `GOOGLE_CLIENT_ID` 값을 공개 OAuth 클라이언트 ID로 교체합니다. `GOOGLE_CLIENT_SECRET`이나 다른 비밀값은 모드에 절대 넣지 않습니다.
 
-Google OAuth는 HTTPS 또는 localhost HTTP 출처를 요구합니다. AWebServer에서 `http://192.168.x.x:포트/` 같은 LAN IP 주소로 접속하면 직접 인증이 거부될 수 있으므로, HTTPS 또는 localhost 주소를 사용해야 합니다. 실제 OAuth 클라이언트에 등록된 출처와 게임 주소도 일치해야 합니다.
+Google OAuth는 HTTPS 또는 localhost HTTP 출처를 권장합니다. AWebServer에서 `http://192.168.x.x:포트/` 같은 LAN IP 주소로 접속하면 Google이 직접 인증을 거부할 수 있습니다. 모드는 이 주소에서도 로그인을 시도하지만 실패하면 HTTPS 또는 localhost 주소를 사용해야 합니다. 실제 OAuth 클라이언트에 등록된 출처와 게임 주소도 일치해야 합니다.
 
 ## 실행 주소 제한
 
 - `file://`: 클라우드 저장·불러오기는 의도적으로 비활성화됩니다. 로컬 저장과 게임 자체 기능은 영향을 받지 않습니다.
 - `https://`: OAuth 클라이언트에 해당 출처가 등록되어 있으면 지원합니다.
 - `http://localhost`, `http://127.0.0.1` 등: OAuth 클라이언트 설정이 해당 출처를 허용하면 지원합니다.
-- 일반 LAN IP의 HTTP 주소: 직접 Google OAuth에서 지원되지 않을 수 있습니다. HTTPS 또는 localhost 주소를 사용하세요.
+- 일반 LAN IP의 HTTP 주소: 로그인 시도는 가능하지만 Google OAuth가 출처를 거부할 수 있습니다. 실패하면 HTTPS 또는 localhost 주소를 사용하세요.
 
 ## 저장 및 보안
 
