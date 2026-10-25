@@ -163,7 +163,7 @@ WML.define({
         const response = await driveFetch('/drive/v3/files?' + params.toString());
         const data = await response.json();
         for (const file of (Array.isArray(data.files) ? data.files : [])) {
-          const match = new RegExp('^' + FILE_PREFIX + '([1-9][0-9]*)\\.json$').exec(String(file.name || ''));
+          const match = new RegExp('^' + FILE_PREFIX + '([1-9][0-9]*)\.json$').exec(String(file.name || ''));
           if (!match) continue;
           const slot = Number(match[1]); if (!Number.isSafeInteger(slot) || slot < 1) continue;
           const previous = slots.get(slot);
@@ -171,7 +171,7 @@ WML.define({
         }
         pageToken = data.nextPageToken || '';
       } while (pageToken);
-      driveSlots = Array.from(slots.values()).sort((a,b) => Number(a.name.match(/([0-9]+)\\.json$/)[1]) - Number(b.name.match(/([0-9]+)\\.json$/)[1]));
+      driveSlots = Array.from(slots.values()).sort((a,b) => Number(a.name.match(/([0-9]+)\.json$/)[1]) - Number(b.name.match(/([0-9]+)\.json$/)[1]));
       for (const file of driveSlots) {
         try {
           const envelope = await readSlotEnvelope(file);
@@ -499,7 +499,7 @@ WML.define({
     function renderSlots(root) {
       addTitle(root, 'Google Drive 저장 슬롯');
       addText(root, '슬롯 개수 제한 없음. 새 세이브는 AES-256-GCM으로 자동 암호화되며, 같은 모드가 설치된 다른 브라우저에서도 자동 복호화됩니다.');
-      const bySlot = new Map(driveSlots.map(file => [Number(file.name.match(/([0-9]+)\\.json$/)[1]), file]));
+      const bySlot = new Map(driveSlots.map(file => [Number(file.name.match(/([0-9]+)\.json$/)[1]), file]));
       const used = new Set(bySlot.keys()); let nextSlot = 1; while (used.has(nextSlot)) nextSlot++;
       const slots = Array.from(bySlot.keys()).sort((a,b) => a-b); if (!used.has(nextSlot)) slots.push(nextSlot);
       for (const slot of slots) {
