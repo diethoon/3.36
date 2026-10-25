@@ -645,19 +645,15 @@ WML.define({
       nativeLoad.insertAdjacentElement('afterend', cloudLoad);
     }
     function treeHasTitleMenuLabel(node) {
-      if (!node) return false;
-      if (node.nodeType === 3) {
-        const text = normalizedMenuText(node);
-        return TITLE_NEW_GAME_LABELS.concat(TITLE_LOAD_LABELS).some(label => label.toLocaleLowerCase() === text);
-      }
-      if (node.nodeType !== 1) return false;
+      if (!node || node.nodeType !== 1) return false;
+      const labels = TITLE_NEW_GAME_LABELS.concat(TITLE_LOAD_LABELS).map(label => label.toLocaleLowerCase());
       if (node.matches && node.matches('[data-wml-cloud-drive-title-load="true"]')) return true;
-      if (TITLE_NEW_GAME_LABELS.concat(TITLE_LOAD_LABELS).some(label => label.toLocaleLowerCase() === normalizedMenuText(node))) return true;
-      if (node.querySelector) {
-        const candidates = node.querySelectorAll('button,[role="button"],a,[tabindex],input[type="button"],input[type="submit"],div,li,span');
-        for (const candidate of candidates) {
-          if (candidate.matches('[data-wml-cloud-drive-title-load="true"]')) return true;
-          if (TITLE_NEW_GAME_LABELS.concat(TITLE_LOAD_LABELS).some(label => label.toLocaleLowerCase() === normalizedMenuText(candidate))) return true;
+      if (labels.includes(normalizedMenuText(node))) return true;
+      // Restrict descendant scans to interactive controls inside inserted fragments.
+      // Broad div/li/span scans on every mutation may stall mobile browsers.
+      if (node.querySelectorAll) {
+        for (const candidate of node.querySelectorAll('button,[role="button"],a,[tabindex],input[type="button"],input[type="submit"]')) {
+          if (labels.includes(normalizedMenuText(candidate))) return true;
         }
       }
       return false;
@@ -665,7 +661,10 @@ WML.define({
     function scheduleTitleSync() {
       if (titleMenuSyncQueued) return;
       titleMenuSyncQueued = true;
-      Promise.resolve().then(() => {
+      const schedule = typeof requestAnimationFrame === 'function'
+        ? callback => requestAnimationFrame(callback)
+        : callback => setTimeout(callback, 80);
+      schedule(() => {
         titleMenuSyncQueued = false;
         syncTitleCloudButton();
       });
