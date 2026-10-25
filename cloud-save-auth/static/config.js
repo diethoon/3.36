@@ -1,0 +1,1 @@
+/* Public OAuth client ID only. Never put a client secret in this file.\n * Replace the placeholder with the Google OAuth 2.0 Web application client ID.\n * Add https://diethoon.github.io as an Authorized JavaScript origin in Google Cloud Console.\n */\nwindow.WAYWARD_GOOGLE_CLIENT_ID = 'REPLACE_WITH_GOOGLE_OAUTH_WEB_CLIENT_ID.apps.googleusercontent.com';\n
