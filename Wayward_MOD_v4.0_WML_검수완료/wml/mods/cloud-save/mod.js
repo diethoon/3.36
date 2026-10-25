@@ -501,7 +501,7 @@ WML.define({
 
     function renderSlots(root) {
       addTitle(root, 'Google Drive 저장 슬롯');
-      addText(root, '슬롯 개수 제한 없음. 새 세이브는 AES-256-GCM으로 자동 암호화되며, 같은 모드가 설치된 다른 브라우저에서도 자동 복호화됩니다.');
+
       const bySlot = new Map(driveSlots.map(file => [Number(file.name.match(/([0-9]+)\.json$/)[1]), file]));
       const used = new Set(bySlot.keys()); let nextSlot = 1; while (used.has(nextSlot)) nextSlot++;
       const slots = Array.from(bySlot.keys()).sort((a,b) => a-b); if (!used.has(nextSlot)) slots.push(nextSlot);
@@ -512,7 +512,7 @@ WML.define({
         if (file && file.memo) {
           const chip = document.createElement('button'); chip.type = 'button'; chip.className = 'wml-gd-memo-chip';
           chip.textContent = '[' + file.memo + ']'; chip.title = '눌러서 메모 전체 보기';
-          chip.addEventListener('click', event => { event.preventDefault(); event.stopPropagation(); window.alert('저장 슬롯 ' + slot + ' 메모\\n\\n' + file.memo); });
+          chip.addEventListener('click', event => { event.preventDefault(); event.stopPropagation(); showMemoPopup(file.memo); });
           line.append(chip);
         }
         head.append(line); head.append(h('div', { class: 'wml-gd-small' }, file ? '저장됨' : '비어 있음')); row.append(head);
@@ -522,10 +522,9 @@ WML.define({
         actions.append(button(file ? '덮어쓰기' : '저장', () => show({ page: 'save', slot }), { primary: true }));
         if (file) {
           actions.append(button('불러오기', () => runAction(() => prepareLoadSlot(slot))));
-          actions.append(button('파일 내보내기', () => runAction(() => exportSlot(slot))));
           actions.append(button('삭제', () => show({ page: 'delete', slot })));
         }
-        actions.append(button('파일 가져오기', () => pickImportFile(slot))); row.append(actions); root.append(row);
+        row.append(actions); root.append(row);
       }
     }
 
@@ -533,8 +532,7 @@ WML.define({
       if (view.page === 'home') {
         addTitle(root, '개인 Google Drive 세이브');
         addText(root,
-          'Google 계정으로 연결하면 Drive에 직접 저장합니다. 새 세이브의 키 복원 정보는 모드에 포함되며 Drive에 별도 키 파일을 만들지 않습니다.\n' +
-          '브라우저를 다시 열면 연결 버튼을 다시 눌러야 할 수 있습니다.');
+          '구글계정으로 연결하면 현재 진행 상황이 암호화되어 드라이브에 직접 저장됩니다.');
         addButton(root, hasToken() ? '저장 목록 새로고침' : 'Google 계정으로 연결',
           hasToken() ? () => runAction(async () => {
             await refreshSlots();
@@ -548,15 +546,14 @@ WML.define({
           ? '상태: 연결됨 (액세스 토큰은 현재 페이지 메모리에만 보관)'
           : '상태: 연결되지 않음', 'wml-gd-small');
         if (hasToken()) renderSlots(root);
-        else addText(root,
-          '로그인 창에서 Google 계정을 선택하고 Drive 앱 데이터 접근을 승인해 주세요. 개인 Google Cloud 프로젝트나 API 키는 사용자마다 만들 필요가 없습니다.');
+        else addText(root, '로그인 창에서 Google 계정을 선택해 주세요.');
         addMessage(root);
       } else if (view.page === 'save') {
         addTitle(root, '저장 슬롯 ' + view.slot + ' 저장');
         addText(root, '저장할 때 자동으로 암호화됩니다. 메모는 비워 두어도 저장됩니다.');
         const memoWrap = h('label', { class: 'wml-gd-field' }, '저장 메모 (선택 사항)');
         const memoInput = document.createElement('textarea'); memoInput.className = 'wml-gd-memo-area'; memoInput.maxLength = 2000;
-        memoInput.placeholder = '예: 히나 12일차, 다음에 상점 업그레이드';
+        memoInput.placeholder = '';
         memoInput.value = Object.prototype.hasOwnProperty.call(drafts, 'memo') ? drafts.memo : (currentFile(view.slot) && currentFile(view.slot).memo || '');
         memoInput.addEventListener('input', () => { drafts.memo = memoInput.value; }); memoInput.setAttribute('data-wml-ui', 'true');
         memoWrap.append(memoInput); root.append(memoWrap); fields.memo = memoInput;
