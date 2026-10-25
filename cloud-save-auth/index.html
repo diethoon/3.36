@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="referrer" content="no-referrer">
+  <title>Wayward Google Drive 인증</title>
+  <style>
+    :root { color-scheme: light dark; font-family: system-ui, sans-serif; }
+    body { margin: 0; min-height: 100vh; display: grid; place-items: center; padding: 20px; box-sizing: border-box; }
+    main { width: min(100%, 460px); box-sizing: border-box; border: 1px solid #8886; border-radius: 14px; padding: 22px; }
+    h1 { font-size: 1.25rem; margin: 0 0 12px; }
+    p { line-height: 1.55; overflow-wrap: anywhere; }
+    button { min-height: 46px; width: 100%; border: 0; border-radius: 9px; padding: 10px 14px; font: inherit; font-weight: 650; cursor: pointer; }
+    button:disabled { opacity: .55; cursor: wait; }
+    #status { white-space: pre-line; }
+    .small { font-size: .85rem; opacity: .75; }
+  </style>
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+</head>
+<body>
+  <main>
+    <h1>Wayward 클라우드세이브</h1>
+    <p>Google 계정 인증을 진행합니다. 인증 후 액세스 토큰은 이 창에서 게임 창으로 직접 전달되며, 별도 세이브 서버에는 저장되지 않습니다.</p>
+    <button id="connect" type="button">Google 계정으로 로그인</button>
+    <p id="status" role="status">게임에서 요청한 인증인지 확인 중입니다.</p>
+    <p class="small">Drive 권한은 Wayward 클라우드세이브의 앱 전용 데이터 공간에 한정됩니다.</p>
+  </main>
+  <script>
+    (() => {
+      'use strict';
+      const CLIENT_ID = '35944231952-p82giir62o28bo001j9uvmqo3kgp9c99.apps.googleusercontent.com';
+      const params = new URLSearchParams(location.search);
+      const state = params.get('state') || '';
+      const button = document.getElementById('connect');
+      const status = document.getElementById('status');
+      let done = false;
+
+      function report(payload) {
+        if (done) return;
+        done = true;
+        button.disabled = true;
+        if (!window.opener || window.opener.closed) {
+          status.textContent = '게임 창과 연결되지 않았습니다. 게임에서 클라우드세이브 로그인을 다시 시작해 주세요.';
+          return;
+        }
+        try {
+          window.opener.postMessage(Object.assign({
+            type: 'wayward-google-drive-auth',
+            state
+          }, payload), '*');
+          status.textContent = payload.error
+            ? '인증에 실패했습니다. 게임 창에서 오류 내용을 확인하세요.'
+            : '인증 완료! 게임으로 돌아가는 중입니다.';
+          if (!payload.error) setTimeout(() => window.close(), 900);
+        } catch (_) {
+          status.textContent = '인증 결과를 게임 창에 전달하지 못했습니다. 팝업 설정을 확인하고 다시 시도해 주세요.';
+        }
+      }
+
+      if (!state || !window.opener || window.opener === window) {
+        button.disabled = true;
+        status.textContent = '이 페이지는 게임에서 연 인증 창으로만 사용할 수 있습니다. 게임의 클라우드세이브 메뉴에서 다시 시작해 주세요.';
+        return;
+      }
+
+      button.addEventListener('click', () => {
+        if (done) return;
+        if (!window.google || !google.accounts || !google.accounts.oauth2) {
+          status.textContent = 'Google 로그인 기능을 불러오지 못했습니다. 인터넷 연결을 확인한 뒤 다시 시도해 주세요.';
+          return;
+        }
+        button.disabled = true;
+        status.textContent = 'Google 인증 창을 여는 중입니다. 계정을 선택하고 Drive 접근을 승인해 주세요.';
+        try {
+          const tokenClient = google.accounts.oauth2.initTokenClient({
+            client_id: CLIENT_ID,
+            scope: 'https://www.googleapis.com/auth/drive.appdata',
+            callback(response) {
+              if (!response || response.error || !response.access_token) {
+                report({ error: String(response && (response.error_description || response.error) || 'Google 액세스 토큰을 받지 못했습니다.') });
+                return;
+              }
+              report({
+                accessToken: String(response.access_token),
+                expiresIn: Math.max(60, Number(response.expires_in) || 3600)
+              });
+            },
+            error_callback(error) {
+              button.disabled = false;
+              status.textContent = error && error.type === 'popup_closed'
+                ? 'Google 로그인 창이 닫혔습니다. 버튼을 눌러 다시 시도해 주세요.'
+                : 'Google 로그인 창을 열지 못했습니다. 팝업 설정을 확인해 주세요.';
+            }
+          });
+          tokenClient.requestAccessToken({ prompt: 'select_account' });
+        } catch (error) {
+          button.disabled = false;
+          status.textContent = 'Google 로그인을 시작하지 못했습니다: ' + String(error && error.message || error);
+        }
+      });
+    })();
+  </script>
+</body>
+</html>
