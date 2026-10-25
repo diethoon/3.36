@@ -30,7 +30,7 @@ const AUTH_URL='https://wayward-cloud-auth.vercel.app/popup.html';
 const AUTH_ORIGIN=new URL(AUTH_URL).origin;
 const $=id=>document.getElementById(id);
 let popup=null,timer=0,timeout=0,state='',token='',expiresAt=0,settled=false;
-function log(s){$('log').textContent+=new Date().toLocaleTimeString()+' '+s+'\\n';}
+function log(s){$('log').textContent+=new Date().toLocaleTimeString()+' '+s+'\n';}
 function status(s){$('status').textContent=s;log(s);}
 function cleanup(){window.removeEventListener('message',onMessage);if(timer)clearInterval(timer);if(timeout)clearTimeout(timeout);}
 function stop(){settled=true;cleanup();try{if(popup&&!popup.closed)popup.close()}catch(_){}$('start').disabled=false;$('stop').disabled=true;status('사용자가 중지했습니다.');}
