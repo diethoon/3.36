@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="referrer" content="no-referrer">
+  <title>Wayward 클라우드세이브 인증</title>
+  <style>
+    :root{color-scheme:light dark;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+    *{box-sizing:border-box}
+    body{margin:0;min-height:100vh;display:grid;place-items:center;padding:20px;background:Canvas;color:CanvasText}
+    main{width:min(100%,460px);padding:24px;border:1px solid color-mix(in srgb,CanvasText 20%,transparent);border-radius:16px}
+    h1{font-size:1.3rem;margin:0 0 12px}
+    p{line-height:1.5;overflow-wrap:anywhere}
+    button{width:100%;min-height:48px;border:0;border-radius:10px;padding:12px 16px;font:inherit;font-weight:650;background:#1a73e8;color:#fff}
+    button:disabled{opacity:.55}
+    label{display:flex;gap:10px;margin:14px 0;padding:12px;border:1px solid #b7791f;border-radius:10px;line-height:1.45;font-size:.9rem}
+    label[hidden]{display:none}
+    #status{white-space:pre-line;font-size:.92rem}
+    .note{font-size:.82rem;opacity:.72}
+  </style>
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+  <script src="./config.js"></script>
+</head>
+<body>
+  <main>
+    <h1>Wayward 클라우드세이브</h1>
+    <p>Google 계정의 앱 전용 Drive 데이터 공간에 접근하도록 승인합니다. 인증은 브라우저에서 진행하며, 이 페이지에는 세이브 데이터나 토큰을 저장하지 않습니다.</p>
+    <label id="confirm-wrap" hidden><input id="confirm" type="checkbox"><span id="confirm-copy"></span></label>
+    <button id="connect" type="button" disabled>인증 설정 확인 중…</button>
+    <p id="status" role="status" aria-live="polite">게임 연결을 확인하고 있습니다.</p>
+    <p class="note">로그인은 본인이 직접 게임에서 시작한 경우에만 승인하세요. 액세스 토큰은 게임 창으로 전달되며 현재 페이지에 저장되지 않습니다.</p>
+  </main>
+<script>
+(() => {
+  'use strict';
+  const $ = id => document.getElementById(id);
+  const button = $('connect'), status = $('status'), wrap = $('confirm-wrap'), confirmBox = $('confirm');
+  const params = new URLSearchParams(location.search);
+  const targetOrigin = params.get('origin') || '';
+  const nonce = params.get('nonce') || '';
+  const fileMode = targetOrigin === 'null';
+  let originConfirmed = false;
+  let ready = false;
+
+  function say(message) { status.textContent = message; }
+  function classify(value) {
+    if (value === 'null') return 'file';
+    let url;
+    try { url = new URL(value); } catch (_) { return 'invalid'; }
+    if (url.origin !== value || !['http:', 'https:'].includes(url.protocol) || url.username || url.password) return 'invalid';
+    const host = url.hostname.toLowerCase();
+    if (host === 'localhost' || host === '::1' || host === '[::1]' || host.endsWith('.localhost') || /^127(?:\\.\\d{1,3}){3}$/.test(host)) return 'local';
+    const ip = host.match(/^(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})$/);
+    if (ip && ip.slice(1).every(part => Number(part) >= 0 && Number(part) <= 255)) {
+      const a = Number(ip[1]), b = Number(ip[2]);
+      if (a === 10 || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168) || (a === 169 && b === 254)) return 'local';
+    }
+    if (url.protocol === 'https:') return 'https';
+    if (url.protocol === 'http:' && (host.endsWith('.local') || host.endsWith('.lan'))) return 'local';
+    return 'invalid';
+  }
+  function postError(message) {
+    if (window.opener && !window.opener.closed && /^[a-f0-9]{48}$/.test(nonce) && classify(targetOrigin) !== 'invalid') {
+      try { window.opener.postMessage({type:'wayward-cloud-auth-error',nonce,message}, fileMode ? '*' : targetOrigin); } catch (_) {}
+    }
+    say(message); button.disabled = true;
+  }
+  function updateButton() { button.disabled = !ready || !originConfirmed; }
+  if (!window.opener || window.opener.closed) {
+    postError('게임 창을 찾을 수 없습니다. 게임에서 Google 연결을 다시 눌러 주세요.');
+    return;
+  }
+  if (!/^[a-f0-9]{48}$/.test(nonce) || classify(targetOrigin) === 'invalid') {
+    postError('인증 요청이 올바르지 않습니다. 게임에서 다시 연결해 주세요.');
+    return;
+  }
+
+  const originKind = classify(targetOrigin);
+  const needsConfirmation = fileMode || originKind === 'local' || originKind === 'https' && !['https://art.sintention.com','https://wayward.vercel.app','https://diethoon.github.io'].includes(targetOrigin);
+  originConfirmed = !needsConfirmation;
+  if (fileMode) {
+    wrap.hidden = false;
+    $('confirm-copy').textContent = 'file://에서 실행 중입니다. 브라우저는 로컬 파일의 출처를 고유하게 검증할 수 없습니다. 본인이 직접 연 Wayward 게임에서 시작한 요청일 때만 확인하세요.';
+    say('로컬 파일 실행을 확인해 주세요.');
+  } else {
+    let referrerOrigin = '';
+    try { referrerOrigin = document.referrer ? new URL(document.referrer).origin : ''; } catch (_) {}
+    if (referrerOrigin && referrerOrigin !== targetOrigin) {
+      postError('게임 출처와 요청 정보가 일치하지 않습니다. 게임에서 다시 연결해 주세요.');
+      return;
+    }
+    if (needsConfirmation) {
+      wrap.hidden = false;
+      $('confirm-copy').textContent = originKind === 'local' ? '로컬 웹서버 주소입니다: ' + targetOrigin + '. 직접 실행한 Wayward 게임 서버인지 확인하세요.' : '등록된 기본 게임 주소가 아닙니다: ' + targetOrigin + '. 직접 신뢰하는 게임 주소인지 확인하세요.';
+      say('게임 출처를 확인해 주세요.');
+    }
+  }
+  confirmBox.addEventListener('change', () => {
+    originConfirmed = confirmBox.checked;
+    updateButton();
+    say(originConfirmed ? '출처를 확인했습니다. Google 인증을 진행할 수 있습니다.' : '계속하려면 출처 확인란을 선택하세요.');
+  });
+
+  const clientId = String(window.WAYWARD_GOOGLE_CLIENT_ID || '').trim();
+  if (!/^[^@\s]+\.apps\.googleusercontent\.com$/.test(clientId) || clientId.startsWith('REPLACE_WITH_')) {
+    postError('정적 페이지 설정이 필요합니다. config.js에 기존 Google OAuth 클라이언트 ID를 입력해 주세요.');
+    return;
+  }
+  ready = true;
+  updateButton();
+  button.textContent = 'Google 계정으로 연결';
+  if (originConfirmed) say('버튼을 눌러 Google 계정을 선택하고 Drive 앱 데이터 접근을 승인하세요.');
+
+  button.addEventListener('click', () => {
+    if (!ready || !originConfirmed) return;
+    button.disabled = true;
+    say('Google 계정 선택 창에서 Drive 앱 데이터 접근을 승인하세요.');
+    try {
+      if (!window.google || !google.accounts || !google.accounts.oauth2) throw new Error('Google 인증 라이브러리를 불러오지 못했습니다. 네트워크를 확인하고 다시 시도하세요.');
+      const client = google.accounts.oauth2.initTokenClient({
+        client_id: clientId,
+        scope: 'https://www.googleapis.com/auth/drive.appdata',
+        include_granted_scopes: true,
+        prompt: 'select_account',
+        callback: response => {
+          if (!response || response.error || !response.access_token) {
+            postError(response && (response.error_description || response.error) || 'Google 액세스 토큰을 받지 못했습니다.');
+            return;
+          }
+          const scopes = String(response.scope || '').split(/\s+/);
+          if (response.scope && !scopes.includes('https://www.googleapis.com/auth/drive.appdata')) {
+            postError('Google Drive 앱 데이터 권한이 승인되지 않았습니다.');
+            return;
+          }
+          try {
+            window.opener.postMessage({
+              type:'wayward-cloud-auth-success',
+              nonce,
+              accessToken:String(response.access_token),
+              expiresIn:Math.max(60,Number(response.expires_in)||3600)
+            }, fileMode ? '*' : targetOrigin);
+            say('인증이 완료되었습니다. 게임 창으로 돌아갑니다.');
+            button.textContent = '연결 완료';
+            setTimeout(() => { try { window.close(); } catch (_) {} }, 500);
+          } catch (_) { postError('게임 창으로 인증 결과를 전달하지 못했습니다. 다시 시도해 주세요.'); }
+        },
+        error_callback: error => postError(error && error.type === 'popup_closed' ? 'Google 인증 창이 닫혔습니다.' : 'Google 인증 창을 열지 못했습니다. 팝업 차단을 확인하세요.')
+      });
+      client.requestAccessToken();
+    } catch (error) {
+      postError(String(error && error.message || error));
+    }
+  });
+})();
+</script>
+</body>
+</html>

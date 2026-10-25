@@ -1,6 +1,6 @@
 'use strict';
 
-const { getOAuthConfig, setSecurityHeaders } = require('./_oauth');
+const { setSecurityHeaders } = require('./_oauth');
 
 module.exports = (req, res) => {
   setSecurityHeaders(res);
@@ -12,9 +12,10 @@ module.exports = (req, res) => {
     return;
   }
   try {
-    getOAuthConfig();
+    const clientId = String(process.env.GOOGLE_CLIENT_ID || '').trim();
+    if (!/^[^@\s]+\.apps\.googleusercontent\.com$/.test(clientId)) throw new Error('Missing public OAuth client ID');
     res.statusCode = 200;
-    res.end(JSON.stringify({ ready: true }));
+    res.end(JSON.stringify({ ready: true, clientId }));
   } catch (_) {
     res.statusCode = 503;
     res.end(JSON.stringify({ ready: false, error: 'Google 로그인 서비스 설정이 완료되지 않았습니다. 관리자에게 문의해 주세요.' }));
