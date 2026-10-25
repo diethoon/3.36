@@ -49,9 +49,15 @@
     let url;
     try { url = new URL(value); } catch (_) { return 'invalid'; }
     if (url.origin !== value || !['http:', 'https:'].includes(url.protocol) || url.username || url.password) return 'invalid';
-    if (url.protocol === 'https:') return 'https';
     const host = url.hostname.toLowerCase();
-    if (host === 'localhost' || host === '127.0.0.1' || host === '[::1]' || host.endsWith('.localhost')) return 'local';
+    if (host === 'localhost' || host === '::1' || host === '[::1]' || host.endsWith('.localhost') || /^127(?:\\.\\d{1,3}){3}$/.test(host)) return 'local';
+    const ip = host.match(/^(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})$/);
+    if (ip && ip.slice(1).every(part => Number(part) >= 0 && Number(part) <= 255)) {
+      const a = Number(ip[1]), b = Number(ip[2]);
+      if (a === 10 || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168) || (a === 169 && b === 254)) return 'local';
+    }
+    if (url.protocol === 'https:') return 'https';
+    if (url.protocol === 'http:' && (host.endsWith('.local') || host.endsWith('.lan'))) return 'local';
     return 'invalid';
   }
   function postError(message) {
@@ -71,7 +77,7 @@
   }
 
   const originKind = classify(targetOrigin);
-  const needsConfirmation = fileMode || originKind === 'https' && !['https://art.sintention.com','https://wayward.vercel.app','https://diethoon.github.io'].includes(targetOrigin);
+  const needsConfirmation = fileMode || originKind === 'local' || originKind === 'https' && !['https://art.sintention.com','https://wayward.vercel.app','https://diethoon.github.io'].includes(targetOrigin);
   originConfirmed = !needsConfirmation;
   if (fileMode) {
     wrap.hidden = false;
@@ -86,7 +92,7 @@
     }
     if (needsConfirmation) {
       wrap.hidden = false;
-      $('confirm-copy').textContent = '등록된 기본 게임 주소가 아닙니다: ' + targetOrigin + '. 직접 신뢰하는 게임 주소인지 확인하세요.';
+      $('confirm-copy').textContent = originKind === 'local' ? '로컬 웹서버 주소입니다: ' + targetOrigin + '. 직접 실행한 Wayward 게임 서버인지 확인하세요.' : '등록된 기본 게임 주소가 아닙니다: ' + targetOrigin + '. 직접 신뢰하는 게임 주소인지 확인하세요.';
       say('게임 출처를 확인해 주세요.');
     }
   }
