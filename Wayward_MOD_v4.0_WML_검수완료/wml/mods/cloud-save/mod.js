@@ -38,8 +38,8 @@ WML.define({
     let tokenExpiresAt = 0;
     let driveSlots = [];
 
-    // Fixed HTTPS bridge avoids per-device Google OAuth origin setup.
-    const AUTH_BRIDGE_URL = 'https://wayward-cloud-auth.vercel.app/';
+    // Static GitHub Pages helper: no Vercel API or token-exchange server.
+    const AUTH_BRIDGE_URL = 'https://diethoon.github.io/3.36/cloud-save-auth/static/';
     const FILE_PREFIX = 'wayward-cloud-slot-';
     const STYLE_ID = 'wml-google-drive-save-style';
 
