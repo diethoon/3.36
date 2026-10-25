@@ -110,5 +110,33 @@
     }
   }
 
-  globalThis.WMLGoogleDriveCrypto = Object.freeze({ encryptSnapshot, decryptSnapshot });
+  // Stable cross-device key embedded in the addon. Obfuscation only; not secret against source inspection.
+  const EMBEDDED_KEY_OBF = new Uint8Array([206,167,211,150,21,254,232,183,223,207,239,209,207,199,79,236,249,7,254,171,114,127,240,126,197,143,170,94,243,203,33,9]);
+  const EMBEDDED_KEY_MASK = new Uint8Array([161,61,95,130,199,73,11,230,213,162,124,25,63,128,100,178,232,193,90,115,13,79,98,155,126,145,192,83,175,72,214,32]);
+  function embeddedKeyBytes() { return EMBEDDED_KEY_OBF.map((value, index) => value ^ EMBEDDED_KEY_MASK[index]); }
+  async function encryptSnapshotEmbedded(snapshot) {
+    if (!snapshot || typeof snapshot !== 'object') throw new Error('세이브 데이터가 없습니다.');
+    if (!globalThis.crypto || !crypto.subtle) throw new Error('이 브라우저에서 안전한 암호화를 사용할 수 없습니다.');
+    const key = await crypto.subtle.importKey('raw', embeddedKeyBytes(), { name: 'AES-GCM' }, false, ['encrypt']);
+    const iv = crypto.getRandomValues(new Uint8Array(12));
+    const plaintext = encoder.encode(JSON.stringify(snapshot));
+    const encrypted = await crypto.subtle.encrypt({ name: 'AES-GCM', iv, additionalData: AAD, tagLength: 128 }, key, plaintext);
+    return { format: FORMAT, version: VERSION, keyMode: 'embedded-addon-v2', cipher: 'AES-256-GCM', iv: bytesToBase64(iv), ciphertext: bytesToBase64(new Uint8Array(encrypted)), encryptedAt: Date.now() };
+  }
+  async function decryptSnapshotEmbedded(envelope) {
+    if (!envelope || envelope.format !== FORMAT || envelope.version !== VERSION || envelope.keyMode !== 'embedded-addon-v2' || envelope.cipher !== 'AES-256-GCM') throw new Error('지원하지 않는 자동 암호화 세이브 형식입니다.');
+    try {
+      const iv = base64ToBytes(envelope.iv), ciphertext = base64ToBytes(envelope.ciphertext);
+      if (iv.length !== 12 || ciphertext.length < 16) throw new Error('암호화 데이터의 길이가 올바르지 않습니다.');
+      const key = await crypto.subtle.importKey('raw', embeddedKeyBytes(), { name: 'AES-GCM' }, false, ['decrypt']);
+      const plaintext = await crypto.subtle.decrypt({ name: 'AES-GCM', iv, additionalData: AAD, tagLength: 128 }, key, ciphertext);
+      const snapshot = JSON.parse(decoder.decode(plaintext));
+      if (!snapshot || snapshot.schema !== 'wayward-cloud-save' || snapshot.version !== 1 || !snapshot.state || typeof snapshot.state !== 'object') throw new Error('세이브 데이터의 형식이 올바르지 않습니다.');
+      return snapshot;
+    } catch (error) {
+      if (error && /세이브|암호화|형식|길이/.test(String(error.message || error))) throw error;
+      throw new Error('자동 복호화에 실패했습니다. 세이브 파일이 손상되었을 수 있습니다.');
+    }
+  }
+  globalThis.WMLGoogleDriveCrypto = Object.freeze({ encryptSnapshot, decryptSnapshot, encryptSnapshotEmbedded, decryptSnapshotEmbedded });
 })();
