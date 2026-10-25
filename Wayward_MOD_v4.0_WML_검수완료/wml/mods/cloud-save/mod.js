@@ -452,51 +452,21 @@ WML.define({
       show({ page: 'home' }, '저장 슬롯 ' + slot + '을 삭제했습니다.');
     }
 
-    async function exportSlot(slot) {
-      const file = currentFile(slot);
-      if (!file) throw new Error('내보낼 저장 파일을 찾지 못했습니다.');
-      const envelope = await readSlotEnvelope(file);
-      const blob = new Blob([JSON.stringify(envelope, null, 2)], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const anchor = document.createElement('a');
-      anchor.href = url;
-      anchor.download = FILE_PREFIX + slot + '.json';
-      anchor.style.display = 'none';
-      document.body.appendChild(anchor);
-      anchor.click();
-      anchor.remove();
-      setTimeout(() => URL.revokeObjectURL(url), 1000);
-      show({ page: 'home' }, '암호화된 세이브 파일을 내보냈습니다. 파일과 암호화 비밀번호를 안전하게 보관하세요.');
-    }
-
-    function pickImportFile(slot) {
-      const input = document.createElement('input');
-      input.type = 'file';
-      input.accept = '.json,application/json';
-      input.style.display = 'none';
-      input.addEventListener('change', () => {
-        const file = input.files && input.files[0];
-        input.remove();
-        if (!file) return;
-        show({ page: 'import', slot, file }, '선택한 파일: ' + file.name);
-      }, { once: true });
-      document.body.appendChild(input);
-      input.click();
-    }
-
-    async function importSlot(slot) {
-      const file = view.file; if (!file) throw new Error('가져올 파일을 선택해 주세요.');
-      let envelope; try { envelope = JSON.parse(await file.text()); } catch (_) { throw new Error('JSON 세이브 파일을 읽지 못했습니다.'); }
-      let snapshot;
-      if (envelope && envelope.keyMode === 'embedded-addon-v2') snapshot = await globalThis.WMLGoogleDriveCrypto.decryptSnapshotEmbedded(envelope);
-      else {
-        const passphrase = String(fields.passphrase && fields.passphrase.value || '');
-        if (!passphrase) throw new Error('이전 버전 파일이라면 기존 암호화 비밀번호를 입력해 주세요.');
-        snapshot = await globalThis.WMLGoogleDriveCrypto.decryptSnapshot(envelope, passphrase);
-        envelope = await globalThis.WMLGoogleDriveCrypto.encryptSnapshotEmbedded(snapshot);
-      }
-      if (String(snapshot.game || '') !== String(api.game || '') || String(snapshot.gameVersion || '') !== String(api.game || '')) throw new Error('이 세이브와 현재 게임의 버전 정보가 다릅니다.');
-      await writeSlotEnvelope(slot, envelope); show({ page: 'home' }, '파일을 저장 슬롯 ' + slot + '에 가져왔습니다.');
+    function showMemoPopup(memo) {
+      const overlay = document.createElement('div');
+      overlay.className = 'wml-gd-memo-overlay';
+      const box = document.createElement('div');
+      box.className = 'wml-gd-memo-box';
+      box.setAttribute('role', 'dialog');
+      box.setAttribute('aria-modal', 'true');
+      box.textContent = String(memo || '');
+      overlay.append(box);
+      const close = () => { overlay.remove(); document.removeEventListener('keydown', onKeyDown, true); };
+      const onKeyDown = event => { if (event.key === 'Escape') { event.preventDefault(); close(); } };
+      overlay.addEventListener('click', close);
+      box.addEventListener('click', event => event.stopPropagation());
+      document.addEventListener('keydown', onKeyDown, true);
+      document.body.append(overlay);
     }
 
     function renderSlots(root) {
@@ -571,13 +541,6 @@ WML.define({
         addField(root, 'passphrase', '기존 세이브 암호화 비밀번호', 'password', '', 'current-password');
         addButton(root, '복호화·변환 후 불러오기', () => runAction(() => loadSlot(view.slot)), true);
         addButton(root, '취소', () => show({ page: 'home' })); addMessage(root);
-      } else if (view.page === 'import') {
-        addTitle(root, '파일을 저장 슬롯 ' + view.slot + '에 가져오기');
-        addText(root, '새 자동 암호화 파일은 비밀번호 없이 가져옵니다. 이전 버전 파일은 기존 암호화 비밀번호가 필요합니다. 기존 슬롯이 있으면 덮어씁니다.');
-        addField(root, 'passphrase', '이전 버전 파일일 때만 기존 암호화 비밀번호 입력', 'password', '', 'current-password');
-        addButton(root, '확인 후 가져오기', () => runAction(() => importSlot(view.slot)), true);
-        addButton(root, '취소', () => show({ page: 'home' }));
-        addMessage(root);
       } else if (view.page === 'delete') {
         addTitle(root, '저장 슬롯 ' + view.slot + ' 삭제');
         addText(root, 'Google Drive의 이 모드 전용 저장 파일을 삭제합니다. 삭제 후에는 복구할 수 없습니다.');
