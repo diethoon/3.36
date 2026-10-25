@@ -60,7 +60,9 @@ WML.define({
         '.wml-gd-summary{font-size:.86em;opacity:.82;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}' +
         '.wml-gd-memo-area{box-sizing:border-box;width:100%;min-height:72px;resize:vertical;padding:9px 11px;border:1px solid var(--wml-border,#7778);border-radius:8px;background:var(--wml-panel,#00000010);color:inherit;font:inherit}' +
         '.wml-gd-small{font-size:.82em;opacity:.72}' +
-        '.wml-gd-wrap button{max-width:100%}';
+        '.wml-gd-wrap button{max-width:100%}' +
+        '.wml-gd-memo-overlay{position:fixed;inset:0;z-index:2147483000;display:flex;align-items:center;justify-content:center;padding:20px;background:rgba(0,0,0,.48)}' +
+        '.wml-gd-memo-box{box-sizing:border-box;max-width:min(92vw,480px);max-height:75vh;overflow:auto;padding:16px 18px;border:1px solid var(--wml-border,#7778);border-radius:10px;background:var(--wml-panel,#202020);color:inherit;white-space:pre-wrap;overflow-wrap:anywhere;box-shadow:0 8px 30px #0005}';
       document.head.appendChild(style);
     }
 
