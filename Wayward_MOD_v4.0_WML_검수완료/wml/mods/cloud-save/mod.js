@@ -5,7 +5,7 @@
 WML.define({
   id: 'cloud-save',
   name: '클라우드세이브 (Google Drive)',
-  version: '0.4.0',
+  version: '0.5.0',
   game: '>=2026-10-04',
   description: 'Google 계정으로 직접 로그인해 개인 Drive에 암호화 세이브를 저장합니다. 별도 인증 중계 서버는 사용하지 않습니다.',
   symbols: {
