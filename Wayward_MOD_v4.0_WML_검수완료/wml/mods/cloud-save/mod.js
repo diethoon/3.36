@@ -305,7 +305,7 @@ WML.define({
       const restored = { ...snapshot.state, mods: { ...savedMods, ...modData } };
       // Set both the saved game state and the game-start flag so title-screen loads
       // transition into the playable screen instead of remaining on the title screen.
-      api.store.set(current => ({ ...current, state: restored, started: true }));
+      api.store.update(current => ({ ...current, state: restored, started: true }));
     }
 
     function isConnected() {
