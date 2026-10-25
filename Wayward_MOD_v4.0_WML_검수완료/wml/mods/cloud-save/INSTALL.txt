@@ -1,15 +1,18 @@
-Wayward Google Drive CloudSave — direct OAuth build
+Wayward Google Drive CloudSave — HTTPS popup auth build
 
 Install:
 1. Copy the cloud-save folder into the game's wml/mods/ directory.
 2. Make sure cloud-save is listed in the existing wml/mods/mods.js WML.enable([...]) list. Preserve the other entries.
-3. The existing public Google OAuth Web client ID is already configured in mod.js. Never add a client secret to the mod.
-4. The Google OAuth Web client must list the actual game origin as an Authorized JavaScript origin. The existing helper-page origin alone is not enough. If this origin is not registered, direct login will fail. Never add a client secret to the mod.
-5. Open the game over HTTPS or a supported localhost HTTP URL and choose 클라우드세이브 > Google 계정으로 직접 로그인.
+3. The existing public Google OAuth Web client ID is configured in mod.js. Never add a client secret to the mod.
+4. Deploy cloud-save-auth/index.html as the static root of the existing Vercel project at https://wayward-cloud-auth.vercel.app/.
+5. In the Google OAuth Web client, keep https://wayward-cloud-auth.vercel.app as an Authorized JavaScript origin.
+6. Open the game normally, including by double-clicking the HTML file (file://), or through a local/remote HTTP(S) server. Choose 클라우드세이브 > Google 계정으로 로그인. Allow the auth popup if prompted.
 
-No Vercel auth relay, GitHub Pages helper, Cloudflare save backend, user-created project, or per-user API key is required at runtime. Google Identity Services and Google Drive are the only external services used.
+The game opens a separate HTTPS auth popup. Google sign-in happens there, then the access token is sent to the original game window through a state-checked postMessage. Save data is encrypted in the game and uploaded directly to Google Drive appDataFolder. The auth page is not a save relay and does not store save data.
 
-file:// cloud save/load is intentionally disabled; local saves and other game features remain available. Plain HTTP LAN IP addresses may not be accepted by Google OAuth; use HTTPS or localhost HTTP. Access tokens are kept in page memory only.
+Note: code changes do not automatically update an already-deployed Vercel project unless that deployment is configured to deploy this branch/path. Deploy the updated static auth page before testing.
+
+Access tokens remain in game-page memory only. Popup restrictions or browser security behavior may affect file:// environments; the full flow still requires real-device testing.
 
 Never put GOOGLE_CLIENT_SECRET or other secrets in the mod ZIP or public repository.
 
