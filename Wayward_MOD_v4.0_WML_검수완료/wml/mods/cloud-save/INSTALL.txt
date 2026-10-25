@@ -1,0 +1,12 @@
+Wayward Google Drive CloudSave — OAuth redirect build
+
+Install:
+1. Copy the cloud-save folder into the game's wml/mods/ directory.
+2. Make sure cloud-save is listed in the existing wml/mods/mods.js WML.enable([...]) list. Preserve the other entries.
+3. In Vercel, configure GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET. OAUTH_STATE_SECRET is recommended (random, at least 32 characters).
+4. In Google Cloud, register the exact redirect URI: https://wayward-cloud-auth.vercel.app/api/oauth/callback
+5. Open the game and choose 클라우드세이브 > Google 계정으로 연결. The existing popup will navigate through Google authorization and return to the game.
+
+End users do not create their own Google Cloud project, OAuth client ID, API key, or client secret.
+
+file:// is supported on compatible browsers after confirming the local-file warning in the bridge. Because local-file origins are opaque, HTTPS/localhost/AWebServer is preferred when browser restrictions interfere. Never put GOOGLE_CLIENT_SECRET or OAUTH_STATE_SECRET in the mod ZIP or public repository.
