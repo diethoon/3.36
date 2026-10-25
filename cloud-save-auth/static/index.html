@@ -62,7 +62,7 @@
         const a = Number(ip[1]), b = Number(ip[2]);
         if (a === 10 || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168) || (a === 169 && b === 254)) return 'local';
       }
-      if (['art.sintention.com', 'wayward.vercel.app', 'diethoon.github.io'].includes(host) && url.protocol === 'https:') return 'known';
+      if (['art.sintention.com', 'diethoon.github.io'].includes(host) && url.protocol === 'https:') return 'known';
       if (url.protocol === 'https:') return 'custom-https';
       if (url.protocol === 'http:' && (host.endsWith('.local') || host.endsWith('.lan') || host.endsWith('.localhost'))) return 'custom-local';
       return 'invalid';
