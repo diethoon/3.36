@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<title>Wayward file:// Google OAuth 검증</title>
+<style>
+:root{font-family:system-ui,sans-serif;color-scheme:light dark}body{max-width:760px;margin:0 auto;padding:18px;line-height:1.5}
+h1{font-size:1.35rem}.box{border:1px solid #8888;border-radius:10px;padding:14px;margin:12px 0}
+label{display:block;margin:10px 0 4px}input{box-sizing:border-box;width:100%;padding:10px;font:inherit}
+button{padding:10px 14px;margin:5px 5px 5px 0;font:inherit}pre{white-space:pre-wrap;overflow-wrap:anywhere;max-height:45vh;overflow:auto}
+.note{font-size:.9em;opacity:.85}.ok{font-weight:700}
+</style>
+</head>
+<body>
+<h1>Wayward 로컬 HTML OAuth / Drive 검증</h1>
+<p>이 파일은 <b>file:// 환경에서 직접</b> Google 기기 인증 요청·토큰 폴링·Drive 접근을 시험합니다. 인증 중계 서버는 사용하지 않습니다. 현재 게임용 웹 클라이언트 ID는 기기 인증에 쓸 수 없으므로, Google Cloud Console에서 만든 <b>TV 및 제한 입력 기기</b> OAuth 클라이언트를 입력해야 합니다.</p>
+<div class="box">
+<label for="client">OAuth 클라이언트 ID</label><input id="client" autocomplete="off" spellcheck="false" placeholder="...apps.googleusercontent.com">
+<label for="secret">클라이언트 보안 비밀번호 (Client secret)</label><input id="secret" type="password" autocomplete="off" spellcheck="false" placeholder="콘솔에서 해당 기기 클라이언트의 값 입력">
+<p class="note">입력값은 이 페이지의 메모리에만 사용하며 저장하거나 전송할 다른 서버가 없습니다. 저장소/채팅에 클라이언트 비밀번호를 올리지 마세요.</p>
+<button id="start">1. 기기 인증 시작</button><button id="stop" disabled>인증 중지</button>
+</div>
+<div class="box">
+<div id="status" class="ok">대기 중</div>
+<div id="codebox" hidden><p>아래 주소를 열어 코드를 입력하고 권한을 승인하세요.</p><p><a id="verify" target="_blank" rel="noopener noreferrer"></a></p><h2 id="usercode"></h2><p id="expires"></p></div>
+<button id="drive" disabled>3. Drive 읽기/쓰기/삭제 검증</button>
+</div>
+<div class="box"><b>검증 로그</b><pre id="log"></pre></div>
+<script>
+(function(){
+'use strict';
+const $=id=>document.getElementById(id);
+let stopped=false, timer=0, token='', deviceCode='', clientId='', clientSecret='';
+function log(s){$('log').textContent+=new Date().toLocaleTimeString()+' '+s+'\n';}
+function status(s){$('status').textContent=s;log(s);}
+function form(values){return new URLSearchParams(values).toString();}
+async function post(url,values){
+ const r=await fetch(url,{method:'POST',mode:'cors',cache:'no-store',credentials:'omit',headers:{'Content-Type':'application/x-www-form-urlencoded;charset=UTF-8'},body:form(values)});
+ const raw=await r.text();let data;try{data=JSON.parse(raw)}catch(_){data={raw:raw.slice(0,1500)}}
+ log('HTTP '+r.status+' '+url+' → '+JSON.stringify(data));
+ return {ok:r.ok,status:r.status,data};
+}
+$('start').onclick=async()=>{
+ if(!/^\d+-[^\s]+\.apps\.googleusercontent\.com$/.test($('client').value.trim())||!$('secret').value.trim()){
+  status('클라이언트 ID 형식 또는 Client secret이 비어 있습니다.');return;
+ }
+ stopped=false;token='';deviceCode='';clientId=$('client').value.trim();clientSecret=$('secret').value.trim();
+ $('start').disabled=true;$('stop').disabled=false;$('drive').disabled=true;$('codebox').hidden=true;
+ try{
+  status('1단계: Google device/code 요청 중…');
+  const r=await post('https://oauth2.googleapis.com/device/code',{client_id:clientId,scope:'https://www.googleapis.com/auth/drive.appdata'});
+  if(!r.ok||!r.data.device_code){status('기기 코드 요청 실패. 위 로그의 HTTP 상태와 오류를 확인하세요.');return;}
+  deviceCode=r.data.device_code;
+  $('verify').href=r.data.verification_url;$('verify').textContent=r.data.verification_url;
+  $('usercode').textContent=r.data.user_code;
+  $('expires').textContent='유효 시간: '+r.data.expires_in+'초 · 폴링 간격: '+r.data.interval+'초';
+  $('codebox').hidden=false;
+  status('1단계 성공: 기기 코드 발급됨. 2단계 토큰 승인 대기 중…');
+  let interval=Math.max(5,Number(r.data.interval)||5),expires=Date.now()+Number(r.data.expires_in||1800)*1000;
+  while(!stopped&&Date.now()<expires){
+   await new Promise(resolve=>timer=setTimeout(resolve,interval*1000));
+   if(stopped)break;
+   const t=await post('https://oauth2.googleapis.com/token',{
+    client_id:clientId,client_secret:clientSecret,device_code:deviceCode,
+    grant_type:'urn:ietf:params:oauth:grant-type:device_code'
+   });
+   if(t.ok&&t.data.access_token){
+    token=t.data.access_token;$('drive').disabled=false;
+    status('2단계 성공: 액세스 토큰 발급 완료. 다음 버튼으로 Drive API를 검증하세요.');return;
+   }
+   if(t.data.error==='authorization_pending')continue;
+   if(t.data.error==='slow_down'){interval+=5;continue;}
+   status('토큰 발급 실패: '+(t.data.error||('HTTP '+t.status))+' — 로그 확인');return;
+  }
+  if(stopped)status('사용자가 인증 테스트를 중지했습니다.');
+  else status('기기 코드가 만료되었습니다. 처음부터 다시 시작하세요.');
+ }catch(e){status('네트워크/CORS/브라우저 오류: '+String(e&&e.message||e)+'. TypeError: Failed to fetch라면 CORS 또는 네트워크 차단 가능성이 있습니다.');}
+ finally{$('start').disabled=false;$('stop').disabled=true;}
+};
+$('stop').onclick=()=>{stopped=true;clearTimeout(timer);$('stop').disabled=true;};
+async function driveFetch(path,opts){
+ const r=await fetch('https://www.googleapis.com/drive/v3'+path,Object.assign({mode:'cors',cache:'no-store',credentials:'omit'},opts||{},{headers:Object.assign({Authorization:'Bearer '+token},opts&&opts.headers||{})}));
+ const raw=await r.text();let d;try{d=JSON.parse(raw)}catch(_){d={raw:raw.slice(0,1000)}}
+ log('Drive HTTP '+r.status+' '+path+' → '+JSON.stringify(d));
+ if(!r.ok)throw new Error('Drive HTTP '+r.status+': '+JSON.stringify(d));
+ return d;
+}
+$('drive').onclick=async()=>{
+ $('drive').disabled=true;
+ try{
+  status('3단계: Drive appDataFolder 읽기 테스트…');
+  const listing=await driveFetch('/files?spaces=appDataFolder&pageSize=10&fields=files(id,name,mimeType)');
+  status('Drive 읽기 성공: 현재 앱 데이터 파일 '+(listing.files||[]).length+'개. 테스트 파일 생성/삭제 진행…');
+  const boundary='wayward_file_test_'+Date.now();
+  const meta={name:'wayward-oauth-probe-'+Date.now()+'.txt',mimeType:'text/plain',parents:['appDataFolder']};
+  const body='Wayward local file OAuth test; safe to delete.';
+  const multipart='--'+boundary+'\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n'+JSON.stringify(meta)+'\r\n--'+boundary+'\r\nContent-Type: text/plain; charset=UTF-8\r\n\r\n'+body+'\r\n--'+boundary+'--';
+  const created=await driveFetch('/files?uploadType=multipart',{method:'POST',headers:{'Content-Type':'multipart/related; boundary='+boundary},body:multipart});
+  if(!created.id)throw new Error('Drive 파일 생성 응답에 ID가 없습니다. 위 로그를 확인하세요.');
+  await driveFetch('/files/'+encodeURIComponent(created.id),{method:'DELETE'});
+  status('완료: file:// HTML에서 인증 토큰 발급 + Drive 읽기 + 테스트 파일 생성 + 삭제까지 성공했습니다.');
+ }catch(e){status('Drive 검증 실패: '+String(e&&e.message||e)+'. 위 로그에서 마지막 성공 단계를 확인하세요.');}
+ finally{$('drive').disabled=!token;}
+};
+})();
+</script>
+</body>
+</html>
