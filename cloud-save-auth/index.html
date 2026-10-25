@@ -33,6 +33,7 @@
     <p id="status" role="status" aria-live="polite">연결 요청을 확인하고 있습니다.</p>
     <p class="note">Google Drive 권한은 이 모드의 앱 전용 데이터 공간에만 적용됩니다. 본인이 시작하지 않은 로그인 요청은 승인하지 마세요.</p>
   </main>
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
   <script>
   (() => {
     'use strict';
@@ -135,8 +136,9 @@
     fetch('/api/config', { cache: 'no-store', credentials: 'same-origin' })
       .then(async response => {
         const data = await response.json().catch(() => ({}));
-        if (!response.ok || !data.ready) throw new Error(data.error || '로그인 서비스가 아직 설정되지 않았습니다.');
+        if (!response.ok || !data.ready || !data.clientId) throw new Error(data.error || 'Google 로그인 서비스가 아직 설정되지 않았습니다.');
         serviceReady = true;
+        button.dataset.clientId = data.clientId;
         updateButton();
         button.textContent = 'Google 계정으로 연결';
         if (requiresOriginConfirmation && !originConfirmed) setStatus('계속하려면 게임 출처를 확인하고 체크하세요.');
@@ -145,13 +147,57 @@
       .catch(error => stopWithError(String(error && error.message || error)));
 
     button.addEventListener('click', () => {
-      if (!serviceReady || !originConfirmed) return;
+      if (!serviceReady || !originConfirmed || !button.dataset.clientId) return;
       button.disabled = true;
-      button.textContent = 'Google 인증 페이지로 이동 중…';
-      setStatus('같은 로그인 창에서 Google 인증을 진행합니다.');
-      const startUrl = '/api/oauth/start?' + new URLSearchParams({ origin: targetOrigin, nonce }).toString();
-      // Navigate this existing popup; do not ask Google Identity Services to open a nested popup.
-      window.location.assign(startUrl);
+      button.textContent = 'Google 인증 창 여는 중…';
+      setStatus('Google 계정 선택 창에서 Drive 앱 데이터 접근을 승인하세요.');
+      try {
+        if (!window.google || !google.accounts || !google.accounts.oauth2) {
+          throw new Error('Google 인증 라이브러리를 불러오지 못했습니다. 네트워크 연결을 확인하고 다시 시도해 주세요.');
+        }
+        const tokenClient = google.accounts.oauth2.initTokenClient({
+          client_id: button.dataset.clientId,
+          scope: 'https://www.googleapis.com/auth/drive.appdata',
+          include_granted_scopes: true,
+          prompt: 'select_account',
+          callback: response => {
+            if (!response || response.error || !response.access_token) {
+              stopWithError(response && response.error_description || response && response.error || 'Google 액세스 토큰을 받지 못했습니다.');
+              return;
+            }
+            const grantedScopes = String(response.scope || '').split(/\\s+/);
+            if (response.scope && !grantedScopes.includes('https://www.googleapis.com/auth/drive.appdata')) {
+              stopWithError('Google Drive 앱 데이터 접근 권한이 승인되지 않았습니다. 다시 시도해 주세요.');
+              return;
+            }
+            const payload = {
+              type: 'wayward-cloud-auth-success',
+              nonce,
+              accessToken: String(response.access_token),
+              expiresIn: Math.max(60, Number(response.expires_in) || 3600)
+            };
+            try {
+              // file:// has an opaque origin; the game verifies the exact popup
+              // WindowProxy and one-time nonce before accepting this message.
+              window.opener.postMessage(payload, fileMode ? '*' : targetOrigin);
+              setStatus('인증이 완료되었습니다. 게임 창으로 연결했습니다. 이 창은 닫아도 됩니다.');
+              button.textContent = '연결 완료';
+              button.disabled = true;
+              setTimeout(() => { try { window.close(); } catch (_) {} }, 400);
+            } catch (_) {
+              stopWithError('게임 창으로 인증 결과를 전달하지 못했습니다. 게임에서 다시 연결해 주세요.');
+            }
+          },
+          error_callback: error => {
+            stopWithError(error && error.type === 'popup_closed'
+              ? 'Google 인증 창이 닫혔습니다. 다시 연결해 주세요.'
+              : 'Google 인증 창을 열지 못했습니다. 팝업 차단을 해제하고 다시 시도해 주세요.');
+          }
+        });
+        tokenClient.requestAccessToken();
+      } catch (error) {
+        stopWithError(String(error && error.message || error));
+      }
     });
   })();
   </script>
