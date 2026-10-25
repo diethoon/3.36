@@ -32,7 +32,9 @@ Google OAuth 앱이 테스트 전용으로 남아 있으면 등록된 테스트 
 
 ## 문제 해결
 
+- 알려진 Wayward 주소와 localhost/개인 LAN 주소는 바로 연결할 수 있습니다. 다른 HTTPS 게임 주소는 로그인 브리지에서 실제 주소를 보여 주고 사용자의 확인을 요구합니다. 공개 HTTP 주소는 보안상 거부합니다.
+
 - 팝업이 열리지 않으면 브라우저에서 팝업을 허용하고 다시 시도합니다.
-- file://로 HTML을 직접 열 경우 로그인을 지원하지 않습니다. HTTPS 또는 localhost/개인 LAN 웹서버로 게임을 실행해야 합니다.
+- file:// 실행은 지원 경로로 추가했습니다. 브리지에서 '게임 출처 연결 확인'을 체크해야 하며, 브라우저는 로컬 파일의 출처를 고유하게 검증할 수 없어 HTTPS보다 출처 보호가 약합니다. 해당 브라우저에서 WebCrypto, 팝업 또는 Google Drive CORS가 차단되면 localhost/AWebServer/HTTPS로 실행하세요.
 - 로그인이 거부되면 브리지 앱 도메인이 Google OAuth 클라이언트의 Authorized JavaScript origins에 등록됐는지, OAuth 앱 게시/테스트 사용자 설정이 올바른지 확인해야 합니다.
 - 저장 목록이 보이지 않으면 동일한 Google 계정으로 연결했는지 확인합니다. Google Drive appDataFolder는 OAuth 앱 단위로 분리됩니다.
