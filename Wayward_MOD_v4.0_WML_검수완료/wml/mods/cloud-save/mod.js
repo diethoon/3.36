@@ -294,7 +294,7 @@ WML.define({
       }
       if (String(snapshot.game || '') !== String(api.game || '') ||
           String(snapshot.gameVersion || '') !== String(api.game || '')) {
-        throw new Error('이 세이브와 현재 게임의 버전 정보가 다릅니다.');
+        throw new Error('다른 게임 버전의 세이브입니다.');
       }
       const modData = snapshot.modData == null ? {} : snapshot.modData;
       if (!modData || typeof modData !== 'object' || Array.isArray(modData)) {
