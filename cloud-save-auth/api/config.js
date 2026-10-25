@@ -13,7 +13,7 @@ module.exports = (req, res) => {
   }
   try {
     const clientId = String(process.env.GOOGLE_CLIENT_ID || '').trim();
-    if (!/^[^@\\s]+\\.apps\\.googleusercontent\\.com$/.test(clientId)) throw new Error('Missing public OAuth client ID');
+    if (!/^[^@\s]+\.apps\.googleusercontent\.com$/.test(clientId)) throw new Error('Missing public OAuth client ID');
     res.statusCode = 200;
     res.end(JSON.stringify({ ready: true, clientId }));
   } catch (_) {
