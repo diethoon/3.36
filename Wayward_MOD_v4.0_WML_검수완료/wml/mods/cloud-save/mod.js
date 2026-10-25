@@ -54,7 +54,11 @@ WML.define({
         '.wml-gd-actions{display:flex;flex-wrap:wrap;gap:8px;align-items:center}' +
         '.wml-gd-slot{display:flex;flex-direction:column;gap:8px;padding:11px;border:1px solid var(--wml-border,#7778);border-radius:9px}' +
         '.wml-gd-slot-head{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}' +
-        '.wml-gd-slot-title{font-weight:600;overflow-wrap:anywhere}' +
+        '.wml-gd-slot-title{font-weight:600;overflow-wrap:anywhere;min-width:0}' +
+        '.wml-gd-slot-line{display:flex;align-items:center;gap:6px;min-width:0;max-width:100%;white-space:nowrap;overflow:hidden}' +
+        '.wml-gd-memo-chip{min-width:0;max-width:58%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;border:0;background:transparent;color:inherit;text-align:left;text-decoration:underline;opacity:.78;padding:0;font:inherit;font-size:.9em;cursor:pointer}' +
+        '.wml-gd-summary{font-size:.86em;opacity:.82;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}' +
+        '.wml-gd-memo-area{box-sizing:border-box;width:100%;min-height:72px;resize:vertical;padding:9px 11px;border:1px solid var(--wml-border,#7778);border-radius:8px;background:var(--wml-panel,#00000010);color:inherit;font:inherit}' +
         '.wml-gd-small{font-size:.82em;opacity:.72}' +
         '.wml-gd-wrap button{max-width:100%}';
       document.head.appendChild(style);
@@ -152,25 +156,31 @@ WML.define({
     }
 
     async function refreshSlots() {
-      const query = new URLSearchParams({
-        spaces: 'appDataFolder',
-        pageSize: '100',
-        q: 'trashed = false',
-        fields: 'files(id,name,modifiedTime,size),nextPageToken'
-      });
-      const response = await driveFetch('/drive/v3/files?' + query.toString());
-      const data = await response.json();
-      const slots = new Map();
-      for (const file of (Array.isArray(data.files) ? data.files : [])) {
-        const match = new RegExp('^' + FILE_PREFIX + '([1-5])\\.json$').exec(String(file.name || ''));
-        if (!match) continue;
-        const slot = Number(match[1]);
-        const previous = slots.get(slot);
-        if (!previous || String(file.modifiedTime || '') > String(previous.modifiedTime || '')) {
-          slots.set(slot, file);
+      const slots = new Map(); let pageToken = '';
+      do {
+        const params = new URLSearchParams({ spaces: 'appDataFolder', pageSize: '100', q: 'trashed = false', fields: 'files(id,name,modifiedTime,size),nextPageToken' });
+        if (pageToken) params.set('pageToken', pageToken);
+        const response = await driveFetch('/drive/v3/files?' + params.toString());
+        const data = await response.json();
+        for (const file of (Array.isArray(data.files) ? data.files : [])) {
+          const match = new RegExp('^' + FILE_PREFIX + '([1-9][0-9]*)\\.json$').exec(String(file.name || ''));
+          if (!match) continue;
+          const slot = Number(match[1]); if (!Number.isSafeInteger(slot) || slot < 1) continue;
+          const previous = slots.get(slot);
+          if (!previous || String(file.modifiedTime || '') > String(previous.modifiedTime || '')) slots.set(slot, file);
         }
+        pageToken = data.nextPageToken || '';
+      } while (pageToken);
+      driveSlots = Array.from(slots.values()).sort((a,b) => Number(a.name.match(/([0-9]+)\\.json$/)[1]) - Number(b.name.match(/([0-9]+)\\.json$/)[1]));
+      for (const file of driveSlots) {
+        try {
+          const envelope = await readSlotEnvelope(file);
+          if (envelope && envelope.keyMode === 'embedded-addon-v2') {
+            const snapshot = await globalThis.WMLGoogleDriveCrypto.decryptSnapshotEmbedded(envelope);
+            file.memo = String(snapshot.memo || ''); file.summary = makeSummary(snapshot);
+          } else { file.memo = ''; file.summary = ''; }
+        } catch (_) { file.memo = ''; file.summary = ''; file.unreadable = true; }
       }
-      driveSlots = Array.from(slots.values());
       return driveSlots;
     }
 
@@ -239,12 +249,38 @@ WML.define({
         gameVersion: native.gameVersion,
         nativeFormat: native.format,
         savedAt: Date.now(),
+        memo: '',
         title: defaultTitle(native.state),
         state: native.state,
         modData: native.modData || {}
       };
     }
 
+    function firstValue(root, patterns) {
+      const seen = new Set(), queue = [{ value: root, depth: 0 }];
+      while (queue.length) {
+        const item = queue.shift();
+        if (!item.value || typeof item.value !== 'object' || seen.has(item.value) || item.depth > 5) continue;
+        seen.add(item.value);
+        for (const [key, value] of Object.entries(item.value)) if (patterns.some(pattern => pattern.test(key)) && (typeof value === 'string' || typeof value === 'number') && String(value).trim()) return value;
+        for (const value of Object.values(item.value)) if (value && typeof value === 'object') queue.push({ value, depth: item.depth + 1 });
+      }
+      return '';
+    }
+    function makeSummary(snapshot) {
+      const state = snapshot && snapshot.state || {};
+      const day = firstValue(state, [/^(day|days|currentDay|progressDay|dayCount|elapsedDays|daysPassed)$/i, /^(gameDay|storyDay)$/i]);
+      const gold = firstValue(state, [/^(gold|money|coins|currency|playerGold|currentGold|goldAmount|cash)$/i, /gold|money|currency/i]);
+      const role = firstValue(state, [/^(role|occupation|job|origin|background|statusName|className|socialClass|characterRole)$/i]);
+      const character = firstValue(state, [/^(characterName|playerName|protagonistName|heroName|mainCharacterName|girlName)$/i]);
+      const parts = [];
+      if (character) parts.push(String(character) + ' 진행일:'); else if (day !== '') parts.push('진행일:');
+      if (day !== '') parts.push(String(day) + '일');
+      if (gold !== '') parts.push(String(gold) + '골드');
+      if (role) parts.push(String(role));
+      parts.push(new Date(Number(snapshot.savedAt) || Date.now()).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: 'numeric', minute: '2-digit' }));
+      return parts.join(' · ');
+    }
     function defaultTitle(state) {
       const day = Number(state && state.day);
       return Number.isFinite(day) && day > 0 ? 'Day ' + day : 'Wayward 세이브';
@@ -382,24 +418,30 @@ WML.define({
     }
 
     async function saveSlot(slot) {
-      const passphrase = String(fields.passphrase && fields.passphrase.value || '');
-      if (passphrase.length < 10) throw new Error('세이브 암호화 비밀번호는 10자 이상으로 설정해 주세요.');
       const snapshot = buildSnapshot();
-      const envelope = await globalThis.WMLGoogleDriveCrypto.encryptSnapshot(snapshot, passphrase);
+      snapshot.memo = String(fields.memo && fields.memo.value || '').trim();
+      const envelope = await globalThis.WMLGoogleDriveCrypto.encryptSnapshotEmbedded(snapshot);
       await writeSlotEnvelope(slot, envelope);
-      show({ page: 'home' }, '저장 슬롯 ' + slot + '에 암호화하여 저장했습니다.');
+      show({ page: 'home' }, '저장 슬롯 ' + slot + '에 자동 암호화하여 저장했습니다.');
     }
 
-    async function loadSlot(slot) {
-      const passphrase = String(fields.passphrase && fields.passphrase.value || '');
-      if (!passphrase) throw new Error('이 세이브를 저장할 때 사용한 암호화 비밀번호를 입력해 주세요.');
-      const file = currentFile(slot);
-      if (!file) throw new Error('저장 슬롯이 비어 있습니다.');
+    async function prepareLoadSlot(slot) {
+      const file = currentFile(slot); if (!file) throw new Error('저장 슬롯이 비어 있습니다.');
       const envelope = await readSlotEnvelope(file);
-      const snapshot = await globalThis.WMLGoogleDriveCrypto.decryptSnapshot(envelope, passphrase);
-      applySnapshot(snapshot);
-      if (win) win.close();
-      message = '';
+      show({ page: envelope && envelope.keyMode === 'embedded-addon-v2' ? 'load' : 'legacy-load', slot },
+        envelope && envelope.keyMode === 'embedded-addon-v2' ? '' : '이전 암호화 세이브입니다. 저장 당시 암호를 입력하면 자동 암호화 형식으로 변환됩니다.');
+    }
+    async function loadSlot(slot) {
+      const file = currentFile(slot); if (!file) throw new Error('저장 슬롯이 비어 있습니다.');
+      const envelope = await readSlotEnvelope(file); let snapshot;
+      if (envelope && envelope.keyMode === 'embedded-addon-v2') snapshot = await globalThis.WMLGoogleDriveCrypto.decryptSnapshotEmbedded(envelope);
+      else {
+        const passphrase = String(fields.passphrase && fields.passphrase.value || '');
+        if (!passphrase) throw new Error('이전 세이브의 암호화 비밀번호를 입력해 주세요.');
+        snapshot = await globalThis.WMLGoogleDriveCrypto.decryptSnapshot(envelope, passphrase);
+        await writeSlotEnvelope(slot, await globalThis.WMLGoogleDriveCrypto.encryptSnapshotEmbedded(snapshot));
+      }
+      applySnapshot(snapshot); if (win) win.close(); message = '';
     }
 
     async function removeSlot(slot) {
@@ -440,49 +482,47 @@ WML.define({
     }
 
     async function importSlot(slot) {
-      const file = view.file;
-      const passphrase = String(fields.passphrase && fields.passphrase.value || '');
-      if (!file) throw new Error('가져올 파일을 선택해 주세요.');
-      if (!passphrase) throw new Error('파일을 내보낼 때 사용한 암호화 비밀번호를 입력해 주세요.');
-      let envelope;
-      try { envelope = JSON.parse(await file.text()); }
-      catch (_) { throw new Error('JSON 세이브 파일을 읽지 못했습니다.'); }
-      const snapshot = await globalThis.WMLGoogleDriveCrypto.decryptSnapshot(envelope, passphrase);
-      if (String(snapshot.game || '') !== String(api.game || '') ||
-          String(snapshot.gameVersion || '') !== String(api.game || '')) {
-        throw new Error('이 세이브와 현재 게임의 버전 정보가 다릅니다.');
+      const file = view.file; if (!file) throw new Error('가져올 파일을 선택해 주세요.');
+      let envelope; try { envelope = JSON.parse(await file.text()); } catch (_) { throw new Error('JSON 세이브 파일을 읽지 못했습니다.'); }
+      let snapshot;
+      if (envelope && envelope.keyMode === 'embedded-addon-v2') snapshot = await globalThis.WMLGoogleDriveCrypto.decryptSnapshotEmbedded(envelope);
+      else {
+        const passphrase = String(fields.passphrase && fields.passphrase.value || '');
+        if (!passphrase) throw new Error('이전 버전 파일이라면 기존 암호화 비밀번호를 입력해 주세요.');
+        snapshot = await globalThis.WMLGoogleDriveCrypto.decryptSnapshot(envelope, passphrase);
+        envelope = await globalThis.WMLGoogleDriveCrypto.encryptSnapshotEmbedded(snapshot);
       }
-      await writeSlotEnvelope(slot, envelope);
-      show({ page: 'home' }, '파일을 저장 슬롯 ' + slot + '에 가져왔습니다.');
+      if (String(snapshot.game || '') !== String(api.game || '') || String(snapshot.gameVersion || '') !== String(api.game || '')) throw new Error('이 세이브와 현재 게임의 버전 정보가 다릅니다.');
+      await writeSlotEnvelope(slot, envelope); show({ page: 'home' }, '파일을 저장 슬롯 ' + slot + '에 가져왔습니다.');
     }
 
     function renderSlots(root) {
       addTitle(root, 'Google Drive 저장 슬롯');
-      addText(root, '최대 5개 슬롯을 사용합니다. 저장할 때 정한 암호화 비밀번호는 다른 기기에서 불러올 때도 필요합니다.');
-      const bySlot = new Map(driveSlots.map(file => {
-        const match = new RegExp('^' + FILE_PREFIX + '([1-5])\\.json$').exec(file.name);
-        return [Number(match && match[1]), file];
-      }));
-      for (let slot = 1; slot <= 5; slot++) {
-        const file = bySlot.get(slot);
-        const row = h('div', { class: 'wml-gd-slot' });
-        const head = h('div', { class: 'wml-gd-slot-head' });
-        head.append(h('div', { class: 'wml-gd-slot-title' }, '저장 슬롯 ' + slot));
-        head.append(h('div', { class: 'wml-gd-small' }, file ? '저장됨' : '비어 있음'));
-        row.append(head);
-        if (file && file.modifiedTime) {
-          row.append(h('div', { class: 'wml-gd-small' }, '마지막 수정: ' + new Date(file.modifiedTime).toLocaleString()));
+      addText(root, '슬롯 개수 제한 없음. 새 세이브는 AES-256-GCM으로 자동 암호화되며, 같은 모드가 설치된 다른 브라우저에서도 자동 복호화됩니다.');
+      const bySlot = new Map(driveSlots.map(file => [Number(file.name.match(/([0-9]+)\\.json$/)[1]), file]));
+      const used = new Set(bySlot.keys()); let nextSlot = 1; while (used.has(nextSlot)) nextSlot++;
+      const slots = Array.from(bySlot.keys()).sort((a,b) => a-b); if (!used.has(nextSlot)) slots.push(nextSlot);
+      for (const slot of slots) {
+        const file = bySlot.get(slot), row = h('div', { class: 'wml-gd-slot' });
+        const head = h('div', { class: 'wml-gd-slot-head' }), line = h('div', { class: 'wml-gd-slot-line' });
+        line.append(h('div', { class: 'wml-gd-slot-title' }, '저장 슬롯 ' + slot));
+        if (file && file.memo) {
+          const chip = document.createElement('button'); chip.type = 'button'; chip.className = 'wml-gd-memo-chip';
+          chip.textContent = '[' + file.memo + ']'; chip.title = '눌러서 메모 전체 보기';
+          chip.addEventListener('click', event => { event.preventDefault(); event.stopPropagation(); window.alert('저장 슬롯 ' + slot + ' 메모\\n\\n' + file.memo); });
+          line.append(chip);
         }
+        head.append(line); head.append(h('div', { class: 'wml-gd-small' }, file ? '저장됨' : '비어 있음')); row.append(head);
+        if (file && file.summary) row.append(h('div', { class: 'wml-gd-summary', title: file.summary }, file.summary));
+        else if (file && file.unreadable) row.append(h('div', { class: 'wml-gd-small' }, '세이브 정보를 읽을 수 없음 (이전 암호화 형식일 수 있음)'));
         const actions = h('div', { class: 'wml-gd-actions' });
-        actions.append(button(file ? '덮어쓰기' : '저장', () => show({ page: 'save', slot } ), { primary: true }));
+        actions.append(button(file ? '덮어쓰기' : '저장', () => show({ page: 'save', slot }), { primary: true }));
         if (file) {
-          actions.append(button('불러오기', () => show({ page: 'load', slot })));
+          actions.append(button('불러오기', () => runAction(() => prepareLoadSlot(slot))));
           actions.append(button('파일 내보내기', () => runAction(() => exportSlot(slot))));
           actions.append(button('삭제', () => show({ page: 'delete', slot })));
         }
-        actions.append(button('파일 가져오기', () => pickImportFile(slot)));
-        row.append(actions);
-        root.append(row);
+        actions.append(button('파일 가져오기', () => pickImportFile(slot))); row.append(actions); root.append(row);
       }
     }
 
@@ -490,7 +530,7 @@ WML.define({
       if (view.page === 'home') {
         addTitle(root, '개인 Google Drive 세이브');
         addText(root,
-          'Google 계정으로 연결하면 Drive에 직접 저장합니다. 게임 세이브와 암호화 비밀번호는 로그인 중계 서버로 전송되지 않습니다.\n' +
+          'Google 계정으로 연결하면 Drive에 직접 저장합니다. 새 세이브의 키 복원 정보는 모드에 포함되며 Drive에 별도 키 파일을 만들지 않습니다.\n' +
           '브라우저를 다시 열면 연결 버튼을 다시 눌러야 할 수 있습니다.');
         addButton(root, hasToken() ? '저장 목록 새로고침' : 'Google 계정으로 연결',
           hasToken() ? () => runAction(async () => {
@@ -510,22 +550,31 @@ WML.define({
         addMessage(root);
       } else if (view.page === 'save') {
         addTitle(root, '저장 슬롯 ' + view.slot + ' 저장');
-        addText(root, '세이브를 암호화할 비밀번호를 입력하세요. 10자 이상을 권장합니다. 이 비밀번호는 서버나 Google에 보내지 않습니다. 잊어버리면 복구할 수 없습니다.');
-        addField(root, 'passphrase', '세이브 암호화 비밀번호', 'password', '', 'new-password');
-        addButton(root, '암호화하여 저장', () => runAction(() => saveSlot(view.slot)), true);
+        addText(root, '저장할 때 자동으로 암호화됩니다. 메모는 비워 두어도 저장됩니다.');
+        const memoWrap = h('label', { class: 'wml-gd-field' }, '저장 메모 (선택 사항)');
+        const memoInput = document.createElement('textarea'); memoInput.className = 'wml-gd-memo-area'; memoInput.maxLength = 2000;
+        memoInput.placeholder = '예: 히나 12일차, 다음에 상점 업그레이드';
+        memoInput.value = Object.prototype.hasOwnProperty.call(drafts, 'memo') ? drafts.memo : (currentFile(view.slot) && currentFile(view.slot).memo || '');
+        memoInput.addEventListener('input', () => { drafts.memo = memoInput.value; }); memoInput.setAttribute('data-wml-ui', 'true');
+        memoWrap.append(memoInput); root.append(memoWrap); fields.memo = memoInput;
+        addButton(root, '자동 암호화하여 저장', () => runAction(() => saveSlot(view.slot)), true);
         addButton(root, '취소', () => show({ page: 'home' }));
         addMessage(root);
       } else if (view.page === 'load') {
         addTitle(root, '저장 슬롯 ' + view.slot + ' 불러오기');
-        addText(root, '저장할 때 사용한 암호화 비밀번호를 입력하세요. 올바른 비밀번호로 복호화한 뒤 게임을 불러옵니다.');
-        addField(root, 'passphrase', '세이브 암호화 비밀번호', 'password', '', 'current-password');
-        addButton(root, '복호화하고 불러오기', () => runAction(() => loadSlot(view.slot)), true);
-        addButton(root, '취소', () => show({ page: 'home' }));
-        addMessage(root);
+        addText(root, '세이브를 자동으로 복호화한 뒤 게임을 불러옵니다.');
+        addButton(root, '자동 복호화하고 불러오기', () => runAction(() => loadSlot(view.slot)), true);
+        addButton(root, '취소', () => show({ page: 'home' })); addMessage(root);
+      } else if (view.page === 'legacy-load') {
+        addTitle(root, '이전 세이브 불러오기 및 변환');
+        addText(root, '이전 버전 세이브는 저장 당시 비밀번호가 필요합니다. 복호화 후 자동 암호화 형식으로 변환합니다.');
+        addField(root, 'passphrase', '기존 세이브 암호화 비밀번호', 'password', '', 'current-password');
+        addButton(root, '복호화·변환 후 불러오기', () => runAction(() => loadSlot(view.slot)), true);
+        addButton(root, '취소', () => show({ page: 'home' })); addMessage(root);
       } else if (view.page === 'import') {
         addTitle(root, '파일을 저장 슬롯 ' + view.slot + '에 가져오기');
-        addText(root, '암호화된 JSON 파일만 가져올 수 있습니다. 올바른 암호화 비밀번호로 복호화 검사를 한 뒤 저장합니다. 기존 슬롯이 있으면 덮어씁니다.');
-        addField(root, 'passphrase', '파일을 내보낼 때 사용한 암호화 비밀번호', 'password', '', 'current-password');
+        addText(root, '새 자동 암호화 파일은 비밀번호 없이 가져옵니다. 이전 버전 파일은 기존 암호화 비밀번호가 필요합니다. 기존 슬롯이 있으면 덮어씁니다.');
+        addField(root, 'passphrase', '이전 버전 파일일 때만 기존 암호화 비밀번호 입력', 'password', '', 'current-password');
         addButton(root, '확인 후 가져오기', () => runAction(() => importSlot(view.slot)), true);
         addButton(root, '취소', () => show({ page: 'home' }));
         addMessage(root);
