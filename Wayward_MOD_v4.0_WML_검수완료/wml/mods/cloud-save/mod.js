@@ -59,13 +59,6 @@ WML.define({
       if (!/^https?:$/.test(window.location.protocol)) {
         return '지원하지 않는 실행 주소입니다. HTTPS 또는 localhost HTTP 주소에서 실행해 주세요.';
       }
-      if (window.location.protocol === 'http:') {
-        const host = String(window.location.hostname || '').toLowerCase();
-        const loopback = host === 'localhost' || host === '127.0.0.1' || host === '::1' || host === '[::1]' || host.endsWith('.localhost');
-        if (!loopback) {
-          return 'Google 직접 로그인은 HTTPS 또는 localhost HTTP에서만 지원됩니다. LAN IP로 접속 중이면 HTTPS 주소나 localhost 주소로 게임을 열어 주세요.';
-        }
-      }
       if (!GOOGLE_CLIENT_ID || GOOGLE_CLIENT_ID.startsWith('REPLACE_WITH_')) {
         return 'Google OAuth 클라이언트 ID 설정이 필요합니다. 모드 제작자가 공개 클라이언트 ID를 설정해야 합니다.';
       }
@@ -77,8 +70,7 @@ WML.define({
     const authHost = String(window.location.hostname || '').toLowerCase();
     const authLoopback = authHost === 'localhost' || authHost === '127.0.0.1' ||
       authHost === '::1' || authHost === '[::1]' || authHost.endsWith('.localhost');
-    const canLoadGoogleIdentity = window.location.protocol === 'https:' ||
-      (window.location.protocol === 'http:' && authLoopback);
+    const canLoadGoogleIdentity = window.location.protocol === 'https:' || window.location.protocol === 'http:';
     if (canLoadGoogleIdentity && GOOGLE_CLIENT_ID && !GOOGLE_CLIENT_ID.startsWith('REPLACE_WITH_')) {
       document.head.appendChild(googleIdentityScript);
     }
@@ -533,6 +525,9 @@ WML.define({
         addTitle(root, '개인 Google Drive 세이브');
         addText(root,
           'Google 계정으로 직접 로그인합니다. 진행 상황은 게임 안에서 암호화한 뒤 Google Drive의 앱 전용 공간에 직접 저장됩니다. 별도 인증 중계 사이트나 세이브 서버는 사용하지 않습니다.');
+        if (window.location.protocol === 'http:' && !authLoopback) {
+          addText(root, '현재 주소가 LAN IP 기반 HTTP라면 Google이 로그인을 거부할 수 있습니다. 실패하면 HTTPS 또는 localhost 주소로 실행해 주세요.', 'wml-gd-small');
+        }
         const authIssue = authAvailabilityMessage();
         if (hasToken()) {
           addButton(root, '저장 목록 새로고침', () => runAction(async () => {
