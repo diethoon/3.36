@@ -41,7 +41,7 @@ WML.define({
     // OAuth runs on the existing HTTPS auth origin so game pages can work from
     // file://, LAN HTTP, localhost, and HTTPS without registering every game origin.
     const GOOGLE_CLIENT_ID = '35944231952-p82giir62o28bo001j9uvmqo3kgp9c99.apps.googleusercontent.com';
-    const AUTH_BRIDGE_URL = 'https://wayward-cloud-auth.vercel.app/';
+    const AUTH_BRIDGE_URL = 'https://wayward-cloud-auth.vercel.app/popup.html';
     const AUTH_BRIDGE_ORIGIN = new URL(AUTH_BRIDGE_URL).origin;
     const FILE_PREFIX = 'wayward-cloud-slot-';
 
