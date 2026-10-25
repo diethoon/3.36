@@ -7,7 +7,7 @@ WML.define({
   name: '클라우드세이브 (Google Drive)',
   version: '0.5.0',
   game: '>=2026-10-04',
-  description: 'Google 계정으로 직접 로그인해 개인 Drive에 암호화 세이브를 저장합니다. 별도 인증 중계 서버는 사용하지 않습니다.',
+  description: 'Google 계정으로 로그인해 개인 Drive에 암호화 세이브를 저장합니다. 별도 인증 중계 서버는 사용하지 않습니다.',
   symbols: {
     "nativeSaveJSON": {
       "raw": { "2026-10-04": "VDe" },
@@ -38,41 +38,24 @@ WML.define({
     let tokenExpiresAt = 0;
     let driveSlots = [];
 
-    // Direct Google Identity Services token flow: no auth relay or helper site.
-    // Set this to the public OAuth 2.0 Web client ID used by this mod (never a client secret).
+    // OAuth runs on the existing HTTPS auth origin so game pages can work from
+    // file://, LAN HTTP, localhost, and HTTPS without registering every game origin.
     const GOOGLE_CLIENT_ID = '35944231952-p82giir62o28bo001j9uvmqo3kgp9c99.apps.googleusercontent.com';
+    const AUTH_BRIDGE_URL = 'https://wayward-cloud-auth.vercel.app/';
+    const AUTH_BRIDGE_ORIGIN = new URL(AUTH_BRIDGE_URL).origin;
     const FILE_PREFIX = 'wayward-cloud-slot-';
 
-    // Google is the only external service required for sign-in and Drive storage.
-    // The GIS script is loaded directly; no third-party auth page or relay is used.
-    let googleIdentityReady = false;
-    let googleIdentityLoadError = '';
-    const googleIdentityScript = document.createElement('script');
-    googleIdentityScript.src = 'https://accounts.google.com/gsi/client';
-    googleIdentityScript.async = true;
-    googleIdentityScript.onload = () => { googleIdentityReady = !!(globalThis.google && globalThis.google.accounts && globalThis.google.accounts.oauth2); };
-    googleIdentityScript.onerror = () => { googleIdentityLoadError = 'Google 로그인 기능을 불러오지 못했습니다. 인터넷 연결을 확인해 주세요.'; };
     function authAvailabilityMessage() {
-      if (window.location.protocol === 'file:') {
-        return '현재 file:// 실행에서는 클라우드 저장·불러오기를 사용할 수 없습니다. 로컬 저장은 계속 이용할 수 있습니다.';
-      }
-      if (!/^https?:$/.test(window.location.protocol)) {
-        return '지원하지 않는 실행 주소입니다. HTTPS 또는 localhost HTTP 주소에서 실행해 주세요.';
+      if (!/^file:$|^https?:$/.test(window.location.protocol)) {
+        return '지원하지 않는 실행 주소입니다. HTML 파일 직접 실행 또는 HTTP(S) 브라우저 실행을 사용해 주세요.';
       }
       if (!GOOGLE_CLIENT_ID || GOOGLE_CLIENT_ID.startsWith('REPLACE_WITH_')) {
         return 'Google OAuth 클라이언트 ID 설정이 필요합니다. 모드 제작자가 공개 클라이언트 ID를 설정해야 합니다.';
       }
-      if (googleIdentityLoadError) return googleIdentityLoadError;
+      if (!AUTH_BRIDGE_URL || !/^https:\/\//.test(AUTH_BRIDGE_URL)) {
+        return 'Google 인증 페이지 주소가 올바르지 않습니다.';
+      }
       return '';
-    }
-
-    // Do not contact Google from file:// or unsupported HTTP origins.
-    const authHost = String(window.location.hostname || '').toLowerCase();
-    const authLoopback = authHost === 'localhost' || authHost === '127.0.0.1' ||
-      authHost === '::1' || authHost === '[::1]' || authHost.endsWith('.localhost');
-    const canLoadGoogleIdentity = window.location.protocol === 'https:' || window.location.protocol === 'http:';
-    if (canLoadGoogleIdentity && GOOGLE_CLIENT_ID && !GOOGLE_CLIENT_ID.startsWith('REPLACE_WITH_')) {
-      document.head.appendChild(googleIdentityScript);
     }
 
     const STYLE_ID = 'wml-google-drive-save-style';
@@ -114,45 +97,74 @@ WML.define({
       return new Promise((resolve, reject) => {
         const unavailable = authAvailabilityMessage();
         if (unavailable) { reject(new Error(unavailable)); return; }
-        if (!googleIdentityReady || !globalThis.google || !google.accounts || !google.accounts.oauth2) {
-          reject(new Error('Google 로그인 기능을 불러오는 중입니다. 잠시 기다린 뒤 다시 눌러 주세요.'));
+
+        let popup = null;
+        let timeout = null;
+        let poll = null;
+        let settled = false;
+        let state = '';
+        try {
+          const bytes = new Uint8Array(24);
+          if (globalThis.crypto && typeof globalThis.crypto.getRandomValues === 'function') {
+            globalThis.crypto.getRandomValues(bytes);
+            state = Array.from(bytes, value => value.toString(16).padStart(2, '0')).join('');
+          } else {
+            state = String(Date.now()) + '-' + Math.random().toString(36).slice(2) + '-' + Math.random().toString(36).slice(2);
+          }
+          const url = new URL(AUTH_BRIDGE_URL);
+          url.searchParams.set('state', state);
+          // Must open synchronously during the user's click to avoid popup blocking.
+          popup = window.open(url.toString(), 'waywardGoogleDriveAuth', 'popup,width=520,height=700');
+          if (!popup) {
+            reject(new Error('Google 인증 창이 차단되었습니다. 팝업을 허용한 뒤 다시 시도해 주세요.'));
+            return;
+          }
+        } catch (error) {
+          reject(new Error('Google 인증 창을 열지 못했습니다: ' + String(error && error.message || error)));
           return;
         }
-        let settled = false;
-        let timeout;
+
+        const cleanup = () => {
+          window.removeEventListener('message', onMessage);
+          if (timeout) clearTimeout(timeout);
+          if (poll) clearInterval(poll);
+        };
         const finish = (error, response) => {
           if (settled) return;
           settled = true;
-          if (timeout) clearTimeout(timeout);
+          cleanup();
           if (error) {
+            try { if (popup && !popup.closed) popup.close(); } catch (_) {}
             reject(error instanceof Error ? error : new Error(String(error || 'Google 로그인에 실패했습니다.')));
             return;
           }
-          if (!response || response.error || !response.access_token) {
-            reject(new Error(response && response.error_description || response && response.error || 'Google 로그인이 취소되었거나 액세스 토큰을 받지 못했습니다.'));
+          if (!response || !response.accessToken) {
+            reject(new Error('Google 인증 페이지에서 액세스 토큰을 받지 못했습니다.'));
             return;
           }
-          accessToken = String(response.access_token);
-          tokenExpiresAt = Date.now() + Math.max(60, Number(response.expires_in) || 3600) * 1000;
+          accessToken = String(response.accessToken);
+          tokenExpiresAt = Date.now() + Math.max(60, Number(response.expiresIn) || 3600) * 1000;
           resolve();
         };
-        try {
-          const tokenClient = google.accounts.oauth2.initTokenClient({
-            client_id: GOOGLE_CLIENT_ID,
-            scope: 'https://www.googleapis.com/auth/drive.appdata',
-            callback: response => finish(null, response),
-            error_callback: error => finish(new Error(
-              error && error.type === 'popup_closed'
-                ? 'Google 로그인 창이 닫혔습니다. 다시 연결해 주세요.'
-                : 'Google 로그인 창을 열지 못했습니다. 팝업 설정을 확인해 주세요.'
-            ))
-          });
-          // Run directly from the user's click handler; no helper window is needed.
-          timeout = setTimeout(() => finish(new Error('Google 로그인 시간이 초과되었습니다. 다시 시도해 주세요.')), 180000);
-          tokenClient.requestAccessToken({ prompt: '' });
-        } catch (error) {
-          finish(error);
+        function onMessage(event) {
+          if (event.origin !== AUTH_BRIDGE_ORIGIN || event.source !== popup) return;
+          const data = event.data;
+          if (!data || data.type !== 'wayward-google-drive-auth' || data.state !== state) return;
+          if (data.error) {
+            finish(new Error(String(data.error)));
+            return;
+          }
+          finish(null, data);
         }
+        window.addEventListener('message', onMessage);
+        timeout = setTimeout(() => finish(new Error('Google 로그인 시간이 초과되었습니다. 다시 시도해 주세요.')), 180000);
+        poll = setInterval(() => {
+          try {
+            if (popup && popup.closed && !settled) {
+              finish(new Error('Google 인증 창이 닫혔습니다. 다시 연결해 주세요.'));
+            }
+          } catch (_) {}
+        }, 500);
       });
     }
 
@@ -426,7 +438,7 @@ WML.define({
       // otherwise the browser may treat it as an unsolicited popup.
       const task = requestGoogleToken();
       busy = true;
-      message = 'Google 로그인 창을 여는 중…';
+      message = 'Google 인증 창을 여는 중…';
       render();
       task
         .then(() => refreshSlots())
@@ -524,9 +536,9 @@ WML.define({
       if (view.page === 'home') {
         addTitle(root, '개인 Google Drive 세이브');
         addText(root,
-          'Google 계정으로 직접 로그인합니다. 진행 상황은 게임 안에서 암호화한 뒤 Google Drive의 앱 전용 공간에 직접 저장됩니다. 별도 인증 중계 사이트나 세이브 서버는 사용하지 않습니다.');
+          'Google 인증 창에서 로그인한 뒤 진행 상황을 게임 안에서 암호화해 Google Drive 앱 전용 공간에 직접 저장합니다. 인증용 HTTPS 페이지만 사용하며 세이브 중계 서버는 사용하지 않습니다.');
         if (window.location.protocol === 'http:' && !authLoopback) {
-          addText(root, '현재 주소가 LAN IP 기반 HTTP라면 Google이 로그인을 거부할 수 있습니다. 실패하면 HTTPS 또는 localhost 주소로 실행해 주세요.', 'wml-gd-small');
+          addText(root, '게임 실행 주소와 관계없이 별도 HTTPS 인증 창에서 Google 로그인을 처리합니다.', 'wml-gd-small');
         }
         const authIssue = authAvailabilityMessage();
         if (hasToken()) {
@@ -535,7 +547,7 @@ WML.define({
             show({ page: 'home' }, '저장 목록을 새로고침했습니다.');
           }), true);
         } else if (!authIssue) {
-          addButton(root, 'Google 계정으로 직접 로그인', connectFromClick, true);
+          addButton(root, 'Google 계정으로 로그인', connectFromClick, true);
         } else {
           addText(root, authIssue);
           if (!GOOGLE_CLIENT_ID || GOOGLE_CLIENT_ID.startsWith('REPLACE_WITH_')) {
@@ -550,7 +562,7 @@ WML.define({
           ? '상태: 연결됨 (액세스 토큰은 현재 페이지 메모리에만 보관)'
           : '상태: 연결되지 않음', 'wml-gd-small');
         if (hasToken()) renderSlots(root);
-        else if (!authIssue) addText(root, 'Google 로그인 창에서 계정을 선택하고 Drive 접근을 승인해 주세요.');
+        else if (!authIssue) addText(root, '별도 Google 인증 창에서 계정을 선택하고 Drive 접근을 승인한 뒤, 인증 창으로 돌아와 완료해 주세요.');
         addMessage(root);
       } else if (view.page === 'save') {
         addTitle(root, '저장 슬롯 ' + view.slot + ' 저장');
