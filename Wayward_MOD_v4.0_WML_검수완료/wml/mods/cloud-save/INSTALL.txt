@@ -4,7 +4,7 @@ Install:
 1. Copy the cloud-save folder into the game's wml/mods/ directory.
 2. Make sure cloud-save is listed in the existing wml/mods/mods.js WML.enable([...]) list. Preserve the other entries.
 3. The existing public Google OAuth Web client ID is configured in mod.js. Never add a client secret to the mod.
-4. Deploy cloud-save-auth/popup.html as the static root of the existing Vercel project at https://wayward-cloud-auth.vercel.app/popup.html.
+4. Deploy cloud-save-auth/popup.html as a static route in the existing Vercel project at https://wayward-cloud-auth.vercel.app/popup.html.
 5. In the Google OAuth Web client, keep https://wayward-cloud-auth.vercel.app as an Authorized JavaScript origin.
 6. Open the game normally, including by double-clicking the HTML file (file://), or through a local/remote HTTP(S) server. Choose 클라우드세이브 > Google 계정으로 로그인. Allow the auth popup if prompted.
 
