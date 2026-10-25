@@ -163,7 +163,7 @@ WML.define({
         const response = await driveFetch('/drive/v3/files?' + params.toString());
         const data = await response.json();
         for (const file of (Array.isArray(data.files) ? data.files : [])) {
-          const match = new RegExp('^' + FILE_PREFIX + '([1-9][0-9]*)\.json$').exec(String(file.name || ''));
+          const match = new RegExp('^' + FILE_PREFIX + '([1-9][0-9]*)\\.json$').exec(String(file.name || ''));
           if (!match) continue;
           const slot = Number(match[1]); if (!Number.isSafeInteger(slot) || slot < 1) continue;
           const previous = slots.get(slot);
