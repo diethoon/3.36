@@ -134,7 +134,7 @@
     });
 
     const configuredClientId = String(window.WAYWARD_GOOGLE_CLIENT_ID || '').trim();
-    if (!/^[^@\\s]+\\.apps\\.googleusercontent\\.com$/.test(configuredClientId)) {
+    if (!/^[^@\s]+\.apps\.googleusercontent\.com$/.test(configuredClientId)) {
       stopWithError('정적 인증 페이지의 config.js에 Google OAuth 웹 클라이언트 ID를 설정해야 합니다.');
     } else {
       serviceReady = true;
@@ -164,7 +164,7 @@
               stopWithError(response && response.error_description || response && response.error || 'Google 액세스 토큰을 받지 못했습니다.');
               return;
             }
-            const grantedScopes = String(response.scope || '').split(/\\s+/);
+            const grantedScopes = String(response.scope || '').split(/\s+/);
             if (response.scope && !grantedScopes.includes('https://www.googleapis.com/auth/drive.appdata')) {
               stopWithError('Google Drive 앱 데이터 접근 권한이 승인되지 않았습니다. 다시 시도해 주세요.');
               return;
