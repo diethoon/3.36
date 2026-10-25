@@ -16,9 +16,9 @@
     button:disabled{opacity:.55;cursor:wait}
     #status{margin-top:14px;white-space:pre-line;font-size:.92rem}
     .note{font-size:.82rem;opacity:.7}
-    .local-file-confirm{display:flex;align-items:flex-start;gap:10px;margin:14px 0;padding:12px;border:1px solid #b7791f;border-radius:10px;font-size:.86rem;line-height:1.45}
-    .local-file-confirm input{margin-top:3px;flex:0 0 auto}
-    .local-file-confirm[hidden]{display:none}
+    .origin-mode-confirm{display:flex;align-items:flex-start;gap:10px;margin:14px 0;padding:12px;border:1px solid #b7791f;border-radius:10px;font-size:.86rem;line-height:1.45}
+    .origin-mode-confirm input{margin-top:3px;flex:0 0 auto}
+    .origin-mode-confirm[hidden]{display:none}
   </style>
 </head>
 <body>
@@ -26,9 +26,9 @@
     <h1>Wayward 클라우드세이브</h1>
     <p>Google 계정으로 연결합니다. 이 페이지는 로그인 후 짧은 수명의 액세스 토큰을 게임 창에 전달할 뿐, 저장 파일이나 비밀번호를 수집하거나 보관하지 않습니다.</p>
     <button id="connect" type="button" disabled>Google 연결 준비 중…</button>
-    <label id="file-mode-confirm" class="local-file-confirm" hidden>
-      <input id="file-confirm" type="checkbox">
-      <span><strong>로컬 파일 연결 확인</strong><br>Wayward 게임을 직접 연 경우에만 체크하세요. file:// 페이지는 브라우저에서 고유한 출처를 확인할 수 없으므로, 이 모드는 HTTPS 실행보다 출처 보호가 약합니다. Google Drive 앱 데이터 권한은 이 앱의 세이브에 사용됩니다.</span>
+    <label id="origin-mode-confirm" class="origin-mode-confirm" hidden>
+      <input id="origin-confirm" type="checkbox">
+      <span><strong>게임 출처 연결 확인</strong><br><span id="origin-confirm-copy"></span></span>
     </label>
     <p id="status" role="status" aria-live="polite">연결 요청을 확인하고 있습니다.</p>
     <p class="note">Google Drive 권한은 이 모드의 앱 전용 데이터 공간에만 적용됩니다. 본인이 시작하지 않은 로그인 요청은 승인하지 마세요.</p>
@@ -38,38 +38,45 @@
     'use strict';
     const status = document.getElementById('status');
     const button = document.getElementById('connect');
-    const fileConfirmWrap = document.getElementById('file-mode-confirm');
-    const fileConfirm = document.getElementById('file-confirm');
+    const originConfirmWrap = document.getElementById('origin-mode-confirm');
+    const originConfirm = document.getElementById('origin-confirm');
+    const originConfirmCopy = document.getElementById('origin-confirm-copy');
     const params = new URLSearchParams(location.search);
     const targetOrigin = params.get('origin') || '';
     const nonce = params.get('nonce') || '';
     const fileMode = targetOrigin === 'null';
-    let fileConfirmed = !fileMode;
+    let originConfirmed = !fileMode;
     let clientId = '';
     let tokenClient = null;
     let completed = false;
 
     function setStatus(text) { status.textContent = text; }
-    function isAllowedOrigin(value) {
-      // Opaque file:// origins serialize to "null". This mode is explicitly
-      // confirmed by the user below and uses "*" only for the return postMessage.
-      if (value === 'null') return true;
+    function classifyOrigin(value) {
+      // file:// and other opaque origins serialize as "null".
+      if (value === 'null') return 'file';
       let url;
-      try { url = new URL(value); } catch (_) { return false; }
+      try { url = new URL(value); } catch (_) { return 'invalid'; }
       if (url.origin !== value || !['http:', 'https:'].includes(url.protocol) ||
-          url.username || url.password) return false;
+          url.username || url.password) return 'invalid';
       const host = url.hostname.toLowerCase();
       if (host === 'localhost' || host === '::1' || host === '[::1]' ||
-          /^127(?:\.\d{1,3}){3}$/.test(host)) return true;
+          host.endsWith('.localhost') || /^127(?:\.\d{1,3}){3}$/.test(host)) return 'local';
       const ip = host.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
       if (ip && ip.slice(1).every(part => Number(part) >= 0 && Number(part) <= 255)) {
         const a=Number(ip[1]), b=Number(ip[2]);
-        return a===10 || (a===172 && b>=16 && b<=31) ||
-          (a===192 && b===168) || (a===169 && b===254);
+        if (a===10 || (a===172 && b>=16 && b<=31) ||
+            (a===192 && b===168) || (a===169 && b===254)) return 'local';
       }
-      return host === 'art.sintention.com' || host === 'wayward.vercel.app' ||
-        host === 'diethoon.github.io';
+      if (['art.sintention.com','wayward.vercel.app','diethoon.github.io'].includes(host) &&
+          url.protocol === 'https:') return 'known';
+      // Support games hosted on other HTTPS domains after explicit user confirmation.
+      if (url.protocol === 'https:') return 'custom-https';
+      // Non-public local hostnames can be used by LAN web servers. Public HTTP is rejected.
+      if (url.protocol === 'http:' &&
+          (host.endsWith('.local') || host.endsWith('.lan') || host.endsWith('.localhost'))) return 'custom-local';
+      return 'invalid';
     }
+    function isAllowedOrigin(value) { return classifyOrigin(value) !== 'invalid'; }
     function postToGame(type, payload) {
       if (!window.opener || window.opener.closed) return false;
       // Browsers require "*" for postMessage to file:// documents because their
@@ -96,9 +103,11 @@
     }
 
     if (!nonce || !/^[a-f0-9]{48}$/.test(nonce) || !isAllowedOrigin(targetOrigin)) {
-      stopWithError('유효하지 않거나 허용되지 않은 게임 연결입니다. 게임 화면에서 로그인 버튼을 다시 눌러 주세요.');
+      stopWithError('유효하지 않거나 허용되지 않은 게임 연결입니다. HTTPS 또는 로컬 웹서버에서 게임을 열고 다시 시도해 주세요.');
       return;
     }
+    const originPolicy = classifyOrigin(targetOrigin);
+    const requiresOriginConfirmation = fileMode || originPolicy === 'custom-https' || originPolicy === 'custom-local';
     let referrerOrigin = '';
     let referrerProtocol = '';
     try {
@@ -120,20 +129,29 @@
         stopWithError('로컬 파일 연결 요청과 실제 실행 출처가 일치하지 않습니다. 게임 화면에서 다시 시도해 주세요.');
         return;
       }
-      fileConfirmWrap.hidden = false;
-      setStatus('file:// 실행 모드입니다. 브라우저는 이 파일의 출처를 고유하게 확인할 수 없습니다. Wayward를 직접 열어 실행한 경우에만 아래 확인란에 체크하고 연결하세요.');
+      originConfirmWrap.hidden = false;
+      originConfirmCopy.textContent = 'file:// 실행 모드입니다. 브라우저는 이 파일의 출처를 고유하게 확인할 수 없습니다. Wayward 게임 파일을 직접 열어 실행한 경우에만 체크하세요. 이 모드는 HTTPS 실행보다 출처 보호가 약합니다.';
+      setStatus('로컬 파일 실행 여부를 확인해 주세요.');
     } else if (!referrerOrigin || referrerOrigin !== targetOrigin) {
       stopWithError('게임 창의 출처를 확인할 수 없습니다. 게임 화면에서 다시 로그인해 주세요.');
       return;
+    } else if (requiresOriginConfirmation) {
+      originConfirmWrap.hidden = false;
+      originConfirmCopy.textContent = originPolicy === 'custom-https'
+        ? '이 게임 주소는 기본 허용 목록에 없습니다: ' + targetOrigin + '. 본인이 신뢰하는 Wayward 게임 주소인지 확인하세요. 승인한 토큰은 이 주소의 게임 창으로 반환됩니다.'
+        : '이 로컬 웹서버 주소는 기본 허용 목록에 없습니다: ' + targetOrigin + '. 직접 실행한 Wayward 게임 서버인지 확인하세요.';
+      setStatus('게임 출처를 확인한 뒤 아래 확인란에 체크하세요.');
     }
 
-    fileConfirm.addEventListener('change', () => {
-      fileConfirmed = fileConfirm.checked;
-      if (tokenClient && !completed) button.disabled = !fileConfirmed;
-      if (fileConfirmed) {
+    originConfirm.addEventListener('change', () => {
+      originConfirmed = originConfirm.checked;
+      if (tokenClient && !completed) button.disabled = requiresOriginConfirmation && !originConfirmed;
+      if (!originConfirmed) {
+        setStatus('계속하려면 위 안내의 게임 주소를 확인하고 체크하세요.');
+      } else if (fileMode) {
         setStatus('로컬 파일 모드를 확인했습니다. Google 연결을 눌러 계정을 선택하세요.');
       } else {
-        setStatus('계속하려면 Wayward를 직접 열어 실행 중인지 확인하고 체크하세요.');
+        setStatus('게임 주소를 확인했습니다. Google 연결을 눌러 계정을 선택하세요.');
       }
     });
 
@@ -171,23 +189,25 @@
             stopWithError(error && error.message || 'Google 로그인 창을 열지 못했습니다. 팝업 설정을 확인해 주세요.');
           }
         });
-        button.disabled = fileMode && !fileConfirmed;
+        button.disabled = requiresOriginConfirmation && !originConfirmed;
         button.textContent = fileMode ? 'Google 연결 (로컬 파일 모드)' : 'Google 계정으로 연결';
-        if (!fileMode) {
+        if (!requiresOriginConfirmation) {
           setStatus('아래 버튼을 눌러 Google 계정을 선택하고 Drive 앱 데이터 접근을 승인해 주세요.');
-        } else if (fileConfirmed) {
-          setStatus('로컬 파일 모드를 확인했습니다. Google 연결을 눌러 계정을 선택하세요.');
+        } else if (!originConfirmed) {
+          setStatus('계속하려면 위의 게임 출처 확인란에 체크하세요.');
+        } else {
+          setStatus('게임 주소를 확인했습니다. Google 연결을 눌러 계정을 선택하세요.');
         }
       })
       .catch(error => stopWithError(String(error && error.message || error)));
     button.addEventListener('click', () => {
-      if (!tokenClient || completed || (fileMode && !fileConfirmed)) return;
+      if (!tokenClient || completed || (requiresOriginConfirmation && !originConfirmed)) return;
       button.disabled = true;
       button.textContent = 'Google 로그인 진행 중…';
       setStatus('Google 인증을 진행하고 있습니다. 취소하지 말고 잠시 기다려 주세요.');
       try { tokenClient.requestAccessToken({ prompt: '' }); }
       catch (error) {
-        button.disabled = fileMode && !fileConfirmed;
+        button.disabled = requiresOriginConfirmation && !originConfirmed;
         button.textContent = fileMode ? 'Google 연결 (로컬 파일 모드)' : 'Google 계정으로 다시 연결';
         setStatus(String(error && error.message || error));
       }
