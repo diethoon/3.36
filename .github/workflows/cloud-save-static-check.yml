@@ -141,8 +141,10 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          grep -q "'/api/opaque/register/start'" "Wayward_MOD_v4.0_WML_검수완료/wml/mods/cloud-save/mod.js"
-          grep -q "'/api/opaque/login/start'" "Wayward_MOD_v4.0_WML_검수완료/wml/mods/cloud-save/mod.js"
+          # This WML addon uses the user's own Google Drive directly; it must not call the legacy Worker account API.
+          grep -q "drive/v3/files" "Wayward_MOD_v4.0_WML_검수완료/wml/mods/cloud-save/mod.js"
+          grep -q "encryptSnapshotEmbedded" "Wayward_MOD_v4.0_WML_검수완료/wml/mods/cloud-save/mod.js"
+          ! grep -q "/api/opaque/" "Wayward_MOD_v4.0_WML_검수완료/wml/mods/cloud-save/mod.js"
           grep -q "/api/opaque/register/start" "workers/wayward-save-share/index.src.js"
           grep -q "/api/opaque/login/start" "workers/wayward-save-share/index.src.js"
           grep -q "wayward-cloud-save-encrypted" "workers/wayward-save-share/index.src.js"
