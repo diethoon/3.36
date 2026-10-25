@@ -40,7 +40,7 @@ WML.define({
 
     // Direct Google Identity Services token flow: no auth relay or helper site.
     // Set this to the public OAuth 2.0 Web client ID used by this mod (never a client secret).
-    const GOOGLE_CLIENT_ID = 'REPLACE_WITH_PUBLIC_GOOGLE_OAUTH_CLIENT_ID.apps.googleusercontent.com';
+    const GOOGLE_CLIENT_ID = '35944231952-p82giir62o28bo001j9uvmqo3kgp9c99.apps.googleusercontent.com';
     const FILE_PREFIX = 'wayward-cloud-slot-';
 
     // Google is the only external service required for sign-in and Drive storage.
