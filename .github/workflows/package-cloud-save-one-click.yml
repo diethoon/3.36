@@ -4,9 +4,11 @@ on:
   push:
     branches:
       - feature/cloud-save-one-click-oauth-20261025
+      - fix/google-drive-popup-redirect-20261025
     paths:
       - 'Wayward_MOD_v4.0_WML_검수완료/wml/mods/cloud-save/**'
       - 'cloud-save-auth/**'
+      - 'tests/cloud-save-google-drive.oauth.test.cjs'
       - '.github/workflows/package-cloud-save-one-click.yml'
   workflow_dispatch:
 
@@ -25,15 +27,18 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: Check JavaScript syntax
+      - name: Check JavaScript syntax and OAuth flow
         shell: bash
         run: |
           set -euo pipefail
           node --check 'Wayward_MOD_v4.0_WML_검수완료/wml/mods/cloud-save/mod.js'
           node --check 'Wayward_MOD_v4.0_WML_검수완료/wml/mods/cloud-save/crypto.js'
+          node --check cloud-save-auth/api/_oauth.js
           node --check cloud-save-auth/api/config.js
+          node --check cloud-save-auth/api/oauth/start.js
+          node --check cloud-save-auth/api/oauth/callback.js
+          node --check tests/cloud-save-google-drive.oauth.test.cjs
           node --input-type=module <<'NODE'
-          import assert from 'node:assert/strict';
           import fs from 'node:fs';
           import vm from 'node:vm';
           const html = fs.readFileSync('cloud-save-auth/index.html', 'utf8');
@@ -41,35 +46,20 @@ jobs:
           if (!scripts.length) throw new Error('OAuth bridge script missing');
           for (const item of scripts) new vm.Script(item[1], { filename: 'cloud-save-auth/index.html' });
           const mod = fs.readFileSync('Wayward_MOD_v4.0_WML_검수완료/wml/mods/cloud-save/mod.js', 'utf8');
-          for (const marker of ["window.location.protocol === 'file:'", "targetOrigin = isFileExecution ? 'null' : window.location.origin"]) {
-            if (!mod.includes(marker)) throw new Error('file:// support regression in mod.js: ' + marker);
+          for (const marker of ["window.location.protocol === 'file:'", "targetOrigin = isFileExecution ? 'null' : window.location.origin", 'window.open(bridgeUrl.toString()']) {
+            if (!mod.includes(marker)) throw new Error('WML popup handoff regression: ' + marker);
           }
-          for (const marker of ["if (value === 'null') return 'file';", "fileMode ? '*' : targetOrigin", "origin-mode-confirm", "referrerProtocol !== 'file:'", "originPolicy === 'custom-https'"]) {
-            if (!html.includes(marker)) throw new Error('cross-environment bridge safety check missing: ' + marker);
+          if (/requestAccessToken\s*\(|initTokenClient\s*\(/.test(html)) throw new Error('Nested Google Identity Services popup flow must not return');
+          for (const marker of ["window.location.assign(startUrl)", "'/api/oauth/start?'", 'origin-mode-confirm']) {
+            if (!html.includes(marker)) throw new Error('Redirect bridge flow missing: ' + marker);
           }
-          const script = scripts[0][1];
-          const start = script.indexOf('function classifyOrigin(value) {');
-          const end = script.indexOf('function isAllowedOrigin(value)', start);
-          if (start < 0 || end < 0) throw new Error('Origin policy function missing');
-          const policySource = script.slice(start, end).trim();
-          const policyContext = vm.createContext({ URL });
-          vm.runInContext(policySource + '\nthis.classifyOrigin = classifyOrigin;', policyContext);
-          const originCases = [
-            ['null', 'file'],
-            ['http://localhost:8080', 'local'],
-            ['http://192.168.1.20:8081', 'local'],
-            ['https://wayward.vercel.app', 'known'],
-            ['https://custom-game.example', 'custom-https'],
-            ['http://custom-game.example', 'invalid'],
-            ['https://custom-game.example/path', 'invalid'],
-            ['https://user:pw@custom-game.example', 'invalid'],
-            ['http://wayward.local:8080', 'custom-local']
-          ];
-          for (const [origin, expected] of originCases) {
-            assert.equal(policyContext.classifyOrigin(origin), expected, 'origin policy for ' + origin);
+          const oauth = fs.readFileSync('cloud-save-auth/api/_oauth.js', 'utf8');
+          for (const marker of ['createHmac', 'timingSafeEqual', "origin === 'null'", "'/api/oauth/callback'"]) {
+            if (!oauth.includes(marker)) throw new Error('OAuth state/security guard missing: ' + marker);
           }
-          console.log('OAuth bridge syntax and cross-environment origin policy tests passed');
+          console.log('OAuth redirect bridge syntax and static checks passed');
           NODE
+          node --test tests/cloud-save-google-drive.oauth.test.cjs
       - name: Test local save encryption
         shell: bash
         run: |
@@ -79,10 +69,7 @@ jobs:
           import fs from 'node:fs';
           import vm from 'node:vm';
           import { webcrypto } from 'node:crypto';
-          const context = vm.createContext({
-            crypto: webcrypto, TextEncoder, TextDecoder, Uint8Array,
-            btoa, atob, Date, JSON, Promise
-          });
+          const context = vm.createContext({ crypto: webcrypto, TextEncoder, TextDecoder, Uint8Array, btoa, atob, Date, JSON, Promise });
           context.globalThis = context;
           vm.runInContext(fs.readFileSync('Wayward_MOD_v4.0_WML_검수완료/wml/mods/cloud-save/crypto.js', 'utf8'), context);
           const api = context.WMLGoogleDriveCrypto;

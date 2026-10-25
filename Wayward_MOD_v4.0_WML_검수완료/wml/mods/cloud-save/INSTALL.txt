@@ -1,12 +1,12 @@
-Wayward Google Drive CloudSave — one-click OAuth build
+Wayward Google Drive CloudSave — OAuth redirect build
 
-INSTALL
-1. Extract the cloud-save folder into the game's wml/mods/ folder.
-2. Open wml/mods/mods.js and add 'cloud-save' to the existing WML.enable([...]) list. Do not remove other mod IDs and do not add a duplicate.
-3. Open the game, activate the mod, and choose 클라우드세이브 > Google 계정으로 연결.
-4. In the popup, choose the Google account and approve the app-only Drive data access.
-5. Set a separate save-encryption passphrase (at least 10 characters) when saving. Remember it; it cannot be recovered.
+Install:
+1. Copy the cloud-save folder into the game's wml/mods/ directory.
+2. Make sure cloud-save is listed in the existing wml/mods/mods.js WML.enable([...]) list. Preserve the other entries.
+3. In Vercel, configure GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET. OAUTH_STATE_SECRET is recommended (random, at least 32 characters).
+4. In Google Cloud, register the exact redirect URI: https://wayward-cloud-auth.vercel.app/api/oauth/callback
+5. Open the game and choose 클라우드세이브 > Google 계정으로 연결. The existing popup will navigate through Google authorization and return to the game.
 
-This no-longer asks end users for their own Google Cloud project or OAuth client ID.
-The shared OAuth login bridge must first be deployed and configured by the maintainer. Until then, Google login will report that service setup is incomplete.
-file:// launch is supported on compatible browsers: confirm the local-file warning only when you opened the intended Wayward HTML yourself. Because file:// has an opaque origin, this mode has weaker origin protection; if encryption or Drive requests fail due to browser restrictions, use HTTPS, localhost, or a private-LAN web server. Unlisted HTTPS game hosts require explicit origin confirmation; public HTTP hosts are rejected.
+End users do not create their own Google Cloud project, OAuth client ID, API key, or client secret.
+
+file:// is supported on compatible browsers after confirming the local-file warning in the bridge. Because local-file origins are opaque, HTTPS/localhost/AWebServer is preferred when browser restrictions interfere. Never put GOOGLE_CLIENT_SECRET or OAUTH_STATE_SECRET in the mod ZIP or public repository.
