@@ -33,6 +33,7 @@ jobs:
           node --check 'Wayward_MOD_v4.0_WML_검수완료/wml/mods/cloud-save/crypto.js'
           node --check cloud-save-auth/api/config.js
           node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
           import fs from 'node:fs';
           import vm from 'node:vm';
           const html = fs.readFileSync('cloud-save-auth/index.html', 'utf8');
@@ -46,7 +47,28 @@ jobs:
           for (const marker of ["if (value === 'null') return 'file';", "fileMode ? '*' : targetOrigin", "origin-mode-confirm", "referrerProtocol !== 'file:'", "originPolicy === 'custom-https'"]) {
             if (!html.includes(marker)) throw new Error('cross-environment bridge safety check missing: ' + marker);
           }
-          console.log('OAuth bridge syntax and cross-environment compatibility guards OK');
+          const script = scripts[0][1];
+          const start = script.indexOf('function classifyOrigin(value) {');
+          const end = script.indexOf('function isAllowedOrigin(value)', start);
+          if (start < 0 || end < 0) throw new Error('Origin policy function missing');
+          const policySource = script.slice(start, end).trim();
+          const policyContext = vm.createContext({ URL });
+          vm.runInContext(policySource + '\\nthis.classifyOrigin = classifyOrigin;', policyContext);
+          const originCases = [
+            ['null', 'file'],
+            ['http://localhost:8080', 'local'],
+            ['http://192.168.1.20:8081', 'local'],
+            ['https://wayward.vercel.app', 'known'],
+            ['https://custom-game.example', 'custom-https'],
+            ['http://custom-game.example', 'invalid'],
+            ['https://custom-game.example/path', 'invalid'],
+            ['https://user:pw@custom-game.example', 'invalid'],
+            ['http://wayward.local:8080', 'custom-local']
+          ];
+          for (const [origin, expected] of originCases) {
+            assert.equal(policyContext.classifyOrigin(origin), expected, 'origin policy for ' + origin);
+          }
+          console.log('OAuth bridge syntax and cross-environment origin policy tests passed');
           NODE
       - name: Test local save encryption
         shell: bash
