@@ -12,7 +12,7 @@
 
 ## 인증 페이지 배포 필수 사항
 
-인증 브리지는 이 저장소의 `cloud-save-auth/index.html`입니다. 이를 기존 Vercel 프로젝트 `wayward-cloud-auth`의 정적 웹 페이지로 배포해 `https://wayward-cloud-auth.vercel.app/`에서 제공해야 합니다. 프로젝트의 배포 루트가 `cloud-save-auth`를 가리키는지 확인하세요. 게임 모드는 이 HTTPS 주소를 인증 팝업으로 엽니다.
+인증 브리지는 이 저장소의 `cloud-save-auth/popup.html`입니다. 이를 기존 Vercel 프로젝트 `wayward-cloud-auth`의 정적 웹 페이지로 배포해 `https://wayward-cloud-auth.vercel.app/popup.html`에서 제공해야 합니다. 프로젝트의 배포 루트가 `cloud-save-auth`를 가리키는지 확인하세요. 게임 모드는 이 HTTPS 주소를 인증 팝업으로 엽니다.
 
 Google OAuth 웹 클라이언트의 **승인된 JavaScript 원본**에는 인증 페이지의 출처 `https://wayward-cloud-auth.vercel.app`가 등록되어 있어야 합니다. 게임을 `file://` 또는 LAN IP로 실행할 때 게임 주소 자체를 승인된 원본에 등록할 필요는 없습니다. 클라이언트 ID는 공개 식별자이며 비밀키가 아닙니다. `GOOGLE_CLIENT_SECRET`이나 다른 비밀값을 모드나 공개 저장소에 넣지 마세요.
 
@@ -38,6 +38,6 @@ Google OAuth 웹 클라이언트의 **승인된 JavaScript 원본**에는 인증
 ## 문제 해결
 
 - 인증 창이 열리지 않으면 브라우저의 팝업 설정을 확인하세요.
-- 인증 창에서 Google 로그인이 작동하지 않으면 `https://wayward-cloud-auth.vercel.app/`에 최신 `cloud-save-auth/index.html`이 배포되었는지 확인하세요.
+- 인증 창에서 Google 로그인이 작동하지 않으면 `https://wayward-cloud-auth.vercel.app/popup.html`에 최신 `cloud-save-auth/popup.html`이 배포되었는지 확인하세요.
 - Google의 `origin_mismatch` 오류가 발생하면 OAuth 클라이언트의 승인된 JavaScript 원본에 `https://wayward-cloud-auth.vercel.app`가 등록되어 있는지 확인하세요.
 - 슬롯이 비어 보이면 로그인한 Google 계정이 맞는지 확인하세요. `appDataFolder`는 OAuth 앱 단위로 분리됩니다.
