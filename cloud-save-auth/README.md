@@ -21,7 +21,7 @@ The client ID is intentionally public browser configuration; never create or shi
 
 ## Operation and trust
 
-- For HTTP/HTTPS, game origins accepted by the bridge are loopback hosts, RFC1918 private IPv4 addresses, and a short explicit list of public Wayward origins. Arbitrary public origins are intentionally not accepted.
+- Known Wayward origins and local loopback/private hosts are accepted directly. Other HTTPS game origins are supported after an explicit confirmation that names the target origin; arbitrary public HTTP origins are rejected.
 - For file://, browsers serialize the game's origin as the opaque value null. The bridge requires a live opener, rejects a present non-file referrer, and asks the user to explicitly confirm local-file mode.
 - Browsers require postMessage('*') when replying to a file:// page, because the opaque origin cannot be named as a target. The mod checks the bridge origin, exact popup window, and 192-bit one-time nonce before accepting a reply. This is weaker origin isolation than HTTPS; use a trusted local web server or HTTPS when possible, and only confirm this mode when you opened the intended Wayward file yourself.
 - Local-file execution can still encounter browser-specific restrictions on WebCrypto, popups, or CORS for Google Drive requests. JavaScript/CI checks cannot guarantee this works in every browser; test actual save and load in the browser you use.
