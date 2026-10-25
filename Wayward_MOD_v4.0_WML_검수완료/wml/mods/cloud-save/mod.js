@@ -50,10 +50,8 @@ WML.define({
     const googleIdentityScript = document.createElement('script');
     googleIdentityScript.src = 'https://accounts.google.com/gsi/client';
     googleIdentityScript.async = true;
-    googleIdentityScript.onload = () => { googleIdentityReady = !!(globalThis.google && google.accounts && google.accounts.oauth2); };
+    googleIdentityScript.onload = () => { googleIdentityReady = !!(globalThis.google && globalThis.google.accounts && globalThis.google.accounts.oauth2); };
     googleIdentityScript.onerror = () => { googleIdentityLoadError = 'Google 로그인 기능을 불러오지 못했습니다. 인터넷 연결을 확인해 주세요.'; };
-    document.head.appendChild(googleIdentityScript);
-
     function authAvailabilityMessage() {
       if (window.location.protocol === 'file:') {
         return '현재 file:// 실행에서는 클라우드 저장·불러오기를 사용할 수 없습니다. 로컬 저장은 계속 이용할 수 있습니다.';
@@ -74,6 +72,17 @@ WML.define({
       if (googleIdentityLoadError) return googleIdentityLoadError;
       return '';
     }
+
+    // Do not contact Google from file:// or unsupported HTTP origins.
+    const authHost = String(window.location.hostname || '').toLowerCase();
+    const authLoopback = authHost === 'localhost' || authHost === '127.0.0.1' ||
+      authHost === '::1' || authHost === '[::1]' || authHost.endsWith('.localhost');
+    const canLoadGoogleIdentity = window.location.protocol === 'https:' ||
+      (window.location.protocol === 'http:' && authLoopback);
+    if (canLoadGoogleIdentity && GOOGLE_CLIENT_ID && !GOOGLE_CLIENT_ID.startsWith('REPLACE_WITH_')) {
+      document.head.appendChild(googleIdentityScript);
+    }
+
     const STYLE_ID = 'wml-google-drive-save-style';
 
     if (!document.getElementById(STYLE_ID)) {
@@ -147,8 +156,8 @@ WML.define({
             ))
           });
           // Run directly from the user's click handler; no helper window is needed.
-          tokenClient.requestAccessToken({ prompt: '' });
           timeout = setTimeout(() => finish(new Error('Google 로그인 시간이 초과되었습니다. 다시 시도해 주세요.')), 180000);
+          tokenClient.requestAccessToken({ prompt: '' });
         } catch (error) {
           finish(error);
         }
