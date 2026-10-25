@@ -1,0 +1,64 @@
+name: Personal Google Drive cloud-save checks
+
+on:
+  push:
+    branches:
+      - feature/google-drive-private-save-20261024
+    paths:
+      - 'Wayward_MOD_v4.0_WML_검수완료/wml/mods/cloud-save/**'
+      - 'tests/cloud-save-google-drive.crypto.test.mjs'
+      - '.github/workflows/google-drive-private-save-check.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Check mod syntax
+        run: node --check "Wayward_MOD_v4.0_WML_검수완료/wml/mods/cloud-save/mod.js"
+      - name: Check crypto syntax
+        run: node --check "Wayward_MOD_v4.0_WML_검수완료/wml/mods/cloud-save/crypto.js"
+      - name: Test encryption and tamper rejection
+        run: node --test tests/cloud-save-google-drive.crypto.test.mjs
+
+      - name: Build installable ZIP
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          from zipfile import ZipFile, ZIP_DEFLATED
+          root = Path("Wayward_MOD_v4.0_WML_검수완료/wml/mods/cloud-save")
+          package = Path("google-drive-personal-save-mod.zip")
+          instructions = """Wayward WML 개인 Google Drive 클라우드세이브 (실험 버전)
+
+          설치:
+          1. cloud-save 폴더를 게임의 wml/mods/ 폴더에 복사합니다.
+          2. 기존 wml/mods/mods.js의 WML.enable([...]) 목록에 "cloud-save"가 있는지 확인하고, 없다면 기존 항목을 보존한 채 추가합니다.
+          3. README.md의 Google Cloud OAuth 설정을 완료한 다음 게임 안에서 Google Drive에 연결합니다.
+
+          주의:
+          - 이 ZIP은 실험용 프로토타입입니다. 실제 기기에서 Google OAuth 연결과 저장/불러오기를 먼저 테스트하세요.
+          - 기존 Cloudflare Worker를 자동으로 끄지 않습니다.
+          - 암호화 비밀번호를 잊으면 세이브를 복구할 수 없습니다.
+          """
+          with ZipFile(package, "w", ZIP_DEFLATED) as archive:
+              for name in ("mod.js", "crypto.js", "README.md"):
+                  archive.write(root / name, f"cloud-save/{name}")
+              archive.writestr("INSTALL.txt", instructions)
+          print(f"Created {package} ({package.stat().st_size} bytes)")
+          PY
+      - name: Upload installable ZIP artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: google-drive-personal-save-mod
+          path: google-drive-personal-save-mod.zip
+          if-no-files-found: error
+          retention-days: 30
