@@ -7,17 +7,14 @@
 1. `cloud-save` 폴더를 게임의 `wml/mods/`에 둡니다.
 2. 기존 `wml/mods/mods.js`의 `WML.enable([...])` 목록에 `'cloud-save'`를 추가합니다. 이미 있으면 중복으로 추가하지 않습니다.
 3. HTTPS 또는 지원되는 localhost HTTP 주소에서 게임을 엽니다.
-4. 게임의 `클라우드세이브` 메뉴에서 **Google 계정으로 직접 로그인**을 선택하고 Drive 앱 전용 데이터 접근을 승인합니다.
+4. 게임의 `클라우드세이브` 메뉴에서 **Google 계정으로 직접 로그인**을 선택하고 Drive 앱 전용 데이터 접근을 승인합니다. 실제 게임 출처가 OAuth 클라이언트의 승인된 JavaScript 출처에 등록되어 있어야 합니다.
 5. 슬롯에서 저장, 불러오기, 삭제를 이용합니다. 저장 메모는 선택 사항입니다.
 
-## 개발자 1회 설정
+## OAuth 설정 상태
 
-Google Identity Services의 웹 OAuth 클라이언트 ID는 공개 식별자이므로 모드에 포함할 수 있습니다. 각 사용자에게 별도 Google Cloud 프로젝트나 API 키를 만들게 할 필요는 없습니다.
+기존 Vercel 설정에 저장된 공개 Google OAuth 클라이언트 ID를 모드에 연결해 두었습니다. 사용자가 별도 Google Cloud 프로젝트나 API 키를 만들 필요는 없습니다. 클라이언트 ID는 공개 식별자이며 비밀키가 아닙니다.
 
-1. Google Cloud에서 기존 Google OAuth 웹 클라이언트를 사용하거나 새 웹 클라이언트를 준비합니다.
-2. Google Drive API와 OAuth 동의 화면을 설정하고 `https://www.googleapis.com/auth/drive.appdata` 범위를 허용합니다.
-3. OAuth 웹 클라이언트의 **승인된 JavaScript 출처**에 실제 게임 실행 출처를 등록합니다. HTTPS를 권장합니다. HTTP는 `localhost` 계열 개발 주소에서만 지원됩니다.
-4. `mod.js` 상단의 `GOOGLE_CLIENT_ID` 값을 공개 OAuth 클라이언트 ID로 교체합니다. `GOOGLE_CLIENT_SECRET`이나 다른 비밀값은 모드에 절대 넣지 않습니다.
+Google OAuth 웹 클라이언트의 **승인된 JavaScript 출처**에도 실제 게임 실행 출처가 등록되어 있어야 합니다. 기존 도우미 페이지 주소만 등록되어 있고 게임 출처가 등록되어 있지 않으면 직접 로그인은 실패할 수 있습니다. Google Cloud 콘솔의 해당 OAuth 클라이언트에서 실제 HTTPS 출처를 추가해야 합니다. `GOOGLE_CLIENT_SECRET`이나 다른 비밀값은 모드에 절대 넣지 않습니다.
 
 Google OAuth는 HTTPS 또는 localhost HTTP 출처를 권장합니다. AWebServer에서 `http://192.168.x.x:포트/` 같은 LAN IP 주소로 접속하면 Google이 직접 인증을 거부할 수 있습니다. 모드는 이 주소에서도 로그인을 시도하지만 실패하면 HTTPS 또는 localhost 주소를 사용해야 합니다. 실제 OAuth 클라이언트에 등록된 출처와 게임 주소도 일치해야 합니다.
 
