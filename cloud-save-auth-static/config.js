@@ -1,6 +1,4 @@
-/* Public Google OAuth Web client ID for the GitHub Pages origin.
- * Replace the placeholder with the existing OAuth client ID, then add
- * https://diethoon.github.io as an Authorized JavaScript origin in Google Auth.
- * This is a public client ID, never put a client secret in this file.
+/* Public Google OAuth Web client ID. It is not a client secret.
+ * Google Auth must list https://diethoon.github.io as an Authorized JavaScript origin.
  */
-window.WAYWARD_GOOGLE_CLIENT_ID = 'REPLACE_WITH_EXISTING_GOOGLE_OAUTH_CLIENT_ID.apps.googleusercontent.com';
+window.WAYWARD_GOOGLE_CLIENT_ID = '35944231952-p82giir62o28bo001j9uvmqo3kgp9c99.apps.googleusercontent.com';
