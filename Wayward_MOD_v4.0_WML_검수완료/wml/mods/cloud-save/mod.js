@@ -1,11 +1,11 @@
 /* Personal Google Drive-backed cloud saves for WML.
- * No game-save backend is called by this addon. Tokens stay in memory;
- * save contents are encrypted on-device with a user-supplied passphrase.
+ * No game-save backend is called by this addon. OAuth tokens stay in memory;
+ * save contents are encrypted in the game page before direct upload to Drive.
  */
 WML.define({
   id: 'cloud-save',
   name: '클라우드세이브 (Google Drive)',
-  version: '0.3.0',
+  version: '0.4.0',
   game: '>=2026-10-04',
   description: 'Google 계정으로 연결해 개인 Drive에 암호화 세이브를 저장합니다. 게임 세이브는 서버를 거치지 않습니다.',
   symbols: {
