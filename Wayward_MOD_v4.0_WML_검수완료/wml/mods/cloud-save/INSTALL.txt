@@ -9,4 +9,4 @@ INSTALL
 
 This no-longer asks end users for their own Google Cloud project or OAuth client ID.
 The shared OAuth login bridge must first be deployed and configured by the maintainer. Until then, Google login will report that service setup is incomplete.
-Do not use file:// to launch the game; use HTTPS, localhost, or a private-LAN HTTP server supported by the bridge.
+file:// launch is supported on compatible browsers: confirm the local-file warning only when you opened the intended Wayward HTML yourself. Because file:// has an opaque origin, this mode has weaker origin protection; if encryption or Drive requests fail due to browser restrictions, use HTTPS, localhost, or a private-LAN web server. Unlisted HTTPS game hosts require explicit origin confirmation; public HTTP hosts are rejected.
