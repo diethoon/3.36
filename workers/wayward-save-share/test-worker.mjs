@@ -9,6 +9,27 @@ if (!globalThis.crypto) globalThis.crypto = webcrypto;
 await opaque.ready;
 await import("../../Wayward_MOD_v4.0_WML_검수완료/wml/mods/cloud-save/crypto.js");
 
+const driveSnapshot = {
+  schema: "wayward-cloud-save", version: 1, game: "2026-10-04", gameVersion: "2026-10-04",
+  nativeFormat: 1, savedAt: Date.now(), title: "Day 12", memo: "다음에는 상점 업그레이드",
+  state: { day: 12, economy: { gold: 12.98 }, role: "하녀 출신" }, modData: {},
+};
+const driveEnvelope = await globalThis.WMLGoogleDriveCrypto.encryptSnapshotEmbedded(driveSnapshot);
+assert.equal(driveEnvelope.keyMode, "embedded-addon-v2");
+assert.equal(JSON.stringify(driveEnvelope).includes("상점 업그레이드"), false, "Drive envelope must not expose plaintext memo");
+assert.deepEqual(
+  await globalThis.WMLGoogleDriveCrypto.decryptSnapshotEmbedded(driveEnvelope),
+  driveSnapshot,
+  "embedded-key encryption round-trips across browser instances",
+);
+const driveTampered = { ...driveEnvelope, ciphertext: (driveEnvelope.ciphertext[0] === "A" ? "B" : "A") + driveEnvelope.ciphertext.slice(1) };
+await assert.rejects(
+  () => globalThis.WMLGoogleDriveCrypto.decryptSnapshotEmbedded(driveTampered),
+  /복호화에 실패|암호화 데이터/,
+  "embedded-key AES-GCM rejects tampered ciphertext",
+);
+console.log("PASS: direct-Drive embedded-key encryption, memo privacy, and tamper detection.");
+
 const schema = readFileSync(new URL("./schema.sql", import.meta.url), "utf8");
 const sqlite = new DatabaseSync(":memory:");
 sqlite.exec("PRAGMA foreign_keys=ON");
