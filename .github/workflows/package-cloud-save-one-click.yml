@@ -39,7 +39,14 @@ jobs:
           const scripts = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)];
           if (!scripts.length) throw new Error('OAuth bridge script missing');
           for (const item of scripts) new vm.Script(item[1], { filename: 'cloud-save-auth/index.html' });
-          console.log('OAuth bridge inline JavaScript syntax OK');
+          const mod = fs.readFileSync('Wayward_MOD_v4.0_WML_검수완료/wml/mods/cloud-save/mod.js', 'utf8');
+          for (const marker of ["window.location.protocol === 'file:'", "targetOrigin = isFileExecution ? 'null' : window.location.origin"]) {
+            if (!mod.includes(marker)) throw new Error('file:// support regression in mod.js: ' + marker);
+          }
+          for (const marker of ["if (value === 'null') return true;", "fileMode ? '*' : targetOrigin", "file-mode-confirm", "referrerProtocol !== 'file:'"]) {
+            if (!html.includes(marker)) throw new Error('file:// bridge safety check missing: ' + marker);
+          }
+          console.log('OAuth bridge syntax and local-file compatibility guards OK');
           NODE
       - name: Test local save encryption
         shell: bash
