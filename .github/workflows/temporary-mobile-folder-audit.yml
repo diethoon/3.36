@@ -10,24 +10,23 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Inspect WML archive layout and image-pack hooks
+      - name: Inspect WML mod APIs in bounded excerpts
         shell: bash
         run: |
           python3 - <<'PY'
           import zipfile
-          for fn in ["Wayward_Faith_NoSound_v3.0.0.zip","Wayward_MOD_v4.0_WML_검수완료.zip"]:
-            z=zipfile.ZipFile(fn)
-            print("\\n=== ARCHIVE",fn,"===")
-            for i in z.infolist():
-              n=i.filename.lower()
-              if any(k in n for k in ["mod","wml","manifest","image-pack","pack.js"]):
-                print(i.file_size,i.filename)
           z=zipfile.ZipFile("Wayward_Faith_NoSound_v3.0.0.zip")
-          h=next(i for i in z.infolist() if i.filename.lower().endswith(".html") and "Wayward_Faith_v3.0.0" in i.filename)
-          with z.open(h) as f: data=f.read()
-          low=data.lower()
-          for term in ["wfPackScanFolder(","wfPackFolderButton(","window.__WF_OUTFIT_PACKS__","bridge.manifest.json","WML"]:
-            p=low.find(term.lower().encode())
-            print(f"\\n=== {term} offset={p} ===")
-            if p>=0: print(data[max(0,p-700):p+2500].decode("utf-8","replace"))
+          targets=["Wayward_Faith\\wml\\mods\\faith-mobile\\mod.js","Wayward_Faith\\wml\\mods\\mods.js","Wayward_Faith\\wml\\runtime\\wml-core.js","Wayward_Faith\\wml\\symbols\\faith-3.0.0.json","Wayward_Faith\\wml\\symbols\\faith-3.0.0.js"]
+          for name in targets:
+            try: data=z.read(name)
+            except KeyError: print("MISSING",name); continue
+            print("\\n=== FILE",name,"bytes",len(data),"===")
+            text=data.decode("utf-8","replace")
+            if name.endswith("mod.js"): print(text[:9000])
+            else:
+              terms=["registerMod","registerAddon","patchFunction","replaceFunction","onReady","waitFor","findFunction","wfPackScanFolder","wfPackFolderButton","class WML","api."]
+              low=text.lower()
+              for term in terms:
+                p=low.find(term.lower())
+                if p>=0: print(f"--- {term} @{p} ---\\n"+text[max(0,p-350):p+1100])
           PY
