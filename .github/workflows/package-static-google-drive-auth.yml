@@ -72,6 +72,28 @@ jobs:
             echo '::warning::Published GitHub Pages auth URL was not verified live.'
             cat /tmp/auth-page-status.txt
           fi
+      - name: Probe public GitHub Pages routes
+        shell: bash
+        run: |
+          set +e
+          : > /tmp/pages-route-status.txt
+          probe() {
+            label="$1"
+            url="$2"
+            body="/tmp/pages-$label.html"
+            code="$(curl --location --silent --show-error --max-time 20 --output "$body" --write-out '%{http_code}' "$url")"
+            rc=$?
+            printf '%s: HTTP %s (curl exit %s) - %s\n' "$label" "$code" "$rc" "$url" >> /tmp/pages-route-status.txt
+          }
+          probe pages_root 'https://diethoon.github.io/3.36/'
+          probe game_html 'https://diethoon.github.io/3.36/Wayward_MOD_v4.0_WML_%EA%B2%80%EC%88%98%EC%99%84%EB%A3%8C/Wayward_WML_ko.html'
+          probe auth_directory 'https://diethoon.github.io/3.36/cloud-save-auth-static/'
+          probe auth_index 'https://diethoon.github.io/3.36/cloud-save-auth-static/index.html'
+          cat /tmp/pages-route-status.txt
+          cat /tmp/pages-route-status.txt > /tmp/auth-page-status.txt
+          if ! grep -q 'auth_directory: HTTP 200' /tmp/pages-route-status.txt; then
+            echo '::warning::The GitHub Pages OAuth helper path is not live (or the project Pages site is not deployed from a branch containing the helper).'
+          fi
       - name: Assemble installable package
         shell: bash
         run: |
