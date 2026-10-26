@@ -10,67 +10,59 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Inspect ZIP in small chunks
+      - name: Inspect launcher code in small chunks
         shell: bash
         run: |
           python3 - <<'PY'
-          import zipfile, pathlib, re, os
-          archive = pathlib.Path("Wayward_Faith_NoSound_v3.0.0.zip")
-          if not archive.exists():
-              raise SystemExit("ZIP not present in checkout")
-          report = []
-          with zipfile.ZipFile(archive) as z:
-              infos = z.infolist()
-              report.append("=== ZIP INVENTORY (path | compressed bytes | uncompressed bytes) ===")
-              for i in infos:
-                  report.append(f"{i.filename} | {i.compress_size} | {i.file_size}")
-              htmls = [i for i in infos if i.filename.lower().endswith((".html", ".htm"))]
-              report.append("\\n=== HTML CANDIDATES ===")
-              for i in htmls:
-                  report.append(f"{i.filename} | {i.file_size} bytes")
-              terms = [
-                  "image-packs", "pack.js", "showDirectoryPicker",
-                  "webkitdirectory", "directory picker", "folder picker",
-                  "이미지팩", "이미지 팩", "이미지팩을 찾", "upload",
-                  "File System Access", "FileReader", "readAsDataURL",
-                  "btoa(", "base64", "outfit pack", "__WF_OUTFIT_PACKS__"
-              ]
-              report.append("\\n=== MATCHED CONTEXTS (64 KiB chunks; max 3 contexts per term/file) ===")
-              for info in htmls:
-                  report.append(f"\\n--- FILE: {info.filename} ---")
-                  found = {t.lower(): 0 for t in terms}
-                  overlap = b""
-                  offset = 0
-                  with z.open(info) as f:
-                      while True:
-                          chunk = f.read(65536)
-                          if not chunk: break
-                          data = overlap + chunk
-                          base = max(0, offset - len(overlap))
-                          low = data.lower()
-                          for term in terms:
-                              key = term.lower().encode("utf-8")
-                              if found[term.lower()] >= 3: continue
-                              pos = 0
-                              while True:
-                                  pos = low.find(key, pos)
-                                  if pos < 0: break
-                                  start, end = max(0, pos-240), min(len(data), pos+len(key)+360)
-                                  snippet = data[start:end].decode("utf-8", "replace")
-                                  report.append(f"[{term} @ approx {base+pos}] {snippet}")
-                                  found[term.lower()] += 1
-                                  pos += len(key)
-                                  if found[term.lower()] >= 3: break
-                          overlap = data[-1024:]
-                          offset += len(chunk)
-              out = pathlib.Path("audit-report.txt")
-              out.write_text("\\n".join(report), encoding="utf-8")
-              print(f"Created {out} ({out.stat().st_size} bytes)")
-              print("\\n".join(report[:min(len(report), 120)]))
+          import zipfile, pathlib
+          zpath = pathlib.Path("Wayward_Faith_NoSound_v3.0.0.zip")
+          terms = [
+            "showDirectoryPicker", "webkitdirectory", "webkitRelativePath",
+            "FileReader", "readAsDataURL", "readAsArrayBuffer",
+            "wfPackInstalled", "wfPackCatalog", "wfPackRegister",
+            "wfPack", "image-packs", "pack.js", "imagePack",
+            "이미지팩 폴더 선택", "폴더 선택", "업로드", "이미지팩 설정",
+            "wfImagePack", "URL.createObjectURL", "DataTransfer"
+          ]
+          with zipfile.ZipFile(zpath) as z:
+            print("=== RELEVANT SMALL FILES ===")
+            for name in ["Wayward_Faith/install-packs.cmd", "Wayward_Faith/README.md", "Wayward_Faith/모바일로_묶기.cmd"]:
+              try:
+                data = z.read(name).decode("utf-8", "replace")
+                print(f"\\n--- {name} ({len(data)} chars) ---\\n{data[:12000]}")
+              except KeyError:
+                print("MISSING:", name)
+            htmls = [i for i in z.infolist() if i.filename.lower().endswith((".html", ".htm"))]
+            for info in htmls:
+              print(f"\\n=== HTML {info.filename} size={info.file_size}; scan chunks=65536 bytes ===")
+              found = {t: 0 for t in terms}
+              overlap = b""
+              offset = 0
+              with z.open(info) as f:
+                while True:
+                  chunk = f.read(65536)
+                  if not chunk: break
+                  data = overlap + chunk
+                  base = offset - len(overlap)
+                  low = data.lower()
+                  for term in terms:
+                    if found[term] >= 2: continue
+                    needle = term.encode("utf-8").lower()
+                    pos = 0
+                    while True:
+                      pos = low.find(needle, pos)
+                      if pos < 0: break
+                      abspos = base + pos
+                      if abspos >= 0:
+                        start, end = max(0, pos-220), min(len(data), pos+len(needle)+500)
+                        snippet = data[start:end].decode("utf-8", "replace")
+                        # Keep only code snippets; cap output size per snippet.
+                        print(f"\\n[{term} offset={abspos}]\\n{snippet[:760]}")
+                        found[term] += 1
+                      pos += len(needle)
+                      if found[term] >= 2: break
+                  overlap = data[-2048:]
+                  offset += len(chunk)
+              print("=== MATCH COUNTS ===")
+              print(", ".join(f"{k}={v}" for k,v in found.items()))
           PY
-      - uses: actions/upload-artifact@v4
-        with:
-          name: faith-launcher-audit-report
-          path: audit-report.txt
-          if-no-files-found: error
-          retention-days: 3
