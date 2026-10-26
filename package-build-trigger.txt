@@ -1,0 +1,1 @@
+Re-run package and verify the GitHub Pages auth URL after publishing cloud-save-auth-static on main.
