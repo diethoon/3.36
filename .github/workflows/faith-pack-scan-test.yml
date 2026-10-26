@@ -1,0 +1,28 @@
+name: Faith pack scan mod test package
+on:
+  push:
+    branches:
+      - faith-imagepack-registration-fix
+permissions:
+  contents: read
+jobs:
+  verify-and-package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Syntax check
+        run: node --check wml/mods/faith-pack-scan/mod.js
+      - name: Package standalone mod
+        run: |
+          mkdir -p dist/faith-pack-scan
+          cp wml/mods/faith-pack-scan/mod.js wml/mods/faith-pack-scan/README.md dist/faith-pack-scan/
+          cd dist
+          zip -r ../faith-pack-scan-test.zip faith-pack-scan
+      - uses: actions/upload-artifact@v4
+        with:
+          name: faith-pack-scan-test
+          path: faith-pack-scan-test.zip
+          if-no-files-found: error
