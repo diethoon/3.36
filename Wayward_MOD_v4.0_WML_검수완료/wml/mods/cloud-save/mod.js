@@ -5,9 +5,9 @@
 WML.define({
   id: 'cloud-save',
   name: '클라우드세이브 (Google Drive)',
-  version: '0.4.0',
+  version: '0.5.0',
   game: '>=2026-10-04',
-  description: 'Google 계정으로 연결해 개인 Drive에 암호화 세이브를 저장합니다. 게임 세이브는 서버를 거치지 않습니다.',
+  description: 'Google 계정으로 로그인해 개인 Drive에 암호화 세이브를 저장합니다. 별도 인증 중계 서버는 사용하지 않습니다.',
   symbols: {
     "nativeSaveJSON": {
       "raw": { "2026-10-04": "VDe" },
@@ -29,6 +29,7 @@ WML.define({
     const h = api.ui.h;
     const button = api.ui.button;
     let win = null;
+    let memoWin = null;
     let view = { page: 'home' };
     let message = '';
     let fields = {};
@@ -38,9 +39,26 @@ WML.define({
     let tokenExpiresAt = 0;
     let driveSlots = [];
 
-    // Fixed HTTPS bridge avoids per-device Google OAuth origin setup.
-    const AUTH_BRIDGE_URL = 'https://wayward-cloud-auth.vercel.app/';
+    // OAuth runs on the existing HTTPS auth origin so game pages can work from
+    // file://, LAN HTTP, localhost, and HTTPS without registering every game origin.
+    const GOOGLE_CLIENT_ID = '35944231952-p82giir62o28bo001j9uvmqo3kgp9c99.apps.googleusercontent.com';
+    const AUTH_BRIDGE_URL = 'https://wayward-cloud-auth.vercel.app/popup.html';
+    const AUTH_BRIDGE_ORIGIN = new URL(AUTH_BRIDGE_URL).origin;
     const FILE_PREFIX = 'wayward-cloud-slot-';
+
+    function authAvailabilityMessage() {
+      if (!/^file:$|^https?:$/.test(window.location.protocol)) {
+        return '지원하지 않는 실행 주소입니다. HTML 파일 직접 실행 또는 HTTP(S) 브라우저 실행을 사용해 주세요.';
+      }
+      if (!GOOGLE_CLIENT_ID || GOOGLE_CLIENT_ID.startsWith('REPLACE_WITH_')) {
+        return 'Google OAuth 클라이언트 ID 설정이 필요합니다. 모드 제작자가 공개 클라이언트 ID를 설정해야 합니다.';
+      }
+      if (!AUTH_BRIDGE_URL || !/^https:\/\//.test(AUTH_BRIDGE_URL)) {
+        return 'Google 인증 페이지 주소가 올바르지 않습니다.';
+      }
+      return '';
+    }
+
     const STYLE_ID = 'wml-google-drive-save-style';
 
     if (!document.getElementById(STYLE_ID)) {
@@ -61,8 +79,8 @@ WML.define({
         '.wml-gd-memo-area{box-sizing:border-box;width:100%;min-height:72px;resize:vertical;padding:9px 11px;border:1px solid var(--wml-border,#7778);border-radius:8px;background:var(--wml-panel,#00000010);color:inherit;font:inherit}' +
         '.wml-gd-small{font-size:.82em;opacity:.72}' +
         '.wml-gd-wrap button{max-width:100%}' +
-        '.wml-gd-memo-overlay{position:fixed;inset:0;z-index:2147483000;display:flex;align-items:center;justify-content:center;padding:20px;background:rgba(0,0,0,.48)}' +
-        '.wml-gd-memo-box{box-sizing:border-box;max-width:min(92vw,480px);max-height:75vh;overflow:auto;padding:16px 18px;border:1px solid var(--wml-border,#7778);border-radius:10px;background:var(--wml-panel,Canvas);color:var(--wml-text,CanvasText);white-space:pre-wrap;overflow-wrap:anywhere;box-shadow:0 8px 30px #0005}';
+        '.wml-gd-memo-content{box-sizing:border-box;max-height:min(58vh,420px);overflow:auto;padding:14px;border:1px solid var(--wml-border,#7778);border-radius:9px;background:var(--wml-panel,#00000010);color:inherit;white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.55;overscroll-behavior:contain}' +
+        '.wml-gd-memo-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:12px}';
       document.head.appendChild(style);
     }
 
@@ -78,59 +96,76 @@ WML.define({
 
     function requestGoogleToken() {
       return new Promise((resolve, reject) => {
-        let bridge;
-        let timeout;
+        const unavailable = authAvailabilityMessage();
+        if (unavailable) { reject(new Error(unavailable)); return; }
+
+        let popup = null;
+        let timeout = null;
+        let poll = null;
         let settled = false;
-        const bridgeUrl = new URL(AUTH_BRIDGE_URL);
-        const bridgeOrigin = bridgeUrl.origin;
-        const nonceBytes = new Uint8Array(24);
-        try { globalThis.crypto.getRandomValues(nonceBytes); }
-        catch (_) { reject(new Error('이 브라우저에서 안전한 로그인 연결을 만들 수 없습니다.')); return; }
-        const nonce = Array.from(nonceBytes, byte => byte.toString(16).padStart(2, '0')).join('');
-        // file:// pages have an opaque "null" origin. Google OAuth still runs on
-        // our HTTPS bridge; only the return message needs the opaque-origin fallback.
-        const isFileExecution = window.location.protocol === 'file:';
-        const targetOrigin = isFileExecution ? 'null' : window.location.origin;
-        if ((!isFileExecution && targetOrigin === 'null') || !/^(https?|file):$/.test(window.location.protocol)) {
-          reject(new Error('지원하지 않는 실행 주소입니다. file://, HTTP 또는 HTTPS에서 실행해 주세요.'));
+        let state = '';
+        try {
+          const bytes = new Uint8Array(24);
+          if (globalThis.crypto && typeof globalThis.crypto.getRandomValues === 'function') {
+            globalThis.crypto.getRandomValues(bytes);
+            state = Array.from(bytes, value => value.toString(16).padStart(2, '0')).join('');
+          } else {
+            state = String(Date.now()) + '-' + Math.random().toString(36).slice(2) + '-' + Math.random().toString(36).slice(2);
+          }
+          const url = new URL(AUTH_BRIDGE_URL);
+          url.searchParams.set('state', state);
+          // Must open synchronously during the user's click to avoid popup blocking.
+          popup = window.open(url.toString(), 'waywardGoogleDriveAuth', 'popup,width=520,height=700');
+          if (!popup) {
+            reject(new Error('Google 인증 창이 차단되었습니다. 팝업을 허용한 뒤 다시 시도해 주세요.'));
+            return;
+          }
+        } catch (error) {
+          reject(new Error('Google 인증 창을 열지 못했습니다: ' + String(error && error.message || error)));
           return;
         }
-        bridgeUrl.searchParams.set('origin', targetOrigin);
-        bridgeUrl.searchParams.set('nonce', nonce);
+
         const cleanup = () => {
           window.removeEventListener('message', onMessage);
           if (timeout) clearTimeout(timeout);
+          if (poll) clearInterval(poll);
         };
-        const fail = error => {
+        const finish = (error, response) => {
           if (settled) return;
           settled = true;
           cleanup();
-          try { if (bridge && !bridge.closed) bridge.close(); } catch (_) {}
-          reject(error instanceof Error ? error : new Error(String(error || 'Google 연결에 실패했습니다.')));
-        };
-        const onMessage = event => {
-          if (event.origin !== bridgeOrigin || event.source !== bridge || !event.data || event.data.nonce !== nonce) return;
-          if (event.data.type === 'wayward-cloud-auth-error') {
-            fail(new Error(event.data.message || 'Google 로그인이 취소되었거나 실패했습니다.'));
+          if (error) {
+            try { if (popup && !popup.closed) popup.close(); } catch (_) {}
+            reject(error instanceof Error ? error : new Error(String(error || 'Google 로그인에 실패했습니다.')));
             return;
           }
-          if (event.data.type !== 'wayward-cloud-auth-success' || !event.data.accessToken) return;
-          settled = true;
-          cleanup();
-          accessToken = String(event.data.accessToken);
-          tokenExpiresAt = Date.now() + Math.max(60, Number(event.data.expiresIn) || 3600) * 1000;
-          try { if (bridge && !bridge.closed) bridge.close(); } catch (_) {}
+          if (!response || !response.accessToken) {
+            reject(new Error('Google 인증 페이지에서 액세스 토큰을 받지 못했습니다.'));
+            return;
+          }
+          accessToken = String(response.accessToken);
+          tokenExpiresAt = Date.now() + Math.max(60, Number(response.expiresIn) || 3600) * 1000;
           resolve();
         };
-        window.addEventListener('message', onMessage);
-        bridge = window.open(bridgeUrl.toString(), 'waywardGoogleDriveAuth',
-          'popup=yes,width=520,height=720,resizable=yes,scrollbars=yes');
-        if (!bridge) {
-          cleanup();
-          reject(new Error('로그인 창이 차단되었습니다. 팝업을 허용한 뒤 다시 눌러 주세요.'));
-          return;
+        function onMessage(event) {
+          if (event.origin !== AUTH_BRIDGE_ORIGIN || event.source !== popup) return;
+          const data = event.data;
+          if (!data || data.type !== 'wayward-google-drive-auth' || data.state !== state) return;
+          if (data.error) {
+            finish(new Error(String(data.error)));
+            return;
+          }
+          finish(null, data);
         }
-        timeout = setTimeout(() => fail(new Error('Google 연결 시간이 초과되었습니다. 로그인 창에서 승인을 완료했는지 확인해 주세요.')), 180000);
+        window.addEventListener('message', onMessage);
+        timeout = setTimeout(() => finish(new Error('Google 로그인 시간이 초과되었습니다. 다시 시도해 주세요.')), 180000);
+        poll = setInterval(() => {
+          try {
+            if (popup && popup.closed && !settled) {
+              finish(new Error('Google 인증 창이 닫혔습니다. 다시 연결해 주세요.'));
+            }
+          } catch (_) {}
+        }, 500);
       });
     }
 
@@ -404,7 +439,7 @@ WML.define({
       // otherwise the browser may treat it as an unsolicited popup.
       const task = requestGoogleToken();
       busy = true;
-      message = 'Google 로그인 창을 여는 중…';
+      message = 'Google 인증 창을 여는 중…';
       render();
       task
         .then(() => refreshSlots())
@@ -453,20 +488,31 @@ WML.define({
     }
 
     function showMemoPopup(memo) {
-      const overlay = document.createElement('div');
-      overlay.className = 'wml-gd-memo-overlay';
-      const box = document.createElement('div');
-      box.className = 'wml-gd-memo-box';
-      box.setAttribute('role', 'dialog');
-      box.setAttribute('aria-modal', 'true');
-      box.textContent = String(memo || '');
-      overlay.append(box);
-      const close = () => { overlay.remove(); document.removeEventListener('keydown', onKeyDown, true); };
-      const onKeyDown = event => { if (event.key === 'Escape') { event.preventDefault(); close(); } };
-      overlay.addEventListener('click', close);
-      box.addEventListener('click', event => event.stopPropagation());
-      document.addEventListener('keydown', onKeyDown, true);
-      document.body.append(overlay);
+      // Use WML's own window manager rather than appending a document-level overlay.
+      // This keeps the memo above the game's React/modal layers and gives it the same
+      // focus, stacking, and close behavior as the rest of the mod UI.
+      if (memoWin && memoWin.el && memoWin.el.isConnected) {
+        try { memoWin.close(); } catch (_) {}
+      }
+      const text = String(memo || '');
+      memoWin = api.ui.window({
+        id: 'cloud-save-google-drive-memo',
+        title: '저장 메모',
+        width: 420,
+        height: 360,
+        render(body) {
+          body.replaceChildren();
+          const root = h('div', { class: 'wml-gd-wrap', 'data-wml-ui': 'true' });
+          const content = h('div', { class: 'wml-gd-memo-content', role: 'document' }, text || '저장된 메모가 없습니다.');
+          const actions = h('div', { class: 'wml-gd-memo-actions' });
+          actions.append(button('닫기', () => {
+            if (memoWin) memoWin.close();
+            memoWin = null;
+          }, { primary: true }));
+          root.append(content, actions);
+          body.append(root);
+        }
+      });
     }
 
     function renderSlots(root) {
@@ -502,12 +548,21 @@ WML.define({
       if (view.page === 'home') {
         addTitle(root, '개인 Google Drive 세이브');
         addText(root,
-          '구글계정으로 연결하면 현재 진행 상황이 암호화되어 드라이브에 직접 저장됩니다.');
-        addButton(root, hasToken() ? '저장 목록 새로고침' : 'Google 계정으로 연결',
-          hasToken() ? () => runAction(async () => {
+          'Google 인증 창에서 로그인한 뒤 진행 상황을 게임 안에서 암호화해 Google Drive 앱 전용 공간에 직접 저장합니다. 인증용 HTTPS 페이지만 사용하며 세이브 중계 서버는 사용하지 않습니다.');
+        const authIssue = authAvailabilityMessage();
+        if (hasToken()) {
+          addButton(root, '저장 목록 새로고침', () => runAction(async () => {
             await refreshSlots();
             show({ page: 'home' }, '저장 목록을 새로고침했습니다.');
-          }) : connectFromClick, true);
+          }), true);
+        } else if (!authIssue) {
+          addButton(root, 'Google 계정으로 로그인', connectFromClick, true);
+        } else {
+          addText(root, authIssue);
+          if (!GOOGLE_CLIENT_ID || GOOGLE_CLIENT_ID.startsWith('REPLACE_WITH_')) {
+            addText(root, '로그인 기능을 활성화하려면 모드에 공개 Google OAuth 클라이언트 ID를 설정해야 합니다. 클라이언트 보안 비밀번호는 넣지 마세요.', 'wml-gd-small');
+          }
+        }
         addButton(root, '연결 해제', () => {
           clearToken();
           show({ page: 'home' }, '현재 페이지 메모리에서 Google 연결을 해제했습니다.');
@@ -516,7 +571,7 @@ WML.define({
           ? '상태: 연결됨 (액세스 토큰은 현재 페이지 메모리에만 보관)'
           : '상태: 연결되지 않음', 'wml-gd-small');
         if (hasToken()) renderSlots(root);
-        else addText(root, '로그인 창에서 Google 계정을 선택해 주세요.');
+        else if (!authIssue) addText(root, '별도 Google 인증 창에서 계정을 선택하고 Drive 접근을 승인한 뒤, 인증 창으로 돌아와 완료해 주세요.');
         addMessage(root);
       } else if (view.page === 'save') {
         addTitle(root, '저장 슬롯 ' + view.slot + ' 저장');

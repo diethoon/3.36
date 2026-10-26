@@ -1,18 +1,23 @@
-Wayward Google Drive CloudSave — OAuth redirect build
+Wayward Google Drive CloudSave — HTTPS popup auth build
 
 Install:
 1. Copy the cloud-save folder into the game's wml/mods/ directory.
 2. Make sure cloud-save is listed in the existing wml/mods/mods.js WML.enable([...]) list. Preserve the other entries.
-3. In Vercel, configure GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET. OAUTH_STATE_SECRET is recommended (random, at least 32 characters).
-4. In Google Cloud, register the exact redirect URI: https://wayward-cloud-auth.vercel.app/api/oauth/callback
-5. Open the game and choose 클라우드세이브 > Google 계정으로 연결. The existing popup will navigate through Google authorization and return to the game.
+3. The existing public Google OAuth Web client ID is configured in mod.js. Never add a client secret to the mod.
+4. Deploy cloud-save-auth/popup.html as a static route in the existing Vercel project at https://wayward-cloud-auth.vercel.app/popup.html.
+5. In the Google OAuth Web client, keep https://wayward-cloud-auth.vercel.app as an Authorized JavaScript origin.
+6. Open the game normally, including by double-clicking the HTML file (file://), or through a local/remote HTTP(S) server. Choose 클라우드세이브 > Google 계정으로 로그인. Allow the auth popup if prompted.
 
-End users do not create their own Google Cloud project, OAuth client ID, API key, or client secret.
+The game opens a separate HTTPS auth popup. Google sign-in happens there, then the access token is sent to the original game window through a state-checked postMessage. Save data is encrypted in the game and uploaded directly to Google Drive appDataFolder. The auth page is not a save relay and does not store save data.
 
-file:// is supported on compatible browsers after confirming the local-file warning in the bridge. Because local-file origins are opaque, HTTPS/localhost/AWebServer is preferred when browser restrictions interfere. Never put GOOGLE_CLIENT_SECRET or OAUTH_STATE_SECRET in the mod ZIP or public repository.
+Note: code changes do not automatically update an already-deployed Vercel project unless that deployment is configured to deploy this branch/path. Deploy the updated static auth page before testing.
 
-최종 설계 변경 사항 (2026-10-26):
-- 새 세이브는 AES-256-GCM으로 자동 암호화/복호화되며 Drive에 별도 키 파일을 만들지 않습니다.
-- 각 저장 슬롯에 선택 메모와 진행 정보가 표시됩니다. 메모를 누르면 메모 내용만 간단한 팝업으로 표시됩니다.
-- 파일 내보내기/가져오기 UI는 제거했습니다.
-- 모드 코드에서 복원되는 키는 코드 분석으로 추출할 수 있으므로 강한 비밀키로 볼 수 없습니다.
+Access tokens remain in game-page memory only. Popup restrictions or browser security behavior may affect file:// environments; the full flow still requires real-device testing.
+
+Never put GOOGLE_CLIENT_SECRET or other secrets in the mod ZIP or public repository.
+
+Existing save behavior:
+- New saves are encrypted/decrypted automatically by the mod.
+- Older encrypted saves can be loaded with their original passphrase and converted to the current format.
+- Optional slot memos and save summaries are retained.
+- The key embedded in the mod is extractable by inspecting its code; do not treat it as a strong secret.
