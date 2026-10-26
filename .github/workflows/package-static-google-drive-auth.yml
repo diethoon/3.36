@@ -1,0 +1,121 @@
+name: Package GitHub Pages Google Drive CloudSave
+
+on:
+  push:
+    branches:
+      - package/static-google-drive-auth-20261026
+    paths:
+      - '.github/workflows/package-static-google-drive-auth.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate-and-package:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Validate WML addon and GitHub Pages OAuth helper
+        shell: bash
+        run: |
+          set -euo pipefail
+          MOD='Wayward_MOD_v4.0_WML_검수완료/wml/mods/cloud-save'
+          node --check "$MOD/mod.js"
+          node --check "$MOD/crypto.js"
+          node --check cloud-save-auth-static/config.js
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          import vm from 'node:vm';
+          const mod = fs.readFileSync('Wayward_MOD_v4.0_WML_검수완료/wml/mods/cloud-save/mod.js', 'utf8');
+          const html = fs.readFileSync('cloud-save-auth-static/index.html', 'utf8');
+          const config = fs.readFileSync('cloud-save-auth-static/config.js', 'utf8');
+          const authUrl = 'https://diethoon.github.io/3.36/cloud-save-auth-static/';
+          if (!mod.includes(authUrl)) throw new Error('WML addon does not target the GitHub Pages auth helper');
+          if (mod.includes('/api/oauth/callback') || mod.includes('wayward-cloud-auth.vercel.app')) throw new Error('Stale Vercel OAuth callback flow detected in addon');
+          if (!html.includes('src="./config.js"')) throw new Error('Static helper does not load config.js');
+          if (!html.includes('google.accounts.oauth2.initTokenClient')) throw new Error('Google Identity Services token-client flow missing');
+          for (const marker of ['wayward-cloud-auth-success', 'wayward-cloud-auth-error', 'nonce', 'drive.appdata', 'window.opener.postMessage']) {
+            if (!html.includes(marker)) throw new Error('Static OAuth helper marker missing: ' + marker);
+          }
+          if (!/WAYWARD_GOOGLE_CLIENT_ID\s*=\s*['"][^'"]+\.apps\.googleusercontent\.com['"]/.test(config)) {
+            throw new Error('Public OAuth client ID is missing or malformed in config.js');
+          }
+          const scripts = [...html.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/g)];
+          const inline = scripts.filter(m => m[1].trim());
+          if (!inline.length) throw new Error('No inline OAuth helper script found');
+          for (let i = 0; i < inline.length; i++) new vm.Script(inline[i][1], { filename: 'cloud-save-auth-static/index.html#inline-' + i });
+          console.log('WML addon syntax, static auth script syntax, client ID, URL, and token-message markers passed');
+          NODE
+      - name: Check whether the published GitHub Pages auth URL is live
+        id: live_page
+        shell: bash
+        run: |
+          set +e
+          code="$(curl --location --silent --show-error --max-time 20 --output /tmp/live-auth.html --write-out '%{http_code}' 'https://diethoon.github.io/3.36/cloud-save-auth-static/')"
+          curl_rc=$?
+          set -e
+          echo "http_status=$code" >> "$GITHUB_OUTPUT"
+          if [ "$curl_rc" -eq 0 ] && [ "$code" = '200' ] && grep -q 'Wayward 클라우드세이브 인증' /tmp/live-auth.html; then
+            printf 'LIVE CHECK: HTTP 200; title marker matched at https://diethoon.github.io/3.36/cloud-save-auth-static/\n' > /tmp/auth-page-status.txt
+            echo 'Published auth page is live and returns expected page marker.'
+          else
+            printf 'LIVE CHECK FAILED: expected HTTP 200 and the Wayward auth page title, got HTTP %s (curl exit %s). Local page files are included in this package, but the published URL is not verified live.\n' "$code" "$curl_rc" > /tmp/auth-page-status.txt
+            echo '::warning::Published GitHub Pages auth URL was not verified live.'
+            cat /tmp/auth-page-status.txt
+          fi
+      - name: Assemble installable package
+        shell: bash
+        run: |
+          set -euo pipefail
+          MOD='Wayward_MOD_v4.0_WML_검수완료/wml/mods/cloud-save'
+          mkdir -p dist/Wayward-Google-Drive-CloudSave-GitHubPages-v0.4.0
+          OUT='dist/Wayward-Google-Drive-CloudSave-GitHubPages-v0.4.0'
+          cp -R "$MOD" "$OUT/cloud-save"
+          cp -R cloud-save-auth-static "$OUT/cloud-save-auth-static"
+          cp /tmp/auth-page-status.txt "$OUT/AUTH-PAGE-STATUS.txt"
+          cat > "$OUT/INSTALL.txt" <<'TXT'
+          Wayward Google Drive CloudSave — GitHub Pages authentication build
+
+          1. Copy the cloud-save folder to the game's wml/mods/cloud-save directory.
+          2. Add 'cloud-save' to the existing WML.enable([...]) list in wml/mods/mods.js. Preserve every existing entry and do not add duplicates.
+          3. The add-on opens this static Google authentication page:
+             https://diethoon.github.io/3.36/cloud-save-auth-static/
+          4. The auth helper requires the matching cloud-save-auth-static/index.html and config.js to be published at that path on GitHub Pages. The matching files are included beside this note.
+          5. In Google Cloud Console, the existing OAuth Web client must have https://diethoon.github.io in Authorized JavaScript origins and the Google Drive API enabled. This flow uses Google Identity Services in the static helper; it does not use /api/oauth/callback and does not need a client secret in the mod.
+          6. Open the game normally, including file://, localhost/AWebServer, LAN HTTP, or HTTPS. Choose 클라우드세이브 > Google 계정으로 연결. Allow the popup if prompted. For file:// or unrecognized local/custom origins, confirm the origin on the auth page only when it is the game you opened yourself.
+          7. Tokens are kept only in the game page's memory. Save data is encrypted in the game and uploaded directly to Google Drive appDataFolder. The auth page does not store tokens or save data.
+
+          IMPORTANT: Read AUTH-PAGE-STATUS.txt. If it says the published URL was not verified live, deploy the included cloud-save-auth-static folder to the repo's GitHub Pages source at /cloud-save-auth-static/ before expecting login to work.
+          TXT
+          cat > "$OUT/cloud-save/README.md" <<'TXT'
+          # Google Drive CloudSave (GitHub Pages auth)
+
+          Install this folder in wml/mods/cloud-save and ensure cloud-save is in the existing WML enable list.
+
+          Authentication helper:
+          https://diethoon.github.io/3.36/cloud-save-auth-static/
+
+          The helper uses Google Identity Services token flow from a static page; there is no Vercel callback endpoint or server-side token exchange. See the sibling cloud-save-auth-static folder and the root INSTALL.txt.
+
+          Saves are encrypted in the game page and stored directly in Google Drive appDataFolder. Access tokens stay in memory and may need to be renewed after reopening the game. The mod's embedded encryption key is extractable from the code, so it should not be treated as a strong secret.
+          TXT
+          (cd dist && zip -qr ../Wayward-Google-Drive-CloudSave-GitHubPages-v0.4.0.zip Wayward-Google-Drive-CloudSave-GitHubPages-v0.4.0)
+          unzip -t Wayward-Google-Drive-CloudSave-GitHubPages-v0.4.0.zip
+          sha256sum Wayward-Google-Drive-CloudSave-GitHubPages-v0.4.0.zip > SHA256SUMS.txt
+      - name: Upload validated package
+        uses: actions/upload-artifact@v4
+        with:
+          name: Wayward-Google-Drive-CloudSave-GitHubPages-v0.4.0
+          path: |
+            Wayward-Google-Drive-CloudSave-GitHubPages-v0.4.0.zip
+            SHA256SUMS.txt
+          if-no-files-found: error
+          retention-days: 30
