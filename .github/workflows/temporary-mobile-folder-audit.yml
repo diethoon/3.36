@@ -10,27 +10,24 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Extract picker handler and folder scan in small chunks
+      - name: Inspect only targeted loader snippets and archive inventory
         shell: bash
         run: |
           python3 - <<'PY'
           import zipfile
           z=zipfile.ZipFile("Wayward_Faith_NoSound_v3.0.0.zip")
+          print("=== ZIP files related to pack.js ===")
+          for i in z.infolist():
+            if i.filename.lower().endswith("/pack.js") or i.filename.lower().endswith("\\pack.js"):
+              print(i.file_size, i.compress_size, i.filename)
           h=next(i for i in z.infolist() if i.filename.lower().endswith(".html") and "Wayward_Faith_v3.0.0" in i.filename)
-          terms=["image-packs 폴더 선택","wfPackScanFolder(e.target.files)","wfPackScanFolder(","setLoading","읽는 중…","const [loading","wfPackValidate","wfPackLoadCatalogues","async function mx","function mx("]
-          with z.open(h) as f:
-            data=f.read()
+          with z.open(h) as f: data=f.read()
           low=data.lower()
-          print("HTML bytes:",len(data))
+          terms=["function wfPackValidate","async function wfPackScanFolder","function wfPackDropOrphans","function wfPackRefreshClothes","function wfPackFreezeSelections","function wfPackFolderButton","function wfPackLoadCatalogues"]
           for term in terms:
             needle=term.encode().lower()
-            positions=[]
-            p=0
-            while len(positions)<3:
-              p=low.find(needle,p)
-              if p<0: break
-              positions.append(p); p+=len(needle)
-            print(f"\\n=== {term} positions={positions} ===")
-            for pos in positions:
-              print(data[max(0,pos-1800):min(len(data),pos+3000)].decode("utf-8","replace"))
+            pos=low.find(needle)
+            print(f"\\n=== {term} offset={pos} ===")
+            if pos>=0:
+              print(data[max(0,pos-500):min(len(data),pos+5500)].decode("utf-8","replace"))
           PY
