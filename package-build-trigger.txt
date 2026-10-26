@@ -1,1 +1,1 @@
-Re-run package and verify the GitHub Pages auth URL after publishing cloud-save-auth-static on main.
+Re-run live GitHub Pages auth URL probe after publishing helper to main and wml.
