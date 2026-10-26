@@ -37,6 +37,8 @@ WML.define({
     let accessToken = '';
     let tokenExpiresAt = 0;
     let driveSlots = [];
+    let slotsStatus = 'not-loaded'; // not-loaded | loading | loaded | error
+    let slotsError = '';
     const SESSION_POLICY_KEY = 'wml-google-drive-session-policy-v1';
     const SESSION_TOKEN_KEY = 'wml-google-drive-session-token-v1';
     let sessionPolicy = 'persistent';
@@ -108,6 +110,8 @@ WML.define({
       accessToken = '';
       tokenExpiresAt = 0;
       driveSlots = [];
+      slotsStatus = 'not-loaded';
+      slotsError = '';
       writeStorage(SESSION_TOKEN_KEY, null);
     }
 
@@ -212,6 +216,10 @@ WML.define({
     }
 
     async function refreshSlots() {
+      slotsStatus = 'loading';
+      slotsError = '';
+      if (isConnected()) render();
+      try {
       const slots = new Map(); let pageToken = '';
       do {
         const params = new URLSearchParams({ spaces: 'appDataFolder', pageSize: '100', q: 'trashed = false', fields: 'files(id,name,modifiedTime,size),nextPageToken' });
@@ -237,7 +245,14 @@ WML.define({
           } else { file.memo = ''; file.summary = ''; }
         } catch (_) { file.memo = ''; file.summary = ''; file.unreadable = true; }
       }
+      slotsStatus = 'loaded';
+      slotsError = '';
       return driveSlots;
+      } catch (error) {
+        slotsStatus = 'error';
+        slotsError = String(error && error.message || error || '저장목록을 확인하지 못했습니다.');
+        throw error;
+      }
     }
 
     function currentFile(slot) {
@@ -405,6 +420,11 @@ WML.define({
         win.focus();
         win.refresh();
       } else openWindow();
+      // A restored token does not imply that the Drive file list has been restored.
+      // Fetch it on first open and never render an unverified empty list as empty slots.
+      if (hasToken() && slotsStatus !== 'loaded' && slotsStatus !== 'loading') {
+        runAction(() => refreshSlots());
+      }
     }
 
     function addText(root, text, cls) {
@@ -626,8 +646,20 @@ WML.define({
             ? '상태: 연결됨 (토큰 유효 기간 동안 재실행 시 복원)'
             : '상태: 연결됨 (새로고침하면 로그아웃)')
           : '상태: 연결되지 않음', 'wml-gd-small');
-        if (hasToken()) renderSlots(root);
-        else addText(root, '로그인 창에서 Google 계정을 선택해 주세요.');
+        if (hasToken()) {
+          if (slotsStatus === 'loaded') {
+            renderSlots(root);
+          } else if (slotsStatus === 'loading') {
+            addText(root, 'Google Drive 저장목록 확인 중…');
+          } else if (slotsStatus === 'error') {
+            addText(root, '저장목록을 확인하지 못했습니다. 저장 파일이 삭제된 것은 아닙니다. 연결 상태를 확인한 뒤 다시 시도해 주세요.');
+            if (slotsError) addText(root, slotsError, 'wml-gd-small');
+            addButton(root, '저장목록 다시 확인', () => runAction(() => refreshSlots()), true);
+          } else {
+            addText(root, '저장목록을 아직 확인하지 않았습니다. 저장 파일이 없는 상태가 아닙니다.');
+            addButton(root, '저장목록 확인', () => runAction(() => refreshSlots()), true);
+          }
+        } else addText(root, '로그인 창에서 Google 계정을 선택해 주세요.');
         addMessage(root);
       } else if (view.page === 'save') {
         addTitle(root, '저장 슬롯 ' + view.slot + ' 저장');
