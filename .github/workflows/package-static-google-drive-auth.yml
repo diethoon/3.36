@@ -6,6 +6,7 @@ on:
       - package/static-google-drive-auth-20261026
     paths:
       - '.github/workflows/package-static-google-drive-auth.yml'
+      - 'package-build-trigger.txt'
   workflow_dispatch:
 
 permissions:
