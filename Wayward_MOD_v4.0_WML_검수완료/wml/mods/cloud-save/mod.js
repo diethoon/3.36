@@ -64,9 +64,9 @@ WML.define({
         '.wml-gd-memo-area{box-sizing:border-box;width:100%;min-height:72px;resize:vertical;padding:9px 11px;border:1px solid var(--wml-border,#7778);border-radius:8px;background:var(--wml-panel,#00000010);color:inherit;font:inherit}' +
         '.wml-gd-small{font-size:.82em;opacity:.72}' +
         '.wml-gd-wrap button{max-width:100%}' +
-        '.wml-gd-memo-overlay{position:fixed;inset:0;z-index:2147483000;display:flex;align-items:center;justify-content:center;padding:20px;background:rgba(0,0,0,.48)}' +
+        '.wml-gd-memo-overlay{position:fixed;inset:0;z-index:2147483647;display:flex;align-items:center;justify-content:center;box-sizing:border-box;width:100%;height:100%;max-width:none;max-height:none;margin:0;padding:20px;border:0;background:rgba(0,0,0,.48);color:inherit}' +
         '.wml-gd-memo-box{box-sizing:border-box;max-width:min(92vw,480px);max-height:75vh;overflow:auto;padding:16px 18px;border:1px solid var(--wml-border,#7778);border-radius:10px;background:var(--wml-panel,Canvas);color:var(--wml-text,CanvasText);white-space:pre-wrap;overflow-wrap:anywhere;box-shadow:0 8px 30px #0005}' +
-        '.wml-gd-session-overlay{position:fixed;inset:0;z-index:2147483001;display:flex;align-items:center;justify-content:center;padding:20px;background:rgba(0,0,0,.55)}' +
+        '.wml-gd-session-overlay{position:fixed;inset:0;z-index:2147483647;display:flex;align-items:center;justify-content:center;box-sizing:border-box;width:100%;height:100%;max-width:none;max-height:none;margin:0;padding:20px;border:0;background:rgba(0,0,0,.55);color:inherit}' +
         '.wml-gd-session-box{box-sizing:border-box;width:min(92vw,440px);max-height:85vh;overflow:auto;padding:18px;border:1px solid var(--wml-border,#7778);border-radius:12px;background:var(--wml-panel,Canvas);color:var(--wml-text,CanvasText);box-shadow:0 8px 30px #0005}' +
         '.wml-gd-session-box h3{margin:0 0 10px}' +
         '.wml-gd-session-box p{line-height:1.45}' +
@@ -507,7 +507,7 @@ WML.define({
     }
 
     function showSessionSettingsPopup() {
-      const overlay = document.createElement('div');
+      const overlay = document.createElement('dialog');
       overlay.className = 'wml-gd-session-overlay';
       overlay.setAttribute('data-wml-ui', 'true');
       const box = document.createElement('div');
@@ -520,7 +520,7 @@ WML.define({
       description.textContent = '로그인 최대한 유지는 액세스 토큰이 유효한 동안 새로고침과 브라우저 재실행 후 연결을 복원합니다. Google 액세스 토큰은 보통 약 1시간 후 만료되며, 만료 후에는 다시 로그인해야 합니다.';
       const actions = document.createElement('div');
       actions.className = 'wml-gd-session-actions';
-      const close = () => { overlay.remove(); document.removeEventListener('keydown', onKeyDown, true); };
+      const close = () => { if (overlay.open) overlay.close(); overlay.remove(); document.removeEventListener('keydown', onKeyDown, true); };
       const addChoice = (label, policy, detail) => {
         const choice = document.createElement('button');
         choice.type = 'button';
@@ -554,10 +554,12 @@ WML.define({
       const onKeyDown = event => { if (event.key === 'Escape') { event.preventDefault(); close(); } };
       document.addEventListener('keydown', onKeyDown, true);
       document.body.append(overlay);
+      if (typeof overlay.showModal === 'function') overlay.showModal();
+      else { overlay.setAttribute('open', ''); }
     }
 
     function showMemoPopup(memo) {
-      const overlay = document.createElement('div');
+      const overlay = document.createElement('dialog');
       overlay.className = 'wml-gd-memo-overlay';
       const box = document.createElement('div');
       box.className = 'wml-gd-memo-box';
@@ -565,12 +567,14 @@ WML.define({
       box.setAttribute('aria-modal', 'true');
       box.textContent = String(memo || '');
       overlay.append(box);
-      const close = () => { overlay.remove(); document.removeEventListener('keydown', onKeyDown, true); };
+      const close = () => { if (overlay.open) overlay.close(); overlay.remove(); document.removeEventListener('keydown', onKeyDown, true); };
       const onKeyDown = event => { if (event.key === 'Escape') { event.preventDefault(); close(); } };
       overlay.addEventListener('click', close);
       box.addEventListener('click', event => event.stopPropagation());
       document.addEventListener('keydown', onKeyDown, true);
       document.body.append(overlay);
+      if (typeof overlay.showModal === 'function') overlay.showModal();
+      else { overlay.setAttribute('open', ''); }
     }
 
     function renderSlots(root) {
