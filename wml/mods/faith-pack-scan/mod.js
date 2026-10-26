@@ -1,51 +1,27 @@
-// Faith 이미지팩 폴더 등록 완화 모드
-// 대량의 이미지 파일이 포함된 폴더 선택 뒤 메인 스레드가 장시간 막히는 것을 줄입니다.
-// 원본 HTML은 수정하지 않습니다. 등록 함수에는 pack.js 파일만 전달합니다.
+// Faith 이미지팩 폴더 등록 개선 모드
+// 핵심: 대규모 FileList 전체를 게임의 기존 change 처리기에 넘기지 않고,
+// image-packs 내부의 pack.js만 남긴 FileList로 교체한 뒤 원래 이벤트를 재실행합니다.
+// 원본 HTML 및 기존 등록 함수를 직접 수정하지 않습니다.
 WML.define({
   id: 'faith-pack-scan',
   name: { ko: 'Faith 이미지팩 등록 개선', en: 'Faith image-pack registration helper' },
-  version: '0.1.0',
+  version: '0.2.0',
   game: 'faith',
   author: 'WML',
   tags: ['util'],
   description: {
-    ko: '이미지팩 폴더 선택 후 파일 목록을 나눠 처리하고, pack.js만 기존 등록기에 전달합니다.',
-    en: 'Processes folder selections in small batches and passes only pack.js files to the existing registrar.',
+    ko: '폴더 선택 결과에서 pack.js만 추려 게임의 기존 등록 처리를 실행합니다.',
+    en: 'Filters folder selection to pack.js files before invoking the game’s existing registration handler.',
   },
 
   setup(api) {
-    const INPUT_SELECTOR = 'input[type="file"][webkitdirectory][aria-label="이미지팩 폴더 갱신"]';
-    const CHUNK_SIZE = 384;
+    const INPUT_SELECTOR = 'input[type="file"][webkitdirectory][aria-label="이미지팩 폴더 갱신"], input[type="file"][webkitdirectory][aria-label*="이미지팩"]';
+    const CHUNK_SIZE = 256;
     const attached = new WeakSet();
+    const replaying = new WeakSet();
     let observer = null;
 
-    const getScan = () => {
-      try {
-        const fn = api.fn('wfPackScanFolder');
-        return typeof fn === 'function' ? fn : null;
-      } catch {
-        return null;
-      }
-    };
-
     const yieldToBrowser = () => new Promise(resolve => setTimeout(resolve, 0));
-
-    async function selectPackScripts(fileList) {
-      const found = [];
-      const total = Number(fileList?.length) || 0;
-      for (let start = 0; start < total; start += CHUNK_SIZE) {
-        const end = Math.min(total, start + CHUNK_SIZE);
-        for (let i = start; i < end; i++) {
-          const file = typeof fileList.item === 'function' ? fileList.item(i) : fileList[i];
-          if (!file) continue;
-          const path = String(file.webkitRelativePath || '').replace(/\\/g, '/');
-          if (!path.toLowerCase().includes('image-packs/') || !path.toLowerCase().endsWith('/pack.js')) continue;
-          found.push(file);
-        }
-        if (end < total) await yieldToBrowser();
-      }
-      return found;
-    }
 
     function setLabel(label, text) {
       if (!label) return;
@@ -68,44 +44,81 @@ WML.define({
       status.style.color = isError ? '#fca5a5' : '#fcd34d';
     }
 
+    async function selectPackScripts(fileList) {
+      const found = [];
+      const total = Number(fileList?.length) || 0;
+      for (let start = 0; start < total; start += CHUNK_SIZE) {
+        const end = Math.min(total, start + CHUNK_SIZE);
+        for (let i = start; i < end; i++) {
+          const file = typeof fileList.item === 'function' ? fileList.item(i) : fileList[i];
+          if (!file) continue;
+          const path = String(file.webkitRelativePath || '').replace(/\\\\/g, '/');
+          if (!path.toLowerCase().includes('image-packs/') || !path.toLowerCase().endsWith('/pack.js')) continue;
+          found.push(file);
+        }
+        if (end < total) await yieldToBrowser();
+      }
+      return found;
+    }
+
     function attach(input) {
       if (attached.has(input)) return;
       attached.add(input);
 
-      input.addEventListener('change', async event => {
-        const scan = getScan();
-        const files = input.files;
-        // If the Faith registrar is not exposed in this runtime, leave the original handler untouched.
-        if (!scan || !files?.length) return;
+      const label = input.closest('label');
+      showStatus(input, '이미지팩 등록 개선 모드 활성화됨. 폴더 선택 후 처리 상태가 여기에 표시됩니다.');
 
+      input.addEventListener('change', async event => {
+        // The replayed event must reach the game's original React/native handler.
+        if (replaying.has(input)) {
+          replaying.delete(input);
+          return;
+        }
+
+        const files = input.files;
+        if (!files?.length) return;
+
+        // Stop the original handler before it can iterate over tens of thousands of images.
         event.preventDefault();
         event.stopPropagation();
         event.stopImmediatePropagation();
 
-        const label = input.closest('label');
         const oldText = label
           ? (Array.from(label.childNodes).find(node => node.nodeType === Node.TEXT_NODE)?.nodeValue || 'image-packs 폴더 선택')
           : 'image-packs 폴더 선택';
+
         input.disabled = true;
-        setLabel(label, '이미지팩 파일 목록 정리 중…');
-        showStatus(input, `폴더 파일 ${files.length.toLocaleString()}개를 작은 단위로 확인하고 있습니다.`);
+        setLabel(label, '이미지팩 목록 정리 중…');
+        showStatus(input, `선택된 파일 ${files.length.toLocaleString()}개를 나눠 확인합니다.`);
 
         try {
           const packFiles = await selectPackScripts(files);
           if (!packFiles.length) {
-            throw new Error('선택한 폴더에서 image-packs/*/pack.js 파일을 찾지 못했습니다. image-packs 폴더 자체를 선택했는지 확인해 주세요.');
+            throw new Error('image-packs/*/pack.js 파일을 찾지 못했습니다. image-packs 폴더 자체를 선택했는지 확인해 주세요.');
+          }
+          if (typeof DataTransfer === 'undefined') {
+            throw new Error('이 브라우저에서 파일 목록을 안전하게 교체할 수 없습니다(DataTransfer 미지원). 원본 대량 처리는 실행하지 않았습니다.');
           }
 
-          setLabel(label, `이미지팩 ${packFiles.length.toLocaleString()}개 등록 중…`);
-          showStatus(input, `이미지팩 스크립트 ${packFiles.length.toLocaleString()}개를 등록하고 있습니다.`);
-          // The original registrar now receives a small list of metadata scripts, never the image files.
-          const count = await scan(packFiles);
-          showStatus(input, `이미지팩 ${Number(count).toLocaleString()}개를 등록했습니다.`);
+          const transfer = new DataTransfer();
+          for (const file of packFiles) transfer.items.add(file);
+          input.files = transfer.files;
+          input.disabled = false;
+          setLabel(label, `이미지팩 ${packFiles.length.toLocaleString()}개 전달 중…`);
+          showStatus(input, `전체 ${files.length.toLocaleString()}개 중 pack.js ${packFiles.length.toLocaleString()}개만 게임 등록기에 전달합니다.`);
+
+          // Re-dispatch so the original game handler processes only the reduced FileList.
+          replaying.add(input);
+          input.dispatchEvent(new Event('change', { bubbles: true }));
+          setTimeout(() => {
+            input.value = '';
+            setLabel(label, oldText.trim() || 'image-packs 폴더 선택');
+            showStatus(input, `pack.js ${packFiles.length.toLocaleString()}개를 게임 등록기에 전달했습니다. 게임 화면의 등록 결과를 확인해 주세요.`);
+          }, 1200);
         } catch (error) {
           const message = error instanceof Error ? error.message : String(error);
-          showStatus(input, `이미지팩 등록 실패: ${message}`, true);
-          console.error('[faith-pack-scan] image-pack registration failed', error);
-        } finally {
+          showStatus(input, `이미지팩 처리 중단: ${message}`, true);
+          console.error('[faith-pack-scan] image-pack selection failed', error);
           input.value = '';
           input.disabled = false;
           setLabel(label, oldText.trim() || 'image-packs 폴더 선택');
@@ -124,7 +137,6 @@ WML.define({
       observer.observe(document.documentElement, { childList: true, subtree: true });
     }
 
-    // Keep the observer local to this mod; WML may unload the mod between sessions.
     return () => {
       try { observer?.disconnect(); } catch {}
     };
