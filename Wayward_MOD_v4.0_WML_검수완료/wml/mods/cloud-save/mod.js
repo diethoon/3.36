@@ -37,6 +37,11 @@ WML.define({
     let accessToken = '';
     let tokenExpiresAt = 0;
     let driveSlots = [];
+    let slotsStatus = 'not-loaded'; // not-loaded | loading | loaded | error
+    let slotsError = '';
+    const SESSION_POLICY_KEY = 'wml-google-drive-session-policy-v1';
+    const SESSION_TOKEN_KEY = 'wml-google-drive-session-token-v1';
+    let sessionPolicy = 'persistent';
 
     // Fixed HTTPS bridge avoids per-device Google OAuth origin setup.
     const AUTH_BRIDGE_URL = 'https://wayward-cloud-auth.vercel.app/';
@@ -61,8 +66,15 @@ WML.define({
         '.wml-gd-memo-area{box-sizing:border-box;width:100%;min-height:72px;resize:vertical;padding:9px 11px;border:1px solid var(--wml-border,#7778);border-radius:8px;background:var(--wml-panel,#00000010);color:inherit;font:inherit}' +
         '.wml-gd-small{font-size:.82em;opacity:.72}' +
         '.wml-gd-wrap button{max-width:100%}' +
-        '.wml-gd-memo-overlay{position:fixed;inset:0;z-index:2147483000;display:flex;align-items:center;justify-content:center;padding:20px;background:rgba(0,0,0,.48)}' +
-        '.wml-gd-memo-box{box-sizing:border-box;max-width:min(92vw,480px);max-height:75vh;overflow:auto;padding:16px 18px;border:1px solid var(--wml-border,#7778);border-radius:10px;background:var(--wml-panel,Canvas);color:var(--wml-text,CanvasText);white-space:pre-wrap;overflow-wrap:anywhere;box-shadow:0 8px 30px #0005}';
+        '.wml-gd-memo-overlay{position:fixed;inset:0;z-index:2147483647;display:flex;align-items:center;justify-content:center;box-sizing:border-box;width:100%;height:100%;max-width:none;max-height:none;margin:0;padding:20px;border:0;background:rgba(0,0,0,.48);color:inherit}' +
+        '.wml-gd-memo-box{box-sizing:border-box;max-width:min(92vw,480px);max-height:75vh;overflow:auto;padding:16px 18px;border:1px solid var(--wml-border,#7778);border-radius:10px;background:var(--wml-panel,Canvas);color:var(--wml-text,CanvasText);white-space:pre-wrap;overflow-wrap:anywhere;box-shadow:0 8px 30px #0005}' +
+        '.wml-gd-session-overlay{position:fixed;inset:0;z-index:2147483647;display:flex;align-items:center;justify-content:center;box-sizing:border-box;width:100%;height:100%;max-width:none;max-height:none;margin:0;padding:20px;border:0;background:rgba(0,0,0,.55);color:inherit}' +
+        '.wml-gd-session-box{box-sizing:border-box;width:min(92vw,440px);max-height:85vh;overflow:auto;padding:18px;border:1px solid var(--wml-border,#7778);border-radius:12px;background:var(--wml-panel,Canvas);color:var(--wml-text,CanvasText);box-shadow:0 8px 30px #0005}' +
+        '.wml-gd-session-box h3{margin:0 0 10px}' +
+        '.wml-gd-session-box p{line-height:1.45}' +
+        '.wml-gd-session-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}' +
+        '.wml-gd-session-actions button{flex:1 1 150px;min-height:40px;padding:8px 12px;border:1px solid var(--wml-border,#7778);border-radius:8px;background:var(--wml-panel,#00000010);color:inherit;font:inherit;cursor:pointer}' +
+        '.wml-gd-session-actions button[aria-pressed="true"]{outline:2px solid var(--wml-accent,#4b8)}';
       document.head.appendChild(style);
     }
 
@@ -70,11 +82,56 @@ WML.define({
       return !!accessToken && Date.now() < tokenExpiresAt - 30000;
     }
 
+    function readStorage(key) {
+      try { return window.localStorage.getItem(key); } catch (_) { return null; }
+    }
+    function writeStorage(key, value) {
+      try {
+        if (value == null) window.localStorage.removeItem(key);
+        else window.localStorage.setItem(key, value);
+        return true;
+      } catch (_) { return false; }
+    }
+    function loadSessionPolicy() {
+      const saved = readStorage(SESSION_POLICY_KEY);
+      return saved === 'session' ? 'session' : 'persistent';
+    }
+    sessionPolicy = loadSessionPolicy();
+
+    function persistSessionToken() {
+      if (sessionPolicy !== 'persistent' || !hasToken()) {
+        writeStorage(SESSION_TOKEN_KEY, null);
+        return;
+      }
+      writeStorage(SESSION_TOKEN_KEY, JSON.stringify({ accessToken, expiresAt: tokenExpiresAt }));
+    }
+
     function clearToken() {
       accessToken = '';
       tokenExpiresAt = 0;
       driveSlots = [];
+      slotsStatus = 'not-loaded';
+      slotsError = '';
+      writeStorage(SESSION_TOKEN_KEY, null);
     }
+
+    function restoreSessionToken() {
+      if (sessionPolicy !== 'persistent') {
+        writeStorage(SESSION_TOKEN_KEY, null);
+        return;
+      }
+      const saved = readStorage(SESSION_TOKEN_KEY);
+      if (!saved) return;
+      try {
+        const session = JSON.parse(saved);
+        if (typeof session.accessToken === 'string' && session.accessToken &&
+            Number.isFinite(Number(session.expiresAt)) && Number(session.expiresAt) > Date.now() + 30000) {
+          accessToken = session.accessToken;
+          tokenExpiresAt = Number(session.expiresAt);
+        } else writeStorage(SESSION_TOKEN_KEY, null);
+      } catch (_) { writeStorage(SESSION_TOKEN_KEY, null); }
+    }
+    restoreSessionToken();
 
     function requestGoogleToken() {
       return new Promise((resolve, reject) => {
@@ -119,6 +176,7 @@ WML.define({
           cleanup();
           accessToken = String(event.data.accessToken);
           tokenExpiresAt = Date.now() + Math.max(60, Number(event.data.expiresIn) || 3600) * 1000;
+          persistSessionToken();
           try { if (bridge && !bridge.closed) bridge.close(); } catch (_) {}
           resolve();
         };
@@ -158,6 +216,10 @@ WML.define({
     }
 
     async function refreshSlots() {
+      slotsStatus = 'loading';
+      slotsError = '';
+      if (isConnected()) render();
+      try {
       const slots = new Map(); let pageToken = '';
       do {
         const params = new URLSearchParams({ spaces: 'appDataFolder', pageSize: '100', q: 'trashed = false', fields: 'files(id,name,modifiedTime,size),nextPageToken' });
@@ -183,7 +245,14 @@ WML.define({
           } else { file.memo = ''; file.summary = ''; }
         } catch (_) { file.memo = ''; file.summary = ''; file.unreadable = true; }
       }
+      slotsStatus = 'loaded';
+      slotsError = '';
       return driveSlots;
+      } catch (error) {
+        slotsStatus = 'error';
+        slotsError = String(error && error.message || error || '저장목록을 확인하지 못했습니다.');
+        throw error;
+      }
     }
 
     function currentFile(slot) {
@@ -351,6 +420,11 @@ WML.define({
         win.focus();
         win.refresh();
       } else openWindow();
+      // A restored token does not imply that the Drive file list has been restored.
+      // Fetch it on first open and never render an unverified empty list as empty slots.
+      if (hasToken() && slotsStatus !== 'loaded' && slotsStatus !== 'loading') {
+        runAction(() => refreshSlots());
+      }
     }
 
     function addText(root, text, cls) {
@@ -452,8 +526,60 @@ WML.define({
       show({ page: 'home' }, '저장 슬롯 ' + slot + '을 삭제했습니다.');
     }
 
+    function showSessionSettingsPopup() {
+      const overlay = document.createElement('dialog');
+      overlay.className = 'wml-gd-session-overlay';
+      overlay.setAttribute('data-wml-ui', 'true');
+      const box = document.createElement('div');
+      box.className = 'wml-gd-session-box';
+      box.setAttribute('role', 'dialog');
+      box.setAttribute('aria-modal', 'true');
+      const title = document.createElement('h3');
+      title.textContent = '로그인 유지 설정';
+      const description = document.createElement('p');
+      description.textContent = '로그인 최대한 유지는 액세스 토큰이 유효한 동안 새로고침과 브라우저 재실행 후 연결을 복원합니다. Google 액세스 토큰은 보통 약 1시간 후 만료되며, 만료 후에는 다시 로그인해야 합니다.';
+      const actions = document.createElement('div');
+      actions.className = 'wml-gd-session-actions';
+      const close = () => { if (overlay.open) overlay.close(); overlay.remove(); document.removeEventListener('keydown', onKeyDown, true); };
+      const addChoice = (label, policy, detail) => {
+        const choice = document.createElement('button');
+        choice.type = 'button';
+        choice.textContent = label;
+        choice.setAttribute('aria-pressed', String(sessionPolicy === policy));
+        choice.title = detail;
+        choice.addEventListener('click', () => {
+          sessionPolicy = policy;
+          writeStorage(SESSION_POLICY_KEY, sessionPolicy);
+          if (sessionPolicy === 'persistent') persistSessionToken();
+          else writeStorage(SESSION_TOKEN_KEY, null);
+          close();
+          show({ page: 'home' }, policy === 'persistent'
+            ? '로그인 유지 설정을 저장했습니다. 토큰이 만료되면 다시 로그인해야 합니다.'
+            : '새로고침하면 로그아웃하도록 설정했습니다.');
+        });
+        actions.append(choice);
+      };
+      addChoice('새로고침하면 로그아웃', 'session', '현재 페이지에서만 로그인 유지');
+      addChoice('로그인 최대한 유지', 'persistent', '유효한 액세스 토큰을 저장해 재실행 시 복원');
+      const closeActions = document.createElement('div');
+      closeActions.className = 'wml-gd-session-actions';
+      const closeButton = document.createElement('button');
+      closeButton.type = 'button';
+      closeButton.textContent = '닫기';
+      closeButton.addEventListener('click', close);
+      closeActions.append(closeButton);
+      box.append(title, description, actions, closeActions);
+      overlay.append(box);
+      overlay.addEventListener('click', event => { if (event.target === overlay) close(); });
+      const onKeyDown = event => { if (event.key === 'Escape') { event.preventDefault(); close(); } };
+      document.addEventListener('keydown', onKeyDown, true);
+      document.body.append(overlay);
+      if (typeof overlay.showModal === 'function') overlay.showModal();
+      else { overlay.setAttribute('open', ''); }
+    }
+
     function showMemoPopup(memo) {
-      const overlay = document.createElement('div');
+      const overlay = document.createElement('dialog');
       overlay.className = 'wml-gd-memo-overlay';
       const box = document.createElement('div');
       box.className = 'wml-gd-memo-box';
@@ -461,12 +587,14 @@ WML.define({
       box.setAttribute('aria-modal', 'true');
       box.textContent = String(memo || '');
       overlay.append(box);
-      const close = () => { overlay.remove(); document.removeEventListener('keydown', onKeyDown, true); };
+      const close = () => { if (overlay.open) overlay.close(); overlay.remove(); document.removeEventListener('keydown', onKeyDown, true); };
       const onKeyDown = event => { if (event.key === 'Escape') { event.preventDefault(); close(); } };
       overlay.addEventListener('click', close);
       box.addEventListener('click', event => event.stopPropagation());
       document.addEventListener('keydown', onKeyDown, true);
       document.body.append(overlay);
+      if (typeof overlay.showModal === 'function') overlay.showModal();
+      else { overlay.setAttribute('open', ''); }
     }
 
     function renderSlots(root) {
@@ -485,7 +613,7 @@ WML.define({
           chip.addEventListener('click', event => { event.preventDefault(); event.stopPropagation(); showMemoPopup(file.memo); });
           line.append(chip);
         }
-        head.append(line); head.append(h('div', { class: 'wml-gd-small' }, file ? '저장됨' : '비어 있음')); row.append(head);
+        head.append(line); head.append(h('div', { class: 'wml-gd-small' }, file ? '저장됨' : '저장된 게임이 없습니다.')); row.append(head);
         if (file && file.summary) row.append(h('div', { class: 'wml-gd-summary', title: file.summary }, file.summary));
         else if (file && file.unreadable) row.append(h('div', { class: 'wml-gd-small' }, '세이브 정보를 읽을 수 없음 (이전 암호화 형식일 수 있음)'));
         const actions = h('div', { class: 'wml-gd-actions' });
@@ -508,15 +636,29 @@ WML.define({
             await refreshSlots();
             show({ page: 'home' }, '저장 목록을 새로고침했습니다.');
           }) : connectFromClick, true);
-        addButton(root, '연결 해제', () => {
+        addButton(root, '로그인 유지 설정', showSessionSettingsPopup);
+        addButton(root, '로그아웃', () => {
           clearToken();
-          show({ page: 'home' }, '현재 페이지 메모리에서 Google 연결을 해제했습니다.');
+          show({ page: 'home' }, '로그아웃했습니다. 저장된 로그인 토큰을 이 브라우저에서 삭제했습니다.');
         });
         addText(root, hasToken()
-          ? '상태: 연결됨 (액세스 토큰은 현재 페이지 메모리에만 보관)'
+          ? (sessionPolicy === 'persistent'
+            ? '상태: 연결됨 (토큰 유효 기간 동안 재실행 시 복원)'
+            : '상태: 연결됨 (새로고침하면 로그아웃)')
           : '상태: 연결되지 않음', 'wml-gd-small');
-        if (hasToken()) renderSlots(root);
-        else addText(root, '로그인 창에서 Google 계정을 선택해 주세요.');
+        if (hasToken()) {
+          if (slotsStatus === 'loaded') {
+            renderSlots(root);
+          } else if (slotsStatus === 'loading') {
+            addText(root, '불러오는 중…');
+          } else if (slotsStatus === 'error') {
+            addText(root, '저장목록 새로고침이 필요합니다.');
+            addButton(root, '저장목록 새로고침', () => runAction(() => refreshSlots()), true);
+          } else {
+            addText(root, '저장목록 새로고침이 필요합니다.');
+            addButton(root, '저장목록 새로고침', () => runAction(() => refreshSlots()), true);
+          }
+        } else addText(root, '로그인 창에서 Google 계정을 선택해 주세요.');
         addMessage(root);
       } else if (view.page === 'save') {
         addTitle(root, '저장 슬롯 ' + view.slot + ' 저장');
