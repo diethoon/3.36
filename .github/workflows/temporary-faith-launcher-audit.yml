@@ -10,31 +10,27 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Inspect launcher code in small chunks
+      - name: Inspect targeted image-pack functions in chunks
         shell: bash
         run: |
           python3 - <<'PY'
           import zipfile, pathlib
           zpath = pathlib.Path("Wayward_Faith_NoSound_v3.0.0.zip")
           terms = [
-            "showDirectoryPicker", "webkitdirectory", "webkitRelativePath",
-            "FileReader", "readAsDataURL", "readAsArrayBuffer",
-            "wfPackInstalled", "wfPackCatalog", "wfPackRegister",
-            "wfPack", "image-packs", "pack.js", "imagePack",
-            "이미지팩 폴더 선택", "폴더 선택", "업로드", "이미지팩 설정",
-            "wfImagePack", "URL.createObjectURL", "DataTransfer"
+            "async function wfPackScanFolder", "function wfPackScanFolder",
+            "webkitdirectory", "wfPackValidate", "wfPackParseScript",
+            "wfPackCatalogues", "image-packs 폴더 선택"
           ]
           with zipfile.ZipFile(zpath) as z:
-            print("=== RELEVANT SMALL FILES ===")
-            for name in ["Wayward_Faith/install-packs.cmd", "Wayward_Faith/README.md", "Wayward_Faith/모바일로_묶기.cmd"]:
+            print("=== INSTALLER / DOCS ===")
+            for name in [r"Wayward_Faith\\install-packs.cmd", r"Wayward_Faith\\README.md", r"Wayward_Faith\\모바일로_묶기.cmd"]:
               try:
                 data = z.read(name).decode("utf-8", "replace")
-                print(f"\\n--- {name} ({len(data)} chars) ---\\n{data[:12000]}")
+                print(f"\\n--- {name} ({len(data)} chars) ---\\n{data[:9000]}")
               except KeyError:
                 print("MISSING:", name)
-            htmls = [i for i in z.infolist() if i.filename.lower().endswith((".html", ".htm"))]
-            for info in htmls:
-              print(f"\\n=== HTML {info.filename} size={info.file_size}; scan chunks=65536 bytes ===")
+            for info in [i for i in z.infolist() if i.filename.lower().endswith((".html", ".htm"))]:
+              print(f"\\n=== {info.filename} ({info.file_size} bytes; 64 KiB streaming scan) ===")
               found = {t: 0 for t in terms}
               overlap = b""
               offset = 0
@@ -54,15 +50,13 @@ jobs:
                       if pos < 0: break
                       abspos = base + pos
                       if abspos >= 0:
-                        start, end = max(0, pos-220), min(len(data), pos+len(needle)+500)
+                        start, end = max(0, pos-450), min(len(data), pos+len(needle)+3400)
                         snippet = data[start:end].decode("utf-8", "replace")
-                        # Keep only code snippets; cap output size per snippet.
-                        print(f"\\n[{term} offset={abspos}]\\n{snippet[:760]}")
+                        print(f"\\n[{term} offset={abspos}]\\n{snippet[:3900]}")
                         found[term] += 1
                       pos += len(needle)
                       if found[term] >= 2: break
-                  overlap = data[-2048:]
+                  overlap = data[-4096:]
                   offset += len(chunk)
-              print("=== MATCH COUNTS ===")
-              print(", ".join(f"{k}={v}" for k,v in found.items()))
+              print("MATCH COUNTS:", ", ".join(f"{k}={v}" for k,v in found.items()))
           PY
