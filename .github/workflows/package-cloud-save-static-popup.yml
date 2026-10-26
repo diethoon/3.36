@@ -1,0 +1,111 @@
+name: Package corrected Google Drive CloudSave popup build
+
+on:
+  push:
+    branches:
+      - feature/github-pages-static-drive-auth-20261026
+    paths:
+      - 'Wayward_MOD_v4.0_WML_검수완료/wml/mods/cloud-save/**'
+      - 'cloud-save-auth/popup.html'
+      - '.github/workflows/package-cloud-save-static-popup.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate-and-package:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout exact branch revision
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Validate current popup-auth revision
+        shell: bash
+        run: |
+          set -euo pipefail
+          MOD='Wayward_MOD_v4.0_WML_검수완료/wml/mods/cloud-save/mod.js'
+          CRYPTO='Wayward_MOD_v4.0_WML_검수완료/wml/mods/cloud-save/crypto.js'
+          POPUP='cloud-save-auth/popup.html'
+          node --check "$MOD"
+          node --check "$CRYPTO"
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          import vm from 'node:vm';
+          const mod = fs.readFileSync('Wayward_MOD_v4.0_WML_검수완료/wml/mods/cloud-save/mod.js', 'utf8');
+          const popup = fs.readFileSync('cloud-save-auth/popup.html', 'utf8');
+          const install = fs.readFileSync('Wayward_MOD_v4.0_WML_검수완료/wml/mods/cloud-save/INSTALL.txt', 'utf8');
+          for (const marker of ['0.5.0', 'https://wayward-cloud-auth.vercel.app/popup.html', 'wayward-google-drive-auth']) {
+            if (!mod.includes(marker)) throw new Error('Current WML build missing marker: ' + marker);
+          }
+          if (mod.includes('/api/oauth/callback') || mod.includes('GOOGLE_CLIENT_SECRET')) {
+            throw new Error('Stale server-callback OAuth code detected in WML addon');
+          }
+          const clientId = '35944231952-p82giir62o28bo001j9uvmqo3kgp9c99.apps.googleusercontent.com';
+          if (!popup.includes(clientId) || !mod.includes(clientId)) throw new Error('OAuth client ID mismatch between mod and popup');
+          if (!popup.includes('google.accounts.oauth2.initTokenClient')) throw new Error('Google Identity Services token popup flow missing');
+          if (popup.includes('/api/oauth/callback')) throw new Error('Stale redirect callback detected in popup');
+          const scripts = [...popup.matchAll(/<script(?:\\s[^>]*)?>([\\s\\S]*?)<\\/script>/gi)]
+            .map(m => m[1]).filter(s => s.trim());
+          if (!scripts.length) throw new Error('Popup script missing');
+          for (const [i, script] of scripts.entries()) new vm.Script(script, { filename: 'popup.html inline script ' + i });
+          if (!install.includes('/popup.html')) throw new Error('Install notes do not identify popup URL');
+          console.log('Correct v0.5.0 popup-auth source checks passed');
+          NODE
+      - name: Assemble installable packages
+        shell: bash
+        run: |
+          set -euo pipefail
+          SRC='Wayward_MOD_v4.0_WML_검수완료/wml/mods/cloud-save'
+          mkdir -p dist/mod dist/auth-popup cloud-save-auth-popup
+          cp -R "$SRC" dist/mod/cloud-save
+          cp cloud-save-auth/popup.html dist/auth-popup/popup.html
+          cp cloud-save-auth/popup.html cloud-save-auth-popup/popup.html
+          cat > dist/auth-popup/DEPLOY.txt <<'TXT'
+          Google Drive CloudSave — authentication popup deployment
+
+          The WML addon opens:
+          https://wayward-cloud-auth.vercel.app/popup.html
+
+          Publish popup.html at the root of the existing Vercel project so that
+          the exact URL above serves this static HTML file. Do not configure
+          /api/oauth/callback for this v0.5.0 popup-token-client build.
+          The WML addon and this page must retain the same Google OAuth Client ID.
+          TXT
+          cat > cloud-save-auth-popup/DEPLOY.txt <<'TXT'
+          Google Drive CloudSave — authentication popup deployment
+
+          Copy popup.html to the root of the existing Vercel project and deploy it
+          so that https://wayward-cloud-auth.vercel.app/popup.html serves this file.
+          This v0.5.0 build uses Google Identity Services initTokenClient popup flow;
+          it does not use /api/oauth/callback or require a client secret.
+          Keep the OAuth Client ID in popup.html consistent with the WML add-on.
+          TXT
+          (cd dist/mod && zip -q -r ../Wayward-Google-Drive-CloudSave-v0.5.0.zip cloud-save)
+          (cd dist/auth-popup && zip -q -r ../Wayward-Google-Drive-Auth-Popup-v0.5.0.zip popup.html DEPLOY.txt)
+          zip -q -r dist/Wayward-Google-Drive-CloudSave-Full-v0.5.0.zip cloud-save-auth-popup "$SRC"
+          mv dist/Wayward-Google-Drive-CloudSave-Full-v0.5.0.zip dist/Wayward-Google-Drive-CloudSave-Full-v0.5.0.tmp.zip
+          mkdir -p dist/full
+          cp -R "$SRC" dist/full/cloud-save
+          cp cloud-save-auth/popup.html dist/full/auth-popup/popup.html
+          cp cloud-save-auth-popup/DEPLOY.txt dist/full/auth-popup/DEPLOY.txt
+          rm -f dist/Wayward-Google-Drive-CloudSave-Full-v0.5.0.tmp.zip
+          (cd dist/full && zip -q -r ../Wayward-Google-Drive-CloudSave-Full-v0.5.0.zip cloud-save auth-popup)
+          unzip -t dist/Wayward-Google-Drive-CloudSave-v0.5.0.zip
+          unzip -t dist/Wayward-Google-Drive-Auth-Popup-v0.5.0.zip
+          unzip -t dist/Wayward-Google-Drive-CloudSave-Full-v0.5.0.zip
+      - name: Upload install packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: Wayward-Google-Drive-CloudSave-v0.5.0-corrected
+          path: |
+            dist/Wayward-Google-Drive-CloudSave-v0.5.0.zip
+            dist/Wayward-Google-Drive-Auth-Popup-v0.5.0.zip
+            dist/Wayward-Google-Drive-CloudSave-Full-v0.5.0.zip
+          if-no-files-found: error
+          retention-days: 30
