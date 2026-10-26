@@ -613,7 +613,7 @@ WML.define({
           chip.addEventListener('click', event => { event.preventDefault(); event.stopPropagation(); showMemoPopup(file.memo); });
           line.append(chip);
         }
-        head.append(line); head.append(h('div', { class: 'wml-gd-small' }, file ? '저장됨' : '비어 있음')); row.append(head);
+        head.append(line); head.append(h('div', { class: 'wml-gd-small' }, file ? '저장됨' : '저장된 게임이 없습니다.')); row.append(head);
         if (file && file.summary) row.append(h('div', { class: 'wml-gd-summary', title: file.summary }, file.summary));
         else if (file && file.unreadable) row.append(h('div', { class: 'wml-gd-small' }, '세이브 정보를 읽을 수 없음 (이전 암호화 형식일 수 있음)'));
         const actions = h('div', { class: 'wml-gd-actions' });
@@ -650,14 +650,13 @@ WML.define({
           if (slotsStatus === 'loaded') {
             renderSlots(root);
           } else if (slotsStatus === 'loading') {
-            addText(root, 'Google Drive 저장목록 확인 중…');
+            addText(root, '불러오는 중…');
           } else if (slotsStatus === 'error') {
-            addText(root, '저장목록을 확인하지 못했습니다. 저장 파일이 삭제된 것은 아닙니다. 연결 상태를 확인한 뒤 다시 시도해 주세요.');
-            if (slotsError) addText(root, slotsError, 'wml-gd-small');
-            addButton(root, '저장목록 다시 확인', () => runAction(() => refreshSlots()), true);
+            addText(root, '저장목록 새로고침이 필요합니다.');
+            addButton(root, '저장목록 새로고침', () => runAction(() => refreshSlots()), true);
           } else {
-            addText(root, '저장목록을 아직 확인하지 않았습니다. 저장 파일이 없는 상태가 아닙니다.');
-            addButton(root, '저장목록 확인', () => runAction(() => refreshSlots()), true);
+            addText(root, '저장목록 새로고침이 필요합니다.');
+            addButton(root, '저장목록 새로고침', () => runAction(() => refreshSlots()), true);
           }
         } else addText(root, '로그인 창에서 Google 계정을 선택해 주세요.');
         addMessage(root);
