@@ -52,7 +52,7 @@ WML.define({
         for (let i = start; i < end; i++) {
           const file = typeof fileList.item === 'function' ? fileList.item(i) : fileList[i];
           if (!file) continue;
-          const path = String(file.webkitRelativePath || '').replace(/\\\\/g, '/');
+          const path = String(file.webkitRelativePath || '').replace(/\\/g, '/');
           if (!path.toLowerCase().includes('image-packs/') || !path.toLowerCase().endsWith('/pack.js')) continue;
           found.push(file);
         }
