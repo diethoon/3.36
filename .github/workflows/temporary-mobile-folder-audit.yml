@@ -10,24 +10,24 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Inspect only targeted loader snippets and archive inventory
+      - name: Inspect WML archive layout and image-pack hooks
         shell: bash
         run: |
           python3 - <<'PY'
           import zipfile
+          for fn in ["Wayward_Faith_NoSound_v3.0.0.zip","Wayward_MOD_v4.0_WML_검수완료.zip"]:
+            z=zipfile.ZipFile(fn)
+            print("\\n=== ARCHIVE",fn,"===")
+            for i in z.infolist():
+              n=i.filename.lower()
+              if any(k in n for k in ["mod","wml","manifest","image-pack","pack.js"]):
+                print(i.file_size,i.filename)
           z=zipfile.ZipFile("Wayward_Faith_NoSound_v3.0.0.zip")
-          print("=== ZIP files related to pack.js ===")
-          for i in z.infolist():
-            if i.filename.lower().endswith("/pack.js") or i.filename.lower().endswith("\\pack.js"):
-              print(i.file_size, i.compress_size, i.filename)
           h=next(i for i in z.infolist() if i.filename.lower().endswith(".html") and "Wayward_Faith_v3.0.0" in i.filename)
           with z.open(h) as f: data=f.read()
           low=data.lower()
-          terms=["function wfPackValidate","async function wfPackScanFolder","function wfPackDropOrphans","function wfPackRefreshClothes","function wfPackFreezeSelections","function wfPackFolderButton","function wfPackLoadCatalogues"]
-          for term in terms:
-            needle=term.encode().lower()
-            pos=low.find(needle)
-            print(f"\\n=== {term} offset={pos} ===")
-            if pos>=0:
-              print(data[max(0,pos-500):min(len(data),pos+5500)].decode("utf-8","replace"))
+          for term in ["wfPackScanFolder(","wfPackFolderButton(","window.__WF_OUTFIT_PACKS__","bridge.manifest.json","WML"]:
+            p=low.find(term.lower().encode())
+            print(f"\\n=== {term} offset={p} ===")
+            if p>=0: print(data[max(0,p-700):p+2500].decode("utf-8","replace"))
           PY
