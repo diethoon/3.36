@@ -51,8 +51,10 @@ jobs:
           if (!popup.includes(clientId) || !mod.includes(clientId)) throw new Error('OAuth client ID mismatch between mod and popup');
           if (!popup.includes('google.accounts.oauth2.initTokenClient')) throw new Error('Google Identity Services token popup flow missing');
           if (popup.includes('/api/oauth/callback')) throw new Error('Stale redirect callback detected in popup');
-          const scripts = [...popup.matchAll(/<script(?:\\s[^>]*)?>([\\s\\S]*?)<\\/script>/gi)]
-            .map(m => m[1]).filter(s => s.trim());
+          const scripts = popup.split('<script').slice(1).map(chunk => {
+            const startTag = chunk.indexOf('>');
+            return startTag < 0 ? '' : chunk.slice(startTag + 1).split('</script>')[0];
+          }).filter(s => s.trim());
           if (!scripts.length) throw new Error('Popup script missing');
           for (const [i, script] of scripts.entries()) new vm.Script(script, { filename: 'popup.html inline script ' + i });
           if (!install.includes('/popup.html')) throw new Error('Install notes do not identify popup URL');
