@@ -5,13 +5,13 @@
 WML.define({
   id: 'faith-pack-scan',
   name: { ko: 'Faith 이미지팩 등록 개선', en: 'Faith image-pack registration helper' },
-  version: '0.2.0',
+  version: '0.3.0',
   game: 'faith',
   author: 'WML',
   tags: ['util'],
   description: {
-    ko: '폴더 선택 결과에서 pack.js만 추려 게임의 기존 등록 처리를 실행합니다.',
-    en: 'Filters folder selection to pack.js files before invoking the game’s existing registration handler.',
+    ko: '등록용 폴더의 pack.js만 게임에 전달하고, 이미지 수만 개를 선택한 경우 즉시 중단합니다.',
+    en: 'Passes only pack.js files from a small index folder and stops immediately for huge selections.',
   },
 
   setup(api) {
@@ -84,17 +84,30 @@ WML.define({
         event.stopImmediatePropagation();
 
         const oldText = label
-          ? (Array.from(label.childNodes).find(node => node.nodeType === Node.TEXT_NODE)?.nodeValue || 'image-packs 폴더 선택')
-          : 'image-packs 폴더 선택';
+          ? (Array.from(label.childNodes).find(node => node.nodeType === Node.TEXT_NODE)?.nodeValue || '등록용 이미지팩 폴더 선택')
+          : '등록용 이미지팩 폴더 선택';
+
+        // A huge directory selection can freeze mobile browsers before filtering helps.
+        // Require a small index folder containing only pack.js files.
+        if (files.length > 2000) {
+          showStatus(
+            input,
+            `선택 파일이 ${files.length.toLocaleString()}개입니다. 처리를 중단했습니다. 원본 image-packs 대신 pack.js만 모은 image-packs-index 폴더를 선택하세요.`,
+            true
+          );
+          input.value = '';
+          setLabel(label, oldText.trim() || '등록용 이미지팩 폴더 선택');
+          return;
+        }
 
         input.disabled = true;
-        setLabel(label, '이미지팩 목록 정리 중…');
-        showStatus(input, `선택된 파일 ${files.length.toLocaleString()}개를 나눠 확인합니다.`);
+        setLabel(label, '등록용 pack.js 확인 중…');
+        showStatus(input, `등록용 폴더의 파일 ${files.length.toLocaleString()}개를 확인합니다.`);
 
         try {
           const packFiles = await selectPackScripts(files);
           if (!packFiles.length) {
-            throw new Error('image-packs/*/pack.js 파일을 찾지 못했습니다. image-packs 폴더 자체를 선택했는지 확인해 주세요.');
+            throw new Error('image-packs/*/pack.js 파일을 찾지 못했습니다. 아래 README의 image-packs-index 구조를 확인해 주세요.');
           }
           if (typeof DataTransfer === 'undefined') {
             throw new Error('이 브라우저에서 파일 목록을 안전하게 교체할 수 없습니다(DataTransfer 미지원). 원본 대량 처리는 실행하지 않았습니다.');
