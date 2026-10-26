@@ -82,6 +82,18 @@ jobs:
           cp -R "$MOD" "$OUT/cloud-save"
           cp -R cloud-save-auth-static "$OUT/cloud-save-auth-static"
           cp /tmp/auth-page-status.txt "$OUT/AUTH-PAGE-STATUS.txt"
+          cat > "$OUT/cloud-save/INSTALL.txt" <<'TXT'
+          Wayward Google Drive CloudSave — GitHub Pages authentication build
+          1. Copy this cloud-save folder to the game's wml/mods/cloud-save directory.
+          2. Add 'cloud-save' to the existing WML.enable([...]) list in wml/mods/mods.js. Preserve the other entries and do not add duplicates.
+          3. The add-on opens https://diethoon.github.io/3.36/cloud-save-auth-static/.
+          4. The matching cloud-save-auth-static/index.html and config.js are included in the sibling folder. They must be published at that GitHub Pages path.
+          5. The Google OAuth Web client must include https://diethoon.github.io under Authorized JavaScript origins and Google Drive API must be enabled.
+          6. This flow uses Google Identity Services from the static page. It does not use /api/oauth/callback and does not require a client secret in the mod.
+          7. Supports file://, localhost/AWebServer, LAN HTTP and HTTPS where the browser permits popups and the Google OAuth client approves the helper origin. For file:// and local/custom origins, only confirm the origin if the request was started from the game you opened yourself.
+          8. Tokens live in game-page memory only. Saves are encrypted in the game and uploaded directly to Google Drive appDataFolder. The auth page does not store tokens or save data.
+          Read the sibling AUTH-PAGE-STATUS.txt before relying on the published auth URL.
+          TXT
           cat > "$OUT/INSTALL.txt" <<'TXT'
           Wayward Google Drive CloudSave — GitHub Pages authentication build
 
