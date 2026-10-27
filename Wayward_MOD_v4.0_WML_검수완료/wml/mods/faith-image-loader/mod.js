@@ -108,6 +108,10 @@ WML.define({
 
     async function chooseDirectory() {
       if (busy) return;
+      if (!nativeScan) {
+        setStatus('원본 wfPackScanFolder를 찾지 못했습니다. 이 게임에서 등록할 수 없으므로 폴더를 읽지 않았습니다.', true);
+        return;
+      }
       busy = true;
       try {
         if (typeof window.showDirectoryPicker !== 'function') {
@@ -132,6 +136,11 @@ WML.define({
 
     async function onFallbackChange() {
       if (busy || !fallbackInput?.files?.length) return;
+      if (!nativeScan) {
+        setStatus('원본 wfPackScanFolder를 찾지 못했습니다. 이 게임에서 등록할 수 없으므로 파일 목록을 읽지 않았습니다.', true);
+        fallbackInput.value = '';
+        return;
+      }
       busy = true;
       const files = fallbackInput.files;
       try {
