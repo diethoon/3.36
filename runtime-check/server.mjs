@@ -146,10 +146,26 @@ function scanHtmlIn4096ByteChunks() {
         text: bytes.subarray(start, end).toString('utf8').replace(/\\r/g, '\\\\r').replace(/\\n/g, '\\\\n') });
     }
   }
+  const selectedNeedles = new Set([
+    'webkitdirectory','showDirectoryPicker','FileSystemDirectoryHandle',
+    'image pack','imagepack','image-pack','imagepacks','__WAYWARD_IMAGE_PACKS__',
+    'packFormat','packId','imageManifest','imageServerUrl','imagePackReset',
+    'imageAutoProbeAllowed','FileList','type="file"','createObjectURL'
+  ]);
+  const selectedChunkIndices = new Set();
+  for (const needle of selectedNeedles) {
+    for (const at of (keywordOffsets[needle] || []).slice(0, 12)) selectedChunkIndices.add(Math.floor(at / chunkSize));
+  }
+  const selectedChunks = [...selectedChunkIndices].sort((a,b)=>a-b).map(chunkIndex => ({
+    chunkIndex, offset: chunkIndex * chunkSize,
+    length: Math.min(chunkSize, total - chunkIndex * chunkSize),
+    text: bytes.subarray(chunkIndex * chunkSize, Math.min(bytes.length, (chunkIndex + 1) * chunkSize)).toString('utf8')
+      .replace(/\\r/g, '\\\\r').replace(/\\n/g, '\\\\n')
+  }));
   return {
     file: path.relative(ROOT, file), chunkSize, bytes: total, sizeOnDisk,
     chunkCount: manifest.length, eofReached: true, sha256: digest.digest('hex'),
-    chunkManifest: manifest, keywordOffsets, excerpts
+    chunkManifest: manifest, keywordOffsets, excerpts, selectedChunks
   };
 }
 
@@ -349,8 +365,11 @@ log('FORENSIC', '4096-byte EOF scan summary', {
   eofReached: result.forensicScan.eofReached, sha256: result.forensicScan.sha256,
   offsets: Object.fromEntries(Object.entries(result.forensicScan.keywordOffsets).map(([k,v]) => [k, v.slice(0,80)]))
 });
+for (const chunk of result.forensicScan.selectedChunks) {
+  log('FORENSIC_CHUNK', 'exact chunk ' + chunk.chunkIndex + ' @byte ' + chunk.offset, chunk);
+}
 for (const item of result.forensicScan.excerpts.filter(x =>
-  ['webkitdirectory','showDirectoryPicker','FileSystemDirectoryHandle','image pack','imagepack','image-pack','imagepacks','input type="file"','type="file"','FileList','createObjectURL','imageManifest','imageServerUrl','imagePackReset','imageAutoProbeAllowed'].includes(x.needle)
+  ['webkitdirectory','showDirectoryPicker','FileSystemDirectoryHandle','image pack','imagepack','image-pack','imagepacks','__WAYWARD_IMAGE_PACKS__','packFormat','packId','input type="file"','type="file"','FileList','createObjectURL','imageManifest','imageServerUrl','imagePackReset','imageAutoProbeAllowed'].includes(x.needle)
 ).slice(0,100)) {
   log('FORENSIC_EXCERPT', item.needle + ' @byte ' + item.offset, item);
 }
