@@ -11,6 +11,8 @@ WML.define({
     let folderLabel = '';
     let fileMap = new Map();
     let basenameMap = new Map();
+    let aliasMap = new Map();
+    let ambiguousAliases = new Set();
     let objectUrls = new Map();
     let matched = 0;
     let scanned = 0;
@@ -77,6 +79,8 @@ WML.define({
       revokeUrls();
       fileMap = new Map();
       basenameMap = new Map();
+      aliasMap = new Map();
+      ambiguousAliases = new Set();
       folderLabel = '';
       matched = 0;
       scanned = 0;
@@ -96,6 +100,7 @@ WML.define({
       const key = pathFromImageUrl(src);
       if (!key) return null;
       if (fileMap.has(key)) return fileMap.get(key);
+      if (aliasMap.has(key) && !ambiguousAliases.has(key)) return aliasMap.get(key);
       const name = key.split('/').pop();
       const candidates = basenameMap.get(name);
       return candidates && candidates.length === 1 ? candidates[0] : null;
@@ -173,9 +178,17 @@ WML.define({
       if (!key) key = normalizedPath(file.name);
       fileMap.set(key, file);
       const parts = key.split('/').filter(Boolean);
-      if (parts.length > 1) {
-        const withoutRoot = parts.slice(1).join('/');
-        if (withoutRoot && !fileMap.has(withoutRoot)) fileMap.set(withoutRoot, file);
+      if (parts.length > 2) {
+        const alias = parts.slice(1).join('/');
+        if (alias && !ambiguousAliases.has(alias) && !fileMap.has(alias)) {
+          const previous = aliasMap.get(alias);
+          if (previous && previous !== file) {
+            aliasMap.delete(alias);
+            ambiguousAliases.add(alias);
+          } else if (!previous) {
+            aliasMap.set(alias, file);
+          }
+        }
       }
       const base = normalizedPath(file.name);
       const names = basenameMap.get(base) || [];
