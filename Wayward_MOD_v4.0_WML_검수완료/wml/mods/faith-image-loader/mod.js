@@ -1,372 +1,147 @@
+// Faith 이미지팩 설정의 기존 폴더 등록 입력을 보조합니다.
+// Faith의 이미지 로더/등록 함수를 새로 만들지 않고, 원래 등록 처리기에 pack.js만 전달합니다.
+// 대형 HTML 본문은 수정하지 않습니다.
 WML.define({
   id: 'faith-image-loader',
-  name: 'Faith 이미지팩 로더',
-  version: '0.1.2',
-  game: '>=2026-10-04',
-  description: '이미지 팩 폴더를 한 번에 하나씩 연결하고 파일 처리를 나눠 실행합니다.',
-  async setup(api) {
-    const h = api.ui.h;
-    let win = null;
-    let active = true;
-    let folderLabel = '';
-    const folderLabels = new Set();
-    let fileMap = new Map();
-    let basenameMap = new Map();
-    let objectUrls = new Map();
-    let matched = 0;
-    let lastError = '';
-    let scanned = 0;
-    let total = 0;
-    let busy = false;
+  name: { ko: 'Faith 이미지팩 등록 보조', en: 'Faith image-pack registration helper' },
+  version: '0.2.0',
+  game: 'faith',
+  author: 'WML',
+  tags: ['util'],
+  description: {
+    ko: 'Faith의 이미지팩 설정에서 폴더를 선택하면 pack.js를 찾아 기존 등록 처리기에 전달합니다.',
+    en: 'Finds pack.js files in Faith image-pack settings and passes them to the native registration handler.',
+  },
+
+  setup(api) {
+    const INPUT_SELECTOR = [
+      'input[type="file"][webkitdirectory][aria-label="이미지팩 폴더 갱신"]',
+      'input[type="file"][webkitdirectory][aria-label*="이미지팩"]',
+      'input[type="file"][webkitdirectory]'
+    ].join(',');
+    const CHUNK_SIZE = 256;
+    const attached = new WeakSet();
+    const replaying = new WeakSet();
     let observer = null;
-    let patchQueued = false;
-    let statusEl = null;
-    let toggleButton = null;
-    const original = new WeakMap();
-    const activeBlob = new WeakMap();
-    const IMAGE_EXT = /\.(avif|gif|jpe?g|png|webp|bmp)$/i;
-    const MAX_SELECTED_FILES = 20000;
 
-    const styleId = 'faith-image-loader-style';
-    if (!document.getElementById(styleId)) {
-      const style = document.createElement('style');
-      style.id = styleId;
-      style.textContent =
-        '.wfil-wrap{display:flex;flex-direction:column;gap:10px;font:inherit;color:inherit}' +
-        '.wfil-note{font-size:.9em;line-height:1.45;opacity:.82;white-space:pre-wrap;overflow-wrap:anywhere;margin:0}' +
-        '.wfil-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}' +
-        '.wfil-status{padding:8px;border:1px solid var(--wml-border,#7778);border-radius:7px;white-space:pre-wrap;overflow-wrap:anywhere}' +
-        '.wfil-wrap input[type=file]{max-width:100%;font:inherit}' +
-        '.wfil-wrap button{font:inherit;max-width:100%;padding:7px 10px}';
-      document.head.appendChild(style);
+    const yieldToBrowser = () => new Promise(resolve => setTimeout(resolve, 0));
+
+    function setLabel(label, text) {
+      if (!label) return;
+      const textNode = Array.from(label.childNodes).find(node => node.nodeType === Node.TEXT_NODE);
+      if (textNode) textNode.nodeValue = text;
     }
 
-    function normalizedPath(value) {
-      let path = String(value || '').replace(/\\/g, '/').replace(/^\/+/, '');
-      try { path = decodeURIComponent(path); } catch (_) {}
-      return path.split('/').filter(Boolean).join('/').toLowerCase();
-    }
-
-    function pathFromImageUrl(value) {
-      if (!value) return '';
-      let path = String(value);
-      try {
-        const url = new URL(path, document.baseURI);
-        path = url.pathname;
-      } catch (_) {}
-      path = path.replace(/\\/g, '/');
-      const marker = '/images/';
-      const at = path.toLowerCase().lastIndexOf(marker);
-      if (at >= 0) path = path.slice(at + marker.length);
-      else path = path.replace(/^\/?images\//i, '');
-      return normalizedPath(path);
-    }
-
-    function revokeUrls() {
-      for (const url of objectUrls.values()) URL.revokeObjectURL(url);
-      objectUrls.clear();
-    }
-
-    function restoreImages() {
-      for (const img of document.querySelectorAll('img')) {
-        const saved = original.get(img);
-        if (saved && img.getAttribute('src') !== saved) img.setAttribute('src', saved);
-        activeBlob.delete(img);
+    function showStatus(input, message, isError = false) {
+      const host = input?.parentElement?.parentElement;
+      if (!host) return;
+      let status = host.querySelector('[data-faith-image-loader-status]');
+      if (!status) {
+        status = document.createElement('p');
+        status.dataset.faithImageLoaderStatus = '1';
+        status.className = 'text-xs';
+        status.style.cssText = 'margin-top:6px;overflow-wrap:anywhere;white-space:pre-wrap;';
+        host.appendChild(status);
       }
-      matched = 0;
+      status.textContent = message;
+      status.style.color = isError ? '#fca5a5' : '#fcd34d';
     }
 
-    function clearFolder() {
-      restoreImages();
-      revokeUrls();
-      fileMap = new Map();
-      basenameMap = new Map();
-      folderLabel = '';
-      folderLabels.clear();
-      lastError = '';
-      matched = 0;
-      scanned = 0;
-      total = 0;
-    }
-
-    function getOriginalSrc(img) {
-      const current = img.getAttribute('src') || '';
-      const blob = activeBlob.get(img);
-      if (blob && current === blob) return original.get(img) || '';
-      if (current.startsWith('blob:') && blob === current) return original.get(img) || '';
-      original.set(img, current);
-      return current;
-    }
-
-    function lookupFile(src) {
-      const key = pathFromImageUrl(src);
-      if (!key) return null;
-      if (fileMap.has(key)) return fileMap.get(key);
-      const name = key.split('/').pop();
-      const candidates = basenameMap.get(name);
-      return candidates && candidates.length === 1 ? candidates[0] : null;
-    }
-
-    function patchImage(img) {
-      if (!(img instanceof HTMLImageElement)) return;
-      const src = getOriginalSrc(img);
-      if (!src) return;
-      const existingBlob = activeBlob.get(img);
-      if (existingBlob && img.getAttribute('src') === existingBlob) return;
-      if (!active || fileMap.size === 0) return;
-      const file = lookupFile(src);
-      if (!file) return;
-      let blobUrl = objectUrls.get(file);
-      if (!blobUrl) {
-        blobUrl = URL.createObjectURL(file);
-        objectUrls.set(file, blobUrl);
-      }
-      if (img.getAttribute('src') !== blobUrl) {
-        const wasTracked = activeBlob.has(img);
-        activeBlob.set(img, blobUrl);
-        img.setAttribute('src', blobUrl);
-        if (!wasTracked) matched++;
-        updateStatus();
-      }
-    }
-
-    function patchTree(root) {
-      if (!root) return;
-      if (root instanceof HTMLImageElement) patchImage(root);
-      if (root.querySelectorAll) root.querySelectorAll('img').forEach(patchImage);
-    }
-
-    function schedulePatch() {
-      if (patchQueued || !active || fileMap.size === 0) return;
-      patchQueued = true;
-      setTimeout(() => {
-        patchQueued = false;
-        patchTree(document.documentElement);
-      }, 0);
-    }
-
-    function installObserver() {
-      if (observer || !document.documentElement) return;
-      observer = new MutationObserver(records => {
-        for (const record of records) {
-          if (record.type === 'attributes') {
-            if (record.target instanceof HTMLImageElement) patchImage(record.target);
-          } else {
-            for (const node of record.addedNodes) patchTree(node);
-          }
-        }
-      });
-      observer.observe(document.documentElement, {
-        subtree: true, childList: true, attributes: true, attributeFilter: ['src']
-      });
-    }
-
-    function statusText() {
-      if (busy) return '폴더 파일 확인 중: ' + scanned + ' / ' + total;
-      if (lastError) return lastError;
-      if (folderLabels.size === 0) return '연결된 이미지 폴더가 없습니다.';
-      return '연결된 폴더: ' + Array.from(folderLabels).join(', ') + '\n이미지 파일: ' + total + '\n현재 연결된 이미지: ' + matched +
-        '\n폴더는 하나씩 추가하며, 이미지 데이터는 실제 화면에 필요할 때만 메모리에 올립니다.';
-    }
-
-    function updateStatus() {
-      if (statusEl && statusEl.isConnected) statusEl.textContent = statusText();
-      if (toggleButton && toggleButton.isConnected) toggleButton.textContent = active ? '로컬 이미지 연결 사용 중' : '로컬 이미지 연결 사용 안 함';
-    }
-
-    async function loadFolder(files) {
-      const count = files && Number.isFinite(files.length) ? files.length : 0;
-      if (!count) throw new Error('선택한 폴더에 파일이 없습니다.');
-      if (count > MAX_SELECTED_FILES) throw new Error('파일이 ' + count.toLocaleString() + '개입니다. 모바일 안정성을 위해 한 번에 20,000개 이하인 개별 이미지 팩 폴더를 선택하세요.');
-      lastError = '';
-      busy = true;
-      total = count;
-      const first = files[0];
-      const firstPath = String(first && (first.webkitRelativePath || first.name) || '');
-      folderLabel = firstPath.includes('/') ? firstPath.split('/')[0] : '(선택한 파일)';
-      updateStatus();
-      let added = 0;
-      const pendingMap = new Map();
-
-      for (let start = 0; start < count; start += 200) {
-        const end = Math.min(start + 200, count);
+    async function findPackScripts(fileList) {
+      const allPacks = [];
+      const imagePacks = [];
+      const total = Number(fileList?.length) || 0;
+      for (let start = 0; start < total; start += CHUNK_SIZE) {
+        const end = Math.min(total, start + CHUNK_SIZE);
         for (let i = start; i < end; i++) {
-          const file = files[i];
-          if (!file || !IMAGE_EXT.test(file.name || '')) continue;
-          added++;
-          const relative = String(file.webkitRelativePath || file.name).replace(/\\/g, '/');
-          const parts = relative.split('/').filter(Boolean);
-          if (parts.length > 1) parts.shift();
-          let key = normalizedPath(parts.join('/'));
-          key = key.replace(/^images\//, '');
-          if (!key) key = normalizedPath(file.name);
-          pendingMap.set(key, file);
+          const file = typeof fileList.item === 'function' ? fileList.item(i) : fileList[i];
+          if (!file) continue;
+          const path = String(file.webkitRelativePath || file.name || '').replace(/\\\\/g, '/');
+          if (!/(^|\\/)pack\\.js$/i.test(path)) continue;
+          allPacks.push(file);
+          if (/(^|\\/)image-packs\\//i.test(path)) imagePacks.push(file);
         }
-        scanned = end;
-        updateStatus();
-        await new Promise(resolve => setTimeout(resolve, 0));
+        if (end < total) await yieldToBrowser();
       }
-      if (added === 0) {
-        folderLabels.delete(folderLabel);
-        folderLabel = '';
-        busy = false;
-        updateStatus();
-        throw new Error('선택한 폴더에서 지원되는 이미지 파일을 찾지 못했습니다.');
-      }
-      folderLabels.add(folderLabel);
-      for (const [key, file] of pendingMap) fileMap.set(key, file);
-      basenameMap = new Map();
-      for (const file of fileMap.values()) {
-        const base = normalizedPath(file.name);
-        const names = basenameMap.get(base) || [];
-        names.push(file);
-        basenameMap.set(base, names);
-      }
-      total = fileMap.size;
-      scanned = count;
-      busy = false;
-      installObserver();
-      schedulePatch();
-      updateStatus();
+      // Selecting the image-packs root preserves image-packs/<pack>/pack.js.
+      // Selecting one pack folder instead produces <pack>/pack.js, so allow that shape too.
+      return imagePacks.length ? imagePacks : allPacks;
     }
 
+    function attach(input) {
+      if (attached.has(input)) return;
+      attached.add(input);
+      const label = input.closest('label');
+      showStatus(input, 'Faith 이미지팩 등록 보조 활성화됨. 이 입력에서 폴더를 선택하면 pack.js를 찾아 기존 등록 처리기로 전달합니다.');
 
-    async function* walkDirectory(directory, prefix = '') {
-      for await (const [name, handle] of directory.entries()) {
-        if (handle.kind === 'directory') {
-          yield* walkDirectory(handle, prefix + name + '/');
-        } else if (handle.kind === 'file' && IMAGE_EXT.test(name)) {
-          yield { file: await handle.getFile(), relative: prefix + name };
+      input.addEventListener('change', async event => {
+        if (replaying.has(input)) {
+          replaying.delete(input);
+          return;
         }
-      }
-    }
+        const files = input.files;
+        if (!files?.length) return;
 
-    async function loadDirectoryHandle(directory) {
-      lastError = '';
-      busy = true;
-      scanned = 0;
-      total = 0;
-      folderLabel = directory.name || '선택한 폴더';
-      updateStatus();
-      const pendingMap = new Map();
-      let batch = 0;
-      try {
-        for await (const entry of walkDirectory(directory)) {
-          const file = entry.file;
-          let key = normalizedPath(entry.relative);
-          if (key.startsWith('images/')) key = key.slice(7);
-          if (!key) key = normalizedPath(file.name);
-          pendingMap.set(key, file);
-          scanned++;
-          total = scanned;
-          batch++;
-          if (scanned > MAX_SELECTED_FILES) {
-            throw new Error('이미지 파일이 20,000개를 넘었습니다. 더 작은 개별 이미지 팩 폴더를 선택하세요.');
+        // Capture phase: stop the unfiltered huge FileList reaching Faith's native handler.
+        event.preventDefault();
+        event.stopPropagation();
+        event.stopImmediatePropagation();
+
+        const oldText = label
+          ? (Array.from(label.childNodes).find(node => node.nodeType === Node.TEXT_NODE)?.nodeValue || '이미지팩 폴더 선택')
+          : '이미지팩 폴더 선택';
+
+        input.disabled = true;
+        setLabel(label, '이미지팩 등록 파일 확인 중…');
+        showStatus(input, `선택된 파일 ${files.length.toLocaleString()}개를 나눠 확인합니다.`);
+
+        try {
+          const packFiles = await findPackScripts(files);
+          if (!packFiles.length) {
+            throw new Error('선택한 폴더에서 pack.js를 찾지 못했습니다. 이미지팩 루트 또는 개별 이미지팩 폴더를 선택하세요.');
           }
-          if (batch >= 200) {
-            batch = 0;
-            updateStatus();
-            await new Promise(resolve => setTimeout(resolve, 0));
+          if (typeof DataTransfer === 'undefined') {
+            throw new Error('이 브라우저는 DataTransfer를 지원하지 않아 안전하게 파일 목록을 바꿀 수 없습니다. 원본 대량 등록은 실행하지 않았습니다.');
           }
+
+          const transfer = new DataTransfer();
+          for (const file of packFiles) transfer.items.add(file);
+          input.files = transfer.files;
+          input.disabled = false;
+          setLabel(label, `이미지팩 ${packFiles.length.toLocaleString()}개 등록 중…`);
+          showStatus(input, `전체 ${files.length.toLocaleString()}개 중 pack.js ${packFiles.length.toLocaleString()}개만 Faith의 기존 등록 처리기에 전달합니다.`);
+
+          replaying.add(input);
+          input.dispatchEvent(new Event('change', { bubbles: true }));
+          setTimeout(() => {
+            input.value = '';
+            setLabel(label, oldText.trim() || '이미지팩 폴더 선택');
+            showStatus(input, `pack.js ${packFiles.length.toLocaleString()}개를 기존 등록 처리기에 전달했습니다. Faith의 이미지팩 목록에서 등록 결과를 확인하세요.`);
+          }, 1500);
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
+          showStatus(input, `이미지팩 처리 중단: ${message}`, true);
+          console.error('[faith-image-loader] pack registration helper failed', error);
+          input.value = '';
+          input.disabled = false;
+          setLabel(label, oldText.trim() || '이미지팩 폴더 선택');
         }
-        if (pendingMap.size === 0) throw new Error('선택한 폴더에서 지원되는 이미지 파일을 찾지 못했습니다.');
-        folderLabels.add(folderLabel);
-        for (const [key, file] of pendingMap) fileMap.set(key, file);
-        basenameMap = new Map();
-        for (const [key, file] of fileMap) {
-          const base = normalizedPath(file.name);
-          const names = basenameMap.get(base) || [];
-          names.push(file);
-          basenameMap.set(base, names);
-        }
-        total = fileMap.size;
-        busy = false;
-        installObserver();
-        schedulePatch();
-        updateStatus();
-      } catch (error) {
-        busy = false;
-        lastError = String(error && error.message || error);
-        updateStatus();
-        throw error;
-      }
+      }, true);
     }
 
-    function openWindow() {
-      win = api.ui.window({
-        id: 'faith-image-loader-main',
-        title: 'Faith 이미지팩 로더',
-        width: 460,
-        height: 500,
-        render(body) {
-          body.replaceChildren();
-          const root = h('div', { class: 'wfil-wrap', 'data-wml-ui': 'true' });
-          root.append(h('p', { class: 'wfil-note' },
-            '이미지 팩 폴더를 한 번에 하나씩 연결합니다. 65,000개 파일이 든 상위 폴더 전체를 선택하지 마세요. 각 팩 폴더를 따로 선택하세요.'));
-
-          const directoryButton = document.createElement('button');
-          directoryButton.type = 'button';
-          directoryButton.textContent = '폴더 선택 (단계 처리)';
-          directoryButton.addEventListener('click', async () => {
-            if (typeof window.showDirectoryPicker !== 'function') {
-              lastError = '이 브라우저는 단계 처리 폴더 선택을 지원하지 않습니다. 아래 폴더 선택을 사용하세요.';
-              updateStatus();
-              return;
-            }
-            try {
-              const directory = await window.showDirectoryPicker({ mode: 'read' });
-              await loadDirectoryHandle(directory);
-            } catch (error) {
-              if (error && error.name === 'AbortError') return;
-              lastError = String(error && error.message || error);
-              busy = false;
-              updateStatus();
-            }
-          });
-          const fileInput = document.createElement('input');
-          fileInput.type = 'file';
-          fileInput.multiple = true;
-          fileInput.accept = 'image/*';
-          fileInput.setAttribute('webkitdirectory', '');
-          fileInput.setAttribute('directory', '');
-          fileInput.setAttribute('aria-label', '이미지 팩 폴더 선택');
-          fileInput.addEventListener('change', async () => {
-            if (!fileInput.files || !fileInput.files.length) return;
-            try { await loadFolder(fileInput.files); }
-            catch (error) { folderLabel = ''; busy = false; lastError = String(error.message || error); updateStatus(); }
-            finally { fileInput.value = ''; }
-            updateStatus();
-          });
-          const row = h('div', { class: 'wfil-row' });
-          const toggle = document.createElement('button');
-          toggleButton = toggle;
-          toggle.type = 'button';
-          toggle.textContent = active ? '로컬 이미지 연결 사용 중' : '로컬 이미지 연결 사용 안 함';
-          toggle.addEventListener('click', () => {
-            active = !active;
-            toggle.textContent = active ? '로컬 이미지 연결 사용 중' : '로컬 이미지 연결 사용 안 함';
-            if (active) schedulePatch();
-            else restoreImages();
-            updateStatus();
-          });
-          const clear = document.createElement('button');
-          clear.type = 'button';
-          clear.textContent = '연결 해제';
-          clear.addEventListener('click', () => { clearFolder(); busy = false; updateStatus(); });
-          row.append(toggle, clear);
-          statusEl = h('div', { class: 'wfil-status', role: 'status' }, statusText());
-          root.append(directoryButton, fileInput, row, statusEl);
-          body.append(root);
-        },
-      });
+    function scanDom() {
+      if (typeof document === 'undefined') return;
+      document.querySelectorAll(INPUT_SELECTOR).forEach(attach);
     }
 
+    scanDom();
+    if (typeof MutationObserver !== 'undefined' && document.documentElement) {
+      observer = new MutationObserver(scanDom);
+      observer.observe(document.documentElement, { childList: true, subtree: true });
+    }
 
-    api.ui.addButton({
-      label: 'Faith 이미지 로더',
-      title: '이미지 팩 폴더를 하나씩 연결합니다.',
-      onClick: openWindow,
-    });
-    installObserver();
+    return () => {
+      try { observer?.disconnect(); } catch {}
+    };
   },
 });
