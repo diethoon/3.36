@@ -176,9 +176,9 @@ WML.define({
       const first = files[0];
       const firstPath = String(first && (first.webkitRelativePath || first.name) || '');
       folderLabel = firstPath.includes('/') ? firstPath.split('/')[0] : '(선택한 파일)';
-      folderLabels.add(folderLabel);
       updateStatus();
       let added = 0;
+      const pendingMap = new Map();
 
       for (let start = 0; start < count; start += 200) {
         const end = Math.min(start + 200, count);
@@ -192,11 +192,7 @@ WML.define({
           let key = normalizedPath(parts.join('/'));
           key = key.replace(/^images\//, '');
           if (!key) key = normalizedPath(file.name);
-          fileMap.set(key, file);
-          const base = normalizedPath(file.name);
-          const names = basenameMap.get(base) || [];
-          names.push(file);
-          basenameMap.set(base, names);
+          pendingMap.set(key, file);
         }
         scanned = end;
         updateStatus();
@@ -209,6 +205,8 @@ WML.define({
         updateStatus();
         throw new Error('선택한 폴더에서 지원되는 이미지 파일을 찾지 못했습니다.');
       }
+      folderLabels.add(folderLabel);
+      for (const [key, file] of pendingMap) fileMap.set(key, file);
       basenameMap = new Map();
       for (const file of fileMap.values()) {
         const base = normalizedPath(file.name);
