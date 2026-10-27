@@ -71,6 +71,7 @@ WML.define({
         if (saved && img.getAttribute('src') !== saved) img.setAttribute('src', saved);
         activeBlob.delete(img);
       }
+      matched = 0;
     }
 
     function clearFolder() {
@@ -118,9 +119,10 @@ WML.define({
         objectUrls.set(file, blobUrl);
       }
       if (img.getAttribute('src') !== blobUrl) {
+        const wasTracked = activeBlob.has(img);
         activeBlob.set(img, blobUrl);
         img.setAttribute('src', blobUrl);
-        matched++;
+        if (!wasTracked) matched++;
         updateStatus();
       }
     }
