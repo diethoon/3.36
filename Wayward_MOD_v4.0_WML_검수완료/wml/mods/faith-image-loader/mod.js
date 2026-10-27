@@ -230,6 +230,68 @@ WML.define({
       updateStatus();
     }
 
+
+    async function* walkDirectory(directory, prefix = '') {
+      for await (const [name, handle] of directory.entries()) {
+        if (handle.kind === 'directory') {
+          yield* walkDirectory(handle, prefix + name + '/');
+        } else if (handle.kind === 'file' && IMAGE_EXT.test(name)) {
+          yield { file: await handle.getFile(), relative: prefix + name };
+        }
+      }
+    }
+
+    async function loadDirectoryHandle(directory) {
+      lastError = '';
+      busy = true;
+      scanned = 0;
+      total = 0;
+      folderLabel = directory.name || '선택한 폴더';
+      updateStatus();
+      const pendingMap = new Map();
+      let batch = 0;
+      try {
+        for await (const entry of walkDirectory(directory)) {
+          const file = entry.file;
+          let key = normalizedPath(entry.relative);
+          if (key.startsWith('images/')) key = key.slice(7);
+          if (!key) key = normalizedPath(file.name);
+          pendingMap.set(key, file);
+          scanned++;
+          total = scanned;
+          batch++;
+          if (scanned > MAX_SELECTED_FILES) {
+            throw new Error('이미지 파일이 20,000개를 넘었습니다. 더 작은 개별 이미지 팩 폴더를 선택하세요.');
+          }
+          if (batch >= 200) {
+            batch = 0;
+            updateStatus();
+            await new Promise(resolve => setTimeout(resolve, 0));
+          }
+        }
+        if (pendingMap.size === 0) throw new Error('선택한 폴더에서 지원되는 이미지 파일을 찾지 못했습니다.');
+        folderLabels.add(folderLabel);
+        for (const [key, file] of pendingMap) fileMap.set(key, file);
+        basenameMap = new Map();
+        for (const [key, file] of fileMap) {
+          const base = normalizedPath(file.name);
+          const names = basenameMap.get(base) || [];
+          names.push(file);
+          basenameMap.set(base, names);
+        }
+        total = fileMap.size;
+        busy = false;
+        installObserver();
+        schedulePatch();
+        updateStatus();
+      } catch (error) {
+        busy = false;
+        lastError = String(error && error.message || error);
+        updateStatus();
+        throw error;
+      }
+    }
+
     function openWindow() {
       win = api.ui.window({
         id: 'faith-image-loader-main',
@@ -241,6 +303,26 @@ WML.define({
           const root = h('div', { class: 'wfil-wrap', 'data-wml-ui': 'true' });
           root.append(h('p', { class: 'wfil-note' },
             '이미지 팩 폴더를 한 번에 하나씩 연결합니다. 65,000개 파일이 든 상위 폴더 전체를 선택하지 마세요. 각 팩 폴더를 따로 선택하세요.'));
+
+          const directoryButton = document.createElement('button');
+          directoryButton.type = 'button';
+          directoryButton.textContent = '폴더 선택 (단계 처리)';
+          directoryButton.addEventListener('click', async () => {
+            if (typeof window.showDirectoryPicker !== 'function') {
+              lastError = '이 브라우저는 단계 처리 폴더 선택을 지원하지 않습니다. 아래 폴더 선택을 사용하세요.';
+              updateStatus();
+              return;
+            }
+            try {
+              const directory = await window.showDirectoryPicker({ mode: 'read' });
+              await loadDirectoryHandle(directory);
+            } catch (error) {
+              if (error && error.name === 'AbortError') return;
+              lastError = String(error && error.message || error);
+              busy = false;
+              updateStatus();
+            }
+          });
           const fileInput = document.createElement('input');
           fileInput.type = 'file';
           fileInput.multiple = true;
@@ -273,7 +355,7 @@ WML.define({
           clear.addEventListener('click', () => { clearFolder(); busy = false; updateStatus(); });
           row.append(toggle, clear);
           statusEl = h('div', { class: 'wfil-status', role: 'status' }, statusText());
-          root.append(fileInput, row, statusEl);
+          root.append(directoryButton, fileInput, row, statusEl);
           body.append(root);
         },
       });
@@ -286,10 +368,5 @@ WML.define({
       onClick: openWindow,
     });
     installObserver();
-    api.onBack(() => {
-      if (!win || !win.el || !win.el.isConnected) return false;
-      win.close();
-      return true;
-    });
   },
 });
