@@ -167,23 +167,26 @@ WML.define({
     }
 
     async function loadFolder(files) {
-      const list = Array.from(files || []).filter(file => IMAGE_EXT.test(file.name || ''));
-      if (!list.length) throw new Error('선택한 폴더에서 지원되는 이미지 파일을 찾지 못했습니다.');
+      const count = files && Number.isFinite(files.length) ? files.length : 0;
+      if (!count) throw new Error('선택한 폴더에 파일이 없습니다.');
       clearFolder();
       busy = true;
-      total = list.length;
-      const firstPath = String(list[0].webkitRelativePath || list[0].name);
+      total = count;
+      const first = files[0];
+      const firstPath = String(first && (first.webkitRelativePath || first.name) || '');
       folderLabel = firstPath.includes('/') ? firstPath.split('/')[0] : '(선택한 파일)';
       updateStatus();
 
-      for (let start = 0; start < list.length; start += 200) {
-        const batch = list.slice(start, start + 200);
-        for (const file of batch) {
+      for (let start = 0; start < count; start += 200) {
+        const end = Math.min(start + 200, count);
+        for (let i = start; i < end; i++) {
+          const file = files[i];
+          if (!file || !IMAGE_EXT.test(file.name || '')) continue;
           const relative = String(file.webkitRelativePath || file.name).replace(/\\/g, '/');
           const parts = relative.split('/').filter(Boolean);
           if (parts.length > 1) parts.shift();
           let key = normalizedPath(parts.join('/'));
-          key = key.replace(/^images\//, '');
+          key = key.replace(/^images\\//, '');
           if (!key) key = normalizedPath(file.name);
           fileMap.set(key, file);
           const base = normalizedPath(file.name);
@@ -191,10 +194,13 @@ WML.define({
           names.push(file);
           basenameMap.set(base, names);
         }
-        scanned = Math.min(start + batch.length, list.length);
+        scanned = end;
         updateStatus();
         await new Promise(resolve => setTimeout(resolve, 0));
       }
+      if (fileMap.size === 0) throw new Error('선택한 폴더에서 지원되는 이미지 파일을 찾지 못했습니다.');
+      total = fileMap.size;
+      scanned = count;
       busy = false;
       installObserver();
       schedulePatch();
