@@ -77,7 +77,7 @@ WML.define({
     function folderNames(files) {
       // image-packs/<팩이름>/.../pack.js 에서 최상위 팩 이름만 추립니다.
       return [...new Set(files.map(file => {
-        const parts = String(file.webkitRelativePath || '').replace(/\\\\/g, '/').split('/');
+        const parts = String(file.webkitRelativePath || '').replace(/\\/g, '/').split('/');
         return parts[0]?.toLowerCase() === 'image-packs' && parts.length >= 3 ? parts[1] : '';
       }).filter(Boolean))];
     }
@@ -210,7 +210,11 @@ WML.define({
       busy = true;
       try {
         if (typeof window.showDirectoryPicker !== 'function') {
-          setStatus('이 브라우저는 단계별 폴더 선택을 지원하지 않습니다. 아래 호환용 선택 버튼을 눌러 image-packs 최상위 폴더를 선택하세요.');
+          setStatus('이 실행 환경은 단계별 폴더 선택을 지원하지 않습니다. 호환용 폴더 선택기를 엽니다…');
+          busy = false;
+          await new Promise(resolve => setTimeout(resolve, 120));
+          if (fallbackInput && fallbackInput.isConnected) fallbackInput.click();
+          else setStatus('호환용 선택기를 열 수 없습니다. 모드 창에서 “호환용 폴더 선택”을 누르세요.', true);
           return;
         }
         setStatus('image-packs 폴더 선택을 기다리는 중…');
@@ -220,7 +224,17 @@ WML.define({
         await registerPackFiles(files);
       } catch (error) {
         if (error && error.name === 'AbortError') {
-          setStatus('폴더 선택을 취소했습니다.');
+          // 일부 Android WebView/APK는 showDirectoryPicker를 노출하지만 실제 SAF 폴더 선택을
+          // 완료하지 못하고 AbortError를 반환합니다. 즉시 호환용 파일 선택기로 전환합니다.
+          setStatus('이 실행 환경의 폴더 선택기를 사용할 수 없어 호환용 선택기를 엽니다…');
+          busy = false;
+          await new Promise(resolve => setTimeout(resolve, 120));
+          if (fallbackInput && fallbackInput.isConnected) {
+            fallbackInput.click();
+          } else {
+            setStatus('호환용 선택기를 열 수 없습니다. 모드 창에서 “호환용 폴더 선택”을 눌러 다시 시도하세요.', true);
+          }
+          return;
         } else {
           setStatus('등록 실패: ' + String(error && error.message || error), true);
         }
