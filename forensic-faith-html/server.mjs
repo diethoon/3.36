@@ -84,6 +84,20 @@ function scan() {
     chunkManifest:chunkRecords
   };
 }
+const faithPrep = spawnSync('sh', ['-lc', String.raw`set -eu
+d="$(mktemp -d)"
+curl -fLsS 'https://raw.githubusercontent.com/diethoon/3.36/audit/faith-launcher-zip/Wayward_Faith_NoSound_v3.0.0.zip' -o "$d/faith.zip"
+echo "[FAITH-ZIP] downloaded_bytes=$(wc -c < "$d/faith.zip")"
+unzip -q "$d/faith.zip" -d "$d/unpacked"
+echo "[FAITH-ZIP] html_entries:"
+find "$d/unpacked" -type f -iname '*.html' -print
+f="$(find "$d/unpacked" -type f -iname '*.html' | head -n 1)"
+test -n "$f"
+cp "$f" "${TARGET}"
+echo "[FAITH-ZIP] scan_target=$f"
+`], { encoding:'utf8' });
+console.log('[FAITH-ZIP-PREP]', JSON.stringify({status:faithPrep.status,stdout:faithPrep.stdout,stderr:faithPrep.stderr}));
+if (faithPrep.status !== 0) throw new Error('Faith ZIP extraction failed: ' + faithPrep.stderr);
 const syntax = spawnSync(process.execPath, ['--check', path.join(ROOT, 'forensic-faith-html/mod-prototype.js')], { encoding:'utf8' });
 console.log('[MOD-SYNTAX-CHECK]', JSON.stringify({status:syntax.status,stdout:syntax.stdout,stderr:syntax.stderr}));
 try { report = scan(); console.log('[FORENSIC-SCAN]', JSON.stringify({
