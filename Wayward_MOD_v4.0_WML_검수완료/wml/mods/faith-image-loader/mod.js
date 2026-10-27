@@ -74,7 +74,9 @@ WML.define({
     function folderNames(files) {
       return files.map(file => {
         const parts = String(file.webkitRelativePath || '').split('/');
-        return parts.length > 2 ? parts[parts.length - 3] === 'base' ? parts[parts.length - 4] : parts[parts.length - 2] : '';
+        if (parts.length < 3) return '';
+        const parent = parts[parts.length - 2];
+        return parent.toLowerCase() === 'base' ? (parts[parts.length - 3] || '') : parent;
       }).filter(Boolean);
     }
 
