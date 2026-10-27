@@ -249,9 +249,6 @@ WML.define({
       });
     }
 
-    function updateStatus() {
-      if (win && win.el && win.el.isConnected && win.refresh) win.refresh();
-    }
 
     api.ui.addButton({
       label: 'Faith 이미지 로더',
