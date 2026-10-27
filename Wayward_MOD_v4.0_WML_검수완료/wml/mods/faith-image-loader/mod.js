@@ -14,6 +14,7 @@ WML.define({
     let basenameMap = new Map();
     let objectUrls = new Map();
     let matched = 0;
+    let lastError = '';
     let scanned = 0;
     let total = 0;
     let busy = false;
@@ -82,6 +83,7 @@ WML.define({
       basenameMap = new Map();
       folderLabel = '';
       folderLabels.clear();
+      lastError = '';
       matched = 0;
       scanned = 0;
       total = 0;
@@ -161,6 +163,7 @@ WML.define({
 
     function statusText() {
       if (busy) return '폴더 파일 확인 중: ' + scanned + ' / ' + total;
+      if (lastError) return lastError;
       if (folderLabels.size === 0) return '연결된 이미지 폴더가 없습니다.';
       return '연결된 폴더: ' + Array.from(folderLabels).join(', ') + '\n이미지 파일: ' + total + '\n현재 연결된 이미지: ' + matched +
         '\n폴더는 하나씩 추가하며, 이미지 데이터는 실제 화면에 필요할 때만 메모리에 올립니다.';
@@ -175,6 +178,7 @@ WML.define({
       const count = files && Number.isFinite(files.length) ? files.length : 0;
       if (!count) throw new Error('선택한 폴더에 파일이 없습니다.');
       if (count > MAX_SELECTED_FILES) throw new Error('파일이 ' + count.toLocaleString() + '개입니다. 모바일 안정성을 위해 한 번에 20,000개 이하인 개별 이미지 팩 폴더를 선택하세요.');
+      lastError = '';
       busy = true;
       total = count;
       const first = files[0];
@@ -247,7 +251,7 @@ WML.define({
           fileInput.addEventListener('change', async () => {
             if (!fileInput.files || !fileInput.files.length) return;
             try { await loadFolder(fileInput.files); }
-            catch (error) { folderLabel = ''; busy = false; if (statusEl) statusEl.textContent = String(error.message || error); }
+            catch (error) { folderLabel = ''; busy = false; lastError = String(error.message || error); updateStatus(); }
             finally { fileInput.value = ''; }
             updateStatus();
           });
