@@ -1,9 +1,9 @@
-// Faith 원본 이미지팩 로더 — 원본 wfPackScanFolder를 호출하고 pack.js만 읽습니다.
+// Faith 이미지팩 로더 — 원본 wfPackScanFolder를 호출하고 pack.js만 읽습니다.
 // 이미지 파일을 직접 색인하거나 <img>/CSS를 가로채지 않습니다.
 // 이미지팩 등록은 게임의 기존 wfPackScanFolder -> wfPackValidate -> wfImagePacks 저장 흐름에 맡깁니다.
 WML.define({
   id: 'faith-image-loader',
-  name: 'Faith 원본 이미지팩 로더',
+  name: 'Faith 이미지팩 로더',
   version: '1.0.0',
   game: 'faith',
   description: '원본 이미지팩 등록기를 재사용합니다. 이미지 파일을 직접 색인하지 않고 가능한 경우 images 하위 폴더를 건너뛰며 pack.js만 읽습니다.',
