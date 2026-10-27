@@ -14,6 +14,7 @@ WML.define({
     let busy = false;
     let fallbackInput = null;
     let nativeScan = null;
+    let lastSuccessfulNames = [];
 
     function findNativeScanner() {
       const engine = api.engine || {};
@@ -81,23 +82,29 @@ WML.define({
     }
 
     function installStartScreenNotice() {
-      if (document.getElementById('wfil-start-notice')) return;
-      const warningText = '그림이 준비되지 않았습니다';
-      const observer = new MutationObserver(() => {
-        const bodyText = document.body?.innerText || '';
-        if (!bodyText.includes(warningText)) return;
-        if (document.getElementById('wfil-start-notice')) return;
+      function refreshNotice() {
         const packs = readNativePacks();
-        const names = packs.map(p => p.name).filter(Boolean);
-        const box = document.createElement('section');
-        box.id = 'wfil-start-notice';
-        box.style.cssText = 'margin:8px 0;padding:10px;border:1px solid #6b9f77;border-radius:8px;background:rgba(20,70,35,.18);font:inherit;line-height:1.45;overflow-wrap:anywhere';
+        const catalogNames = packs.map(p => p.name).filter(Boolean);
+        const names = lastSuccessfulNames.length ? lastSuccessfulNames : catalogNames;
+        const bodyText = document.body?.innerText || '';
+        // 표시할 이미지팩 정보가 생기기 전에는 시작화면에 빈 안내창을 만들지 않습니다.
+        if (!names.length && !bodyText.includes('그림이 준비되지 않았습니다')) return;
+        let box = document.getElementById('wfil-start-notice');
+        if (!box) {
+          box = document.createElement('section');
+          box.id = 'wfil-start-notice';
+          box.style.cssText = 'margin:8px 0;padding:10px;border:1px solid #6b9f77;border-radius:8px;background:rgba(20,70,35,.18);font:inherit;line-height:1.45;overflow-wrap:anywhere';
+          const target = [...document.querySelectorAll('body *')].find(el =>
+            el.children.length === 0 && (el.textContent || '').includes('그림이 준비되지 않았습니다'));
+          (target?.parentElement || document.body).prepend(box);
+        }
+        box.replaceChildren();
         const heading = document.createElement('strong');
-        heading.textContent = names.length ? 'Faith 이미지팩 등록 확인' : 'Faith 이미지팩 로더';
+        heading.textContent = lastSuccessfulNames.length ? 'Faith 이미지팩 등록 성공' : 'Faith 이미지팩 등록 목록';
         box.append(heading);
         const line = document.createElement('div');
         line.textContent = names.length
-          ? '등록된 이미지팩: ' + names.join(', ')
+          ? '등록 확인된 팩: ' + [...new Set(names)].join(', ')
           : '원본 이미지팩 설정에 등록된 팩 이름을 읽지 못했습니다. 원본 이미지팩 설정에서 등록 목록을 확인하세요.';
         box.append(line);
         const loaded = [];
@@ -110,26 +117,14 @@ WML.define({
         const actual = document.createElement('div');
         actual.textContent = loaded.length
           ? '현재 화면에서 이미지 출력이 확인된 팩: ' + [...new Set(loaded)].join(', ')
-          : '현재 화면에서 팩별 이미지 출력을 아직 자동 확인하지 못했습니다. 실제 초상화/장면이 표시되는지 확인하세요.';
+          : '현재 화면의 이미지 URL에서 팩별 출력을 자동 확인하지 못했습니다. 실제 초상화/장면이 표시되는지도 확인하세요.';
         box.append(actual);
-        const target = [...document.querySelectorAll('body *')].find(el =>
-          el.children.length === 0 && (el.textContent || '').includes(warningText));
-        (target?.parentElement || document.body).prepend(box);
-      });
+      }
+      const observer = new MutationObserver(refreshNotice);
       observer.observe(document.documentElement, { childList: true, subtree: true, characterData: true });
-      // 등록된 이미지팩이 이미 있고 시작화면이 표시된 경우도 처리합니다.
-      setTimeout(() => {
-        if ((document.body?.innerText || '').includes(warningText)) {
-          observer.disconnect();
-          const marker = document.createElement('span');
-          marker.style.display = 'none';
-          document.body.append(marker);
-          observer.observe(document.documentElement, { childList: true, subtree: true, characterData: true });
-        }
-      }, 500);
+      setTimeout(refreshNotice, 500);
+      setTimeout(refreshNotice, 2000);
     }
-
-    installStartScreenNotice();
 
     function setStatus(message, error = false) {
       if (statusEl && statusEl.isConnected) {
@@ -210,7 +205,9 @@ WML.define({
       const nativePacks = readNativePacks();
       const selectedNames = [...new Set(folderNames(files))];
       const nativeNames = [...new Set(nativePacks.map(pack => pack.name).filter(Boolean))];
-      const successNames = nativeNames.length ? nativeNames : (Number(count) > 0 ? selectedNames : []);
+      const matchingNames = nativeNames.filter(name => selectedNames.some(selected => selected.toLowerCase() === name.toLowerCase()));
+      const successNames = matchingNames.length ? matchingNames : (Number(count) > 0 ? selectedNames : []);
+      lastSuccessfulNames = [...new Set(successNames)];
       const nameLine = successNames.length
         ? '\\n등록 확인된 팩 이름: ' + successNames.join(', ')
         : '\\n원본 등록 함수는 실행됐지만 성공한 팩 이름을 카탈로그에서 확인하지 못했습니다.';
