@@ -1,20 +1,23 @@
 WML.define({
   id: 'faith-image-loader',
   name: 'Faith 이미지팩 로더',
-  version: '0.1.2',
+  version: '0.3.0',
   game: '>=2026-10-04',
-  description: '이미지 팩 폴더를 한 번에 하나씩 연결하고 파일 처리를 나눠 실행합니다.',
+  description: 'Faith 이미지팩의 로컬 경로를 보정하고, 폴더 핸들을 저장해 새로고침 후 다시 연결합니다.',
   async setup(api) {
     const h = api.ui.h;
     let win = null;
     let active = true;
     let folderLabel = '';
-    const folderLabels = new Set();
+    let savedHandleAvailable = false;
+    let restoreInProgress = false;
+    let reconnectButton = null;
     let fileMap = new Map();
     let basenameMap = new Map();
+    let aliasMap = new Map();
+    let ambiguousAliases = new Set();
     let objectUrls = new Map();
     let matched = 0;
-    let lastError = '';
     let scanned = 0;
     let total = 0;
     let busy = false;
@@ -25,7 +28,9 @@ WML.define({
     const original = new WeakMap();
     const activeBlob = new WeakMap();
     const IMAGE_EXT = /\.(avif|gif|jpe?g|png|webp|bmp)$/i;
-    const MAX_SELECTED_FILES = 20000;
+    const HANDLE_DB = 'faith-image-loader-v1';
+    const HANDLE_STORE = 'directory-handles';
+    const HANDLE_KEY = 'last-image-pack';
 
     const styleId = 'faith-image-loader-style';
     if (!document.getElementById(styleId)) {
@@ -73,7 +78,6 @@ WML.define({
         if (saved && img.getAttribute('src') !== saved) img.setAttribute('src', saved);
         activeBlob.delete(img);
       }
-      matched = 0;
     }
 
     function clearFolder() {
@@ -81,9 +85,9 @@ WML.define({
       revokeUrls();
       fileMap = new Map();
       basenameMap = new Map();
+      aliasMap = new Map();
+      ambiguousAliases = new Set();
       folderLabel = '';
-      folderLabels.clear();
-      lastError = '';
       matched = 0;
       scanned = 0;
       total = 0;
@@ -102,6 +106,7 @@ WML.define({
       const key = pathFromImageUrl(src);
       if (!key) return null;
       if (fileMap.has(key)) return fileMap.get(key);
+      if (aliasMap.has(key) && !ambiguousAliases.has(key)) return aliasMap.get(key);
       const name = key.split('/').pop();
       const candidates = basenameMap.get(name);
       return candidates && candidates.length === 1 ? candidates[0] : null;
@@ -122,10 +127,9 @@ WML.define({
         objectUrls.set(file, blobUrl);
       }
       if (img.getAttribute('src') !== blobUrl) {
-        const wasTracked = activeBlob.has(img);
         activeBlob.set(img, blobUrl);
         img.setAttribute('src', blobUrl);
-        if (!wasTracked) matched++;
+        matched++;
         updateStatus();
       }
     }
@@ -162,65 +166,73 @@ WML.define({
     }
 
     function statusText() {
+      if (busy && total < 0) return '폴더를 순차적으로 읽는 중: 이미지 ' + scanned + '개 확인';
       if (busy) return '폴더 파일 확인 중: ' + scanned + ' / ' + total;
-      if (lastError) return lastError;
-      if (folderLabels.size === 0) return '연결된 이미지 폴더가 없습니다.';
-      return '연결된 폴더: ' + Array.from(folderLabels).join(', ') + '\n이미지 파일: ' + total + '\n현재 연결된 이미지: ' + matched +
-        '\n폴더는 하나씩 추가하며, 이미지 데이터는 실제 화면에 필요할 때만 메모리에 올립니다.';
+      if (!folderLabel) return savedHandleAvailable ? '저장된 이미지 폴더가 있습니다. 다시 연결을 눌러 불러오세요.' : '연결된 이미지 폴더가 없습니다.';
+      return '폴더: ' + folderLabel + '\n이미지 파일: ' + total + '\n현재 연결된 이미지: ' + matched +
+        '\n파일은 실제로 화면에 필요할 때만 메모리에 올립니다.';
     }
 
     function updateStatus() {
       if (statusEl && statusEl.isConnected) statusEl.textContent = statusText();
       if (toggleButton && toggleButton.isConnected) toggleButton.textContent = active ? '로컬 이미지 연결 사용 중' : '로컬 이미지 연결 사용 안 함';
+      if (reconnectButton && reconnectButton.isConnected) reconnectButton.disabled = busy || !savedHandleAvailable;
+    }
+
+    function addFileToMaps(file, relativePath) {
+      let key = normalizedPath(relativePath);
+      key = key.replace(/^images\//, '');
+      if (!key) key = normalizedPath(file.name);
+      fileMap.set(key, file);
+      const parts = key.split('/').filter(Boolean);
+      // Faith/Android directory pickers may include an extra selected-folder prefix.
+      // Register every path suffix so "pack/images/x.png", "images/x.png" and
+      // "x.png" can resolve without guessing between duplicate basenames.
+      for (let i = 1; i < parts.length; i++) {
+        const alias = parts.slice(i).join('/');
+        if (!alias || ambiguousAliases.has(alias) || fileMap.has(alias)) continue;
+        const previous = aliasMap.get(alias);
+        if (previous && previous !== file) {
+          aliasMap.delete(alias);
+          ambiguousAliases.add(alias);
+        } else if (!previous) {
+          aliasMap.set(alias, file);
+        }
+      }
+      const base = normalizedPath(file.name);
+      const names = basenameMap.get(base) || [];
+      names.push(file);
+      basenameMap.set(base, names);
     }
 
     async function loadFolder(files) {
       const count = files && Number.isFinite(files.length) ? files.length : 0;
       if (!count) throw new Error('선택한 폴더에 파일이 없습니다.');
-      if (count > MAX_SELECTED_FILES) throw new Error('파일이 ' + count.toLocaleString() + '개입니다. 모바일 안정성을 위해 한 번에 20,000개 이하인 개별 이미지 팩 폴더를 선택하세요.');
-      lastError = '';
+      clearFolder();
       busy = true;
       total = count;
       const first = files[0];
       const firstPath = String(first && (first.webkitRelativePath || first.name) || '');
       folderLabel = firstPath.includes('/') ? firstPath.split('/')[0] : '(선택한 파일)';
       updateStatus();
-      let added = 0;
-      const pendingMap = new Map();
 
       for (let start = 0; start < count; start += 200) {
         const end = Math.min(start + 200, count);
         for (let i = start; i < end; i++) {
           const file = files[i];
           if (!file || !IMAGE_EXT.test(file.name || '')) continue;
-          added++;
           const relative = String(file.webkitRelativePath || file.name).replace(/\\/g, '/');
-          const parts = relative.split('/').filter(Boolean);
-          if (parts.length > 1) parts.shift();
-          let key = normalizedPath(parts.join('/'));
-          key = key.replace(/^images\//, '');
-          if (!key) key = normalizedPath(file.name);
-          pendingMap.set(key, file);
+          addFileToMaps(file, relative);
         }
         scanned = end;
         updateStatus();
         await new Promise(resolve => setTimeout(resolve, 0));
       }
-      if (added === 0) {
-        folderLabels.delete(folderLabel);
-        folderLabel = '';
+      if (fileMap.size === 0) {
         busy = false;
+        clearFolder();
         updateStatus();
         throw new Error('선택한 폴더에서 지원되는 이미지 파일을 찾지 못했습니다.');
-      }
-      folderLabels.add(folderLabel);
-      for (const [key, file] of pendingMap) fileMap.set(key, file);
-      basenameMap = new Map();
-      for (const file of fileMap.values()) {
-        const base = normalizedPath(file.name);
-        const names = basenameMap.get(base) || [];
-        names.push(file);
-        basenameMap.set(base, names);
       }
       total = fileMap.size;
       scanned = count;
@@ -230,64 +242,163 @@ WML.define({
       updateStatus();
     }
 
-
-    async function* walkDirectory(directory, prefix = '') {
-      for await (const [name, handle] of directory.entries()) {
-        if (handle.kind === 'directory') {
-          yield* walkDirectory(handle, prefix + name + '/');
-        } else if (handle.kind === 'file' && IMAGE_EXT.test(name)) {
-          yield { file: await handle.getFile(), relative: prefix + name };
-        }
-      }
-    }
-
-    async function loadDirectoryHandle(directory) {
-      lastError = '';
+    async function loadDirectoryHandle(handle) {
+      clearFolder();
       busy = true;
+      total = -1;
       scanned = 0;
-      total = 0;
-      folderLabel = directory.name || '선택한 폴더';
+      folderLabel = handle.name || '(선택한 폴더)';
       updateStatus();
-      const pendingMap = new Map();
-      let batch = 0;
-      try {
-        for await (const entry of walkDirectory(directory)) {
-          const file = entry.file;
-          let key = normalizedPath(entry.relative);
-          if (key.startsWith('images/')) key = key.slice(7);
-          if (!key) key = normalizedPath(file.name);
-          pendingMap.set(key, file);
-          scanned++;
-          total = scanned;
-          batch++;
-          if (scanned > MAX_SELECTED_FILES) {
-            throw new Error('이미지 파일이 20,000개를 넘었습니다. 더 작은 개별 이미지 팩 폴더를 선택하세요.');
+      let unavailable = 0;
+      let visited = 0;
+
+      async function walk(directory, prefix) {
+        let batch = [];
+        async function flushBatch() {
+          if (!batch.length) return;
+          const current = batch;
+          batch = [];
+          const results = await Promise.all(current.map(async item => {
+            try { return { file: await item.handle.getFile(), path: item.path }; }
+            catch (_) { unavailable++; return null; }
+          }));
+          for (const result of results) {
+            if (!result) continue;
+            addFileToMaps(result.file, result.path);
+            scanned++;
           }
-          if (batch >= 200) {
-            batch = 0;
+          updateStatus();
+          await new Promise(resolve => setTimeout(resolve, 0));
+        }
+        for await (const [name, entry] of directory.entries()) {
+          if (entry.kind === 'directory') {
+            await walk(entry, prefix + name + '/');
+          } else if (IMAGE_EXT.test(name)) {
+            batch.push({ handle: entry, path: prefix + name });
+            if (batch.length >= 64) await flushBatch();
+          }
+          visited++;
+          if (visited % 250 === 0) {
             updateStatus();
             await new Promise(resolve => setTimeout(resolve, 0));
           }
         }
-        if (pendingMap.size === 0) throw new Error('선택한 폴더에서 지원되는 이미지 파일을 찾지 못했습니다.');
-        folderLabels.add(folderLabel);
-        for (const [key, file] of pendingMap) fileMap.set(key, file);
-        basenameMap = new Map();
-        for (const [key, file] of fileMap) {
-          const base = normalizedPath(file.name);
-          const names = basenameMap.get(base) || [];
-          names.push(file);
-          basenameMap.set(base, names);
-        }
+        await flushBatch();
+      }
+
+      try {
+        await walk(handle, handle.name ? handle.name + '/' : '');
         total = fileMap.size;
+        if (!total) throw new Error('선택한 폴더에서 지원되는 이미지 파일을 찾지 못했습니다.');
         busy = false;
         installObserver();
         schedulePatch();
+        if (unavailable) folderLabel += ' (' + unavailable + '개 파일을 읽지 못함)';
         updateStatus();
       } catch (error) {
         busy = false;
-        lastError = String(error && error.message || error);
+        clearFolder();
         updateStatus();
+        throw error;
+      }
+    }
+
+    function openHandleDb() {
+      return new Promise((resolve, reject) => {
+        if (!('indexedDB' in window)) return reject(new Error('IndexedDB 미지원'));
+        const request = indexedDB.open(HANDLE_DB, 1);
+        request.onupgradeneeded = () => {
+          const db = request.result;
+          if (!db.objectStoreNames.contains(HANDLE_STORE)) db.createObjectStore(HANDLE_STORE);
+        };
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error || new Error('폴더 저장소 열기 실패'));
+      });
+    }
+
+    async function saveDirectoryHandle(handle) {
+      const db = await openHandleDb();
+      try {
+        await new Promise((resolve, reject) => {
+          const tx = db.transaction(HANDLE_STORE, 'readwrite');
+          tx.objectStore(HANDLE_STORE).put(handle, HANDLE_KEY);
+          tx.oncomplete = resolve;
+          tx.onerror = () => reject(tx.error || new Error('폴더 핸들 저장 실패'));
+          tx.onabort = () => reject(tx.error || new Error('폴더 핸들 저장 취소'));
+        });
+      } finally { db.close(); }
+    }
+
+    async function readDirectoryHandle() {
+      const db = await openHandleDb();
+      try {
+        return await new Promise((resolve, reject) => {
+          const tx = db.transaction(HANDLE_STORE, 'readonly');
+          const req = tx.objectStore(HANDLE_STORE).get(HANDLE_KEY);
+          req.onsuccess = () => resolve(req.result || null);
+          req.onerror = () => reject(req.error || new Error('저장된 폴더 핸들 읽기 실패'));
+        });
+      } finally { db.close(); }
+    }
+
+    async function deleteDirectoryHandle() {
+      try {
+        const db = await openHandleDb();
+        try {
+          await new Promise((resolve, reject) => {
+            const tx = db.transaction(HANDLE_STORE, 'readwrite');
+            tx.objectStore(HANDLE_STORE).delete(HANDLE_KEY);
+            tx.oncomplete = resolve;
+            tx.onerror = () => reject(tx.error || new Error('저장된 폴더 핸들 삭제 실패'));
+          });
+        } finally { db.close(); }
+      } catch (_) {}
+      savedHandleAvailable = false;
+      updateStatus();
+    }
+
+    async function restoreSavedHandle() {
+      if (restoreInProgress || busy || fileMap.size) return;
+      restoreInProgress = true;
+      try {
+        const handle = await readDirectoryHandle();
+        if (!handle) {
+          savedHandleAvailable = false;
+          updateStatus();
+          return;
+        }
+        savedHandleAvailable = true;
+        if (typeof handle.queryPermission === 'function') {
+          const permission = await handle.queryPermission({ mode: 'read' });
+          if (permission !== 'granted') {
+            if (statusEl) statusEl.textContent = '이전에 선택한 폴더가 저장되어 있습니다. 아래 “이전 폴더 다시 연결”을 눌러 접근 권한을 허용하세요.';
+            updateStatus();
+            return;
+          }
+        }
+        await loadDirectoryHandle(handle);
+      } catch (error) {
+        if (statusEl) statusEl.textContent = '저장된 폴더를 다시 연결하지 못했습니다: ' + String(error?.message || error);
+      } finally {
+        restoreInProgress = false;
+        updateStatus();
+      }
+    }
+
+    async function pickDirectory(fallbackInput) {
+      if (typeof window.showDirectoryPicker !== 'function') {
+        if (fallbackInput) fallbackInput.click();
+        else throw new Error('이 브라우저는 폴더 선택을 지원하지 않습니다.');
+        return;
+      }
+      try {
+        const handle = await window.showDirectoryPicker({ id: 'wayward-faith-image-pack', mode: 'read' });
+        await saveDirectoryHandle(handle);
+        savedHandleAvailable = true;
+        updateStatus();
+        await loadDirectoryHandle(handle);
+      } catch (error) {
+        if (error && error.name === 'AbortError') return;
         throw error;
       }
     }
@@ -302,42 +413,34 @@ WML.define({
           body.replaceChildren();
           const root = h('div', { class: 'wfil-wrap', 'data-wml-ui': 'true' });
           root.append(h('p', { class: 'wfil-note' },
-            '이미지 팩 폴더를 한 번에 하나씩 연결합니다. 65,000개 파일이 든 상위 폴더 전체를 선택하지 마세요. 각 팩 폴더를 따로 선택하세요.'));
-
-          const directoryButton = document.createElement('button');
-          directoryButton.type = 'button';
-          directoryButton.textContent = '폴더 선택 (단계 처리)';
-          directoryButton.addEventListener('click', async () => {
-            if (typeof window.showDirectoryPicker !== 'function') {
-              lastError = '이 브라우저는 단계 처리 폴더 선택을 지원하지 않습니다. 아래 폴더 선택을 사용하세요.';
-              updateStatus();
-              return;
-            }
-            try {
-              const directory = await window.showDirectoryPicker({ mode: 'read' });
-              await loadDirectoryHandle(directory);
-            } catch (error) {
-              if (error && error.name === 'AbortError') return;
-              lastError = String(error && error.message || error);
-              busy = false;
-              updateStatus();
-            }
-          });
+            '가능하면 “이미지 폴더 선택 (순차 읽기)”를 사용하세요. 폴더를 한 번에 하나씩 선택하면 모바일에서 파일 목록을 단계적으로 읽습니다. 호환용 선택은 브라우저가 파일 목록을 먼저 만드는 방식이므로 대형 폴더에서 느릴 수 있습니다.'));
           const fileInput = document.createElement('input');
           fileInput.type = 'file';
           fileInput.multiple = true;
-          fileInput.accept = 'image/*';
+          fileInput.style.display = 'none';
           fileInput.setAttribute('webkitdirectory', '');
           fileInput.setAttribute('directory', '');
-          fileInput.setAttribute('aria-label', '이미지 팩 폴더 선택');
+          fileInput.setAttribute('aria-label', '호환용 이미지 폴더 선택');
           fileInput.addEventListener('change', async () => {
             if (!fileInput.files || !fileInput.files.length) return;
             try { await loadFolder(fileInput.files); }
-            catch (error) { folderLabel = ''; busy = false; lastError = String(error.message || error); updateStatus(); }
+            catch (error) { folderLabel = ''; busy = false; if (statusEl) statusEl.textContent = String(error.message || error); }
             finally { fileInput.value = ''; }
             updateStatus();
           });
           const row = h('div', { class: 'wfil-row' });
+          const folderButton = document.createElement('button');
+          folderButton.type = 'button';
+          folderButton.textContent = '이미지 폴더 선택 (순차 읽기)';
+          folderButton.addEventListener('click', async () => {
+            if (busy) return;
+            try { await pickDirectory(fileInput); }
+            catch (error) { if (statusEl) statusEl.textContent = String(error.message || error); }
+          });
+          const fallbackButton = document.createElement('button');
+          fallbackButton.type = 'button';
+          fallbackButton.textContent = '호환용 폴더 선택';
+          fallbackButton.addEventListener('click', () => fileInput.click());
           const toggle = document.createElement('button');
           toggleButton = toggle;
           toggle.type = 'button';
@@ -353,10 +456,29 @@ WML.define({
           clear.type = 'button';
           clear.textContent = '연결 해제';
           clear.addEventListener('click', () => { clearFolder(); busy = false; updateStatus(); });
-          row.append(toggle, clear);
+          reconnectButton = document.createElement('button');
+          reconnectButton.type = 'button';
+          reconnectButton.textContent = '이전 폴더 다시 연결';
+          reconnectButton.addEventListener('click', async () => {
+            if (busy) return;
+            try {
+              const handle = await readDirectoryHandle();
+              if (!handle) throw new Error('저장된 폴더가 없습니다. 먼저 이미지 폴더를 선택하세요.');
+              if (typeof handle.requestPermission === 'function') {
+                const permission = await handle.requestPermission({ mode: 'read' });
+                if (permission !== 'granted') throw new Error('폴더 접근 권한이 허용되지 않았습니다.');
+              }
+              await loadDirectoryHandle(handle);
+            } catch (error) {
+              if (statusEl) statusEl.textContent = String(error?.message || error);
+            }
+          });
+          clear.addEventListener('click', () => { clearFolder(); busy = false; void deleteDirectoryHandle(); updateStatus(); });
+          row.append(folderButton, fallbackButton, reconnectButton, toggle, clear);
           statusEl = h('div', { class: 'wfil-status', role: 'status' }, statusText());
-          root.append(directoryButton, fileInput, row, statusEl);
+          root.append(fileInput, row, statusEl);
           body.append(root);
+          void restoreSavedHandle();
         },
       });
     }
@@ -368,5 +490,10 @@ WML.define({
       onClick: openWindow,
     });
     installObserver();
+    api.onBack(() => {
+      if (!win || !win.el || !win.el.isConnected) return false;
+      win.close();
+      return true;
+    });
   },
 });
