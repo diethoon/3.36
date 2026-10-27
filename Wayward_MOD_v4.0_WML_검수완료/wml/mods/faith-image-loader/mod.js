@@ -1,7 +1,7 @@
 WML.define({
   id: 'faith-image-loader',
   name: 'Faith 이미지팩 로더',
-  version: '0.3.0',
+  version: '0.4.0',
   game: '>=2026-10-04',
   description: 'Faith 이미지팩의 로컬 경로를 보정하고, 폴더 핸들을 저장해 새로고침 후 다시 연결합니다.',
   async setup(api) {
@@ -27,6 +27,8 @@ WML.define({
     let toggleButton = null;
     const original = new WeakMap();
     const activeBlob = new WeakMap();
+    const originalBackground = new WeakMap();
+    const activeBackground = new WeakMap();
     const IMAGE_EXT = /\.(avif|gif|jpe?g|png|webp|bmp)$/i;
     const HANDLE_DB = 'faith-image-loader-v1';
     const HANDLE_STORE = 'directory-handles';
@@ -75,8 +77,14 @@ WML.define({
     function restoreImages() {
       for (const img of document.querySelectorAll('img')) {
         const saved = original.get(img);
-        if (saved && img.getAttribute('src') !== saved) img.setAttribute('src', saved);
+        if (saved !== undefined && img.getAttribute('src') !== saved) img.setAttribute('src', saved);
         activeBlob.delete(img);
+      }
+      for (const el of document.querySelectorAll('*')) {
+        if (!originalBackground.has(el)) continue;
+        const saved = originalBackground.get(el);
+        if (el.style.backgroundImage !== saved) el.style.backgroundImage = saved;
+        activeBackground.delete(el);
       }
     }
 
@@ -134,10 +142,42 @@ WML.define({
       }
     }
 
+    function patchBackgroundImage(el) {
+      if (!(el instanceof Element) || !el.style) return;
+      const current = el.style.backgroundImage || '';
+      const activeValue = activeBackground.get(el);
+      if (activeValue && current === activeValue) return;
+      if (!originalBackground.has(el) || activeValue) originalBackground.set(el, current);
+      if (!active || fileMap.size === 0 || !current) return;
+
+      let changed = false;
+      const rewritten = current.replace(/url\(\s*(['"]?)(.*?)\1\s*\)/gi, (whole, quote, src) => {
+        const file = lookupFile(src);
+        if (!file) return whole;
+        let blobUrl = objectUrls.get(file);
+        if (!blobUrl) {
+          blobUrl = URL.createObjectURL(file);
+          objectUrls.set(file, blobUrl);
+        }
+        changed = true;
+        return 'url("' + blobUrl + '")';
+      });
+      if (changed && rewritten !== current) {
+        el.style.backgroundImage = rewritten;
+        activeBackground.set(el, rewritten);
+        matched++;
+        updateStatus();
+      }
+    }
+
     function patchTree(root) {
       if (!root) return;
       if (root instanceof HTMLImageElement) patchImage(root);
-      if (root.querySelectorAll) root.querySelectorAll('img').forEach(patchImage);
+      if (root instanceof Element) patchBackgroundImage(root);
+      if (root.querySelectorAll) {
+        root.querySelectorAll('img').forEach(patchImage);
+        root.querySelectorAll('[style*="background"]').forEach(patchBackgroundImage);
+      }
     }
 
     function schedulePatch() {
@@ -155,13 +195,14 @@ WML.define({
         for (const record of records) {
           if (record.type === 'attributes') {
             if (record.target instanceof HTMLImageElement) patchImage(record.target);
+            if (record.attributeName === 'style') patchBackgroundImage(record.target);
           } else {
             for (const node of record.addedNodes) patchTree(node);
           }
         }
       });
       observer.observe(document.documentElement, {
-        subtree: true, childList: true, attributes: true, attributeFilter: ['src']
+        subtree: true, childList: true, attributes: true, attributeFilter: ['src', 'style']
       });
     }
 
@@ -413,7 +454,7 @@ WML.define({
           body.replaceChildren();
           const root = h('div', { class: 'wfil-wrap', 'data-wml-ui': 'true' });
           root.append(h('p', { class: 'wfil-note' },
-            '가능하면 “이미지 폴더 선택 (순차 읽기)”를 사용하세요. 폴더를 한 번에 하나씩 선택하면 모바일에서 파일 목록을 단계적으로 읽습니다. 호환용 선택은 브라우저가 파일 목록을 먼저 만드는 방식이므로 대형 폴더에서 느릴 수 있습니다.'));
+            'Faith의 img src와 인라인 background-image 양쪽을 로컬 파일로 연결합니다. 가능하면 “이미지 폴더 선택 (순차 읽기)”를 사용하세요. 폴더를 한 번에 하나씩 선택하면 모바일에서 파일 목록을 단계적으로 읽습니다. 호환용 선택은 대형 폴더에서 느릴 수 있습니다.'));
           const fileInput = document.createElement('input');
           fileInput.type = 'file';
           fileInput.multiple = true;
