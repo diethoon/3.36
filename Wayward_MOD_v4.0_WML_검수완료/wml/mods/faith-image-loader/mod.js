@@ -27,6 +27,108 @@ WML.define({
 
     nativeScan = findNativeScanner();
 
+    // 원본 게임이 보유한 이미지팩 카탈로그를 읽기 전용으로 확인합니다.
+    function readNativePacks() {
+      const roots = [api.engine, window];
+      const candidates = [];
+      for (const root of roots) {
+        if (!root) continue;
+        for (const key of ['wfImagePacks', '__WAYWARD_IMAGE_PACKS__', 'imagePacks', 'image_packs']) {
+          try { if (root[key]) candidates.push(root[key]); } catch (_) {}
+        }
+        try {
+          for (const [key, value] of Object.entries(root)) {
+            if (/wfImagePacks|WAYWARD_IMAGE_PACKS/i.test(key) && value) candidates.push(value);
+          }
+        } catch (_) {}
+      }
+      const seen = new Set();
+      const packs = [];
+      function add(value, keyHint = '') {
+        if (!value || typeof value !== 'object' || seen.has(value)) return;
+        seen.add(value);
+        if (Array.isArray(value)) {
+          for (const item of value) add(item, keyHint);
+          return;
+        }
+        const name = value.name || value.title || value.id || value.packName || value.folderName ||
+          (typeof value.key === 'string' ? value.key : '');
+        const path = value.webkitRelativePath || value.path || value.baseUrl || value.baseURL || value.url || '';
+        const entries = value.entries || value.images || value.files;
+        if (name && (path || entries || /pack/i.test(keyHint))) {
+          const count = Array.isArray(entries) ? entries.length :
+            (entries && typeof entries === 'object' ? Object.keys(entries).length : 0);
+          packs.push({ name: String(name), path: String(path), count });
+        } else {
+          for (const [key, child] of Object.entries(value)) {
+            if (child && typeof child === 'object') add(child, key);
+          }
+        }
+      }
+      for (const candidate of candidates) add(candidate);
+      const unique = new Map();
+      for (const pack of packs) unique.set(pack.name + '|' + pack.path, pack);
+      return [...unique.values()];
+    }
+
+    function folderNames(files) {
+      return files.map(file => {
+        const parts = String(file.webkitRelativePath || '').split('/');
+        return parts.length > 2 ? parts[parts.length - 3] === 'base' ? parts[parts.length - 4] : parts[parts.length - 2] : '';
+      }).filter(Boolean);
+    }
+
+    function installStartScreenNotice() {
+      if (document.getElementById('wfil-start-notice')) return;
+      const warningText = '그림이 준비되지 않았습니다';
+      const observer = new MutationObserver(() => {
+        const bodyText = document.body?.innerText || '';
+        if (!bodyText.includes(warningText)) return;
+        if (document.getElementById('wfil-start-notice')) return;
+        const packs = readNativePacks();
+        const names = packs.map(p => p.name).filter(Boolean);
+        const box = document.createElement('section');
+        box.id = 'wfil-start-notice';
+        box.style.cssText = 'margin:8px 0;padding:10px;border:1px solid #6b9f77;border-radius:8px;background:rgba(20,70,35,.18);font:inherit;line-height:1.45;overflow-wrap:anywhere';
+        const heading = document.createElement('strong');
+        heading.textContent = names.length ? 'Faith 이미지팩 등록 확인' : 'Faith 이미지팩 로더';
+        box.append(heading);
+        const line = document.createElement('div');
+        line.textContent = names.length
+          ? '등록된 이미지팩: ' + names.join(', ')
+          : '원본 이미지팩 설정에 등록된 팩 이름을 읽지 못했습니다. 원본 이미지팩 설정에서 등록 목록을 확인하세요.';
+        box.append(line);
+        const loaded = [];
+        for (const pack of packs) {
+          const tokens = [pack.name, pack.path].filter(Boolean);
+          const imgs = [...document.images].filter(img => img.complete && img.naturalWidth > 0 &&
+            tokens.some(token => token && (img.currentSrc || img.src).includes(token)));
+          if (imgs.length) loaded.push(pack.name);
+        }
+        const actual = document.createElement('div');
+        actual.textContent = loaded.length
+          ? '현재 화면에서 이미지 출력이 확인된 팩: ' + [...new Set(loaded)].join(', ')
+          : '현재 화면에서 팩별 이미지 출력을 아직 자동 확인하지 못했습니다. 실제 초상화/장면이 표시되는지 확인하세요.';
+        box.append(actual);
+        const target = [...document.querySelectorAll('body *')].find(el =>
+          el.children.length === 0 && (el.textContent || '').includes(warningText));
+        (target?.parentElement || document.body).prepend(box);
+      });
+      observer.observe(document.documentElement, { childList: true, subtree: true, characterData: true });
+      // 등록된 이미지팩이 이미 있고 시작화면이 표시된 경우도 처리합니다.
+      setTimeout(() => {
+        if ((document.body?.innerText || '').includes(warningText)) {
+          observer.disconnect();
+          const marker = document.createElement('span');
+          marker.style.display = 'none';
+          document.body.append(marker);
+          observer.observe(document.documentElement, { childList: true, subtree: true, characterData: true });
+        }
+      }, 500);
+    }
+
+    installStartScreenNotice();
+
     function setStatus(message, error = false) {
       if (statusEl && statusEl.isConnected) {
         statusEl.textContent = message;
@@ -103,7 +205,14 @@ WML.define({
       }
       setStatus(`이미지 파일은 건드리지 않고 pack.js ${files.length.toLocaleString()}개만 원본 등록기에 전달합니다…`);
       const count = await nativeScan(files);
-      setStatus(`원본 등록 완료: ${Number(count).toLocaleString()}개 이미지팩. 게임의 원본 이미지팩 목록에서 등록 결과를 확인하세요. 이미지 파일 자체는 다시 색인하거나 복사하지 않았습니다.`);
+      const nativePacks = readNativePacks();
+      const selectedNames = [...new Set(folderNames(files))];
+      const nativeNames = [...new Set(nativePacks.map(pack => pack.name).filter(Boolean))];
+      const successNames = nativeNames.length ? nativeNames : (Number(count) > 0 ? selectedNames : []);
+      const nameLine = successNames.length
+        ? '\\n등록 확인된 팩 이름: ' + successNames.join(', ')
+        : '\\n원본 등록 함수는 실행됐지만 성공한 팩 이름을 카탈로그에서 확인하지 못했습니다.';
+      setStatus(`원본 등록 완료: ${Number(count).toLocaleString()}개 이미지팩.${nameLine}\\n시작화면 안내에도 등록 목록과 현재 화면에서 이미지 출력이 확인된 팩을 표시합니다. 이미지 파일 자체는 다시 색인하거나 복사하지 않았습니다.`);
     }
 
     async function chooseDirectory() {
