@@ -14,6 +14,7 @@ WML.define({
     let packListEl = null;
     let busy = false;
     let fallbackInput = null;
+    let zipInput = null;
     let nativeScan = null;
     let lastSuccessfulNames = [];
 
@@ -200,6 +201,88 @@ WML.define({
         : '원본 등록 함수는 실행됐지만 팩 이름을 확인하지 못했습니다. 원본 이미지팩 설정에서 확인하세요.');
     }
 
+    // ZIP 입력에서는 중앙 디렉터리만 훑고 pack.js만 추출합니다.
+    async function collectFromZip(file) {
+      const buffer = await file.arrayBuffer();
+      const bytes = new Uint8Array(buffer);
+      const view = new DataView(buffer);
+      const u32 = p => view.getUint32(p, true);
+      const u16 = p => view.getUint16(p, true);
+      const eocdMin = Math.max(0, bytes.length - 22 - 65535);
+      let eocd = -1;
+      for (let p = bytes.length - 22; p >= eocdMin; p--) {
+        if (u32(p) === 0x06054b50) { eocd = p; break; }
+      }
+      if (eocd < 0) throw new Error('올바른 ZIP 파일이 아니거나 ZIP 중앙 디렉터리를 찾지 못했습니다.');
+      const disk = u16(eocd + 4), cdDisk = u16(eocd + 6), count = u16(eocd + 10);
+      const cdSize = u32(eocd + 12), cdOffset = u32(eocd + 16);
+      if (disk || cdDisk || count === 0xffff || cdOffset === 0xffffffff || cdSize === 0xffffffff) {
+        throw new Error('분할 ZIP 또는 ZIP64는 지원하지 않습니다. 일반 ZIP으로 다시 압축하세요.');
+      }
+      if (cdOffset + cdSize > bytes.length) throw new Error('ZIP 중앙 디렉터리 범위가 올바르지 않습니다.');
+      const decoder = new TextDecoder('utf-8');
+      const found = [];
+      let p = cdOffset;
+      for (let i = 0; i < count; i++) {
+        if (p + 46 > bytes.length || u32(p) !== 0x02014b50) throw new Error('ZIP 중앙 디렉터리 항목이 손상되었습니다.');
+        const flags = u16(p + 8), method = u16(p + 10);
+        const compressedSize = u32(p + 20), uncompressedSize = u32(p + 24);
+        const nameLength = u16(p + 28), extraLength = u16(p + 30), commentLength = u16(p + 32);
+        const localOffset = u32(p + 42);
+        let path = decoder.decode(bytes.subarray(p + 46, p + 46 + nameLength)).replace(/\\/g, '/').replace(/^\.\//, '');
+        p += 46 + nameLength + extraLength + commentLength;
+        const marker = path.toLowerCase().indexOf('image-packs/');
+        if (marker > 0) path = path.slice(marker);
+        if (!path.toLowerCase().startsWith('image-packs/')) continue;
+        const segments = path.split('/');
+        if (segments.some(part => part === '..' || part === '.')) continue;
+        if (segments.some(part => part.toLowerCase() === 'images')) continue;
+        if (!/^image-packs\/.+\/pack\.js$/i.test(path) || path.endsWith('/')) continue;
+        if (flags & 1) throw new Error('암호화된 ZIP은 지원하지 않습니다. 암호를 제거한 ZIP을 사용하세요.');
+        if (uncompressedSize > 4 * 1024 * 1024) throw new Error('pack.js가 4MB를 초과합니다. 안전을 위해 등록을 중단했습니다.');
+        if (localOffset + 30 > bytes.length || u32(localOffset) !== 0x04034b50) throw new Error('ZIP의 pack.js 로컬 헤더가 손상되었습니다.');
+        const dataStart = localOffset + 30 + u16(localOffset + 26) + u16(localOffset + 28);
+        const dataEnd = dataStart + compressedSize;
+        if (dataEnd > bytes.length) throw new Error('ZIP의 pack.js 데이터 범위가 올바르지 않습니다.');
+        const compressed = bytes.slice(dataStart, dataEnd);
+        let contentBytes;
+        if (method === 0) contentBytes = compressed;
+        else if (method === 8) {
+          if (typeof DecompressionStream !== 'function') throw new Error('이 브라우저는 ZIP 압축 해제를 지원하지 않습니다. 압축 안 함(Store) ZIP 또는 최신 브라우저를 사용하세요.');
+          try {
+            const stream = new Blob([compressed]).stream().pipeThrough(new DecompressionStream('deflate-raw'));
+            contentBytes = new Uint8Array(await new Response(stream).arrayBuffer());
+          } catch (_) { throw new Error('ZIP의 deflate 압축을 해제하지 못했습니다. 일반 ZIP으로 다시 압축하세요.'); }
+        } else throw new Error('지원하지 않는 ZIP 압축 방식입니다: ' + method);
+        if (contentBytes.length !== uncompressedSize) throw new Error('ZIP 안의 pack.js 크기 검증에 실패했습니다.');
+        const textContent = decoder.decode(contentBytes);
+        found.push({ name: segments[segments.length - 1], webkitRelativePath: path, text: async () => textContent });
+      }
+      return found;
+    }
+
+    async function onZipChange() {
+      const file = zipInput?.files?.[0];
+      if (!file || busy) return;
+      if (!nativeScan) {
+        setStatus('원본 wfPackScanFolder를 찾지 못했습니다. ZIP을 읽거나 등록하지 않았습니다.', true);
+        zipInput.value = '';
+        return;
+      }
+      busy = true;
+      try {
+        setStatus('ZIP 구조를 확인하고 pack.js만 추출하는 중입니다. 이미지 파일은 추출하지 않습니다…');
+        const packFiles = await collectFromZip(file);
+        if (!packFiles.length) throw new Error('ZIP에서 image-packs/<팩 이름>/.../pack.js를 찾지 못했습니다. image-packs 폴더가 최상위에 오도록 압축하세요.');
+        await registerPackFiles(packFiles);
+      } catch (error) {
+        setStatus('ZIP 등록 실패: ' + String(error && error.message || error), true);
+      } finally {
+        if (zipInput) zipInput.value = '';
+        busy = false;
+      }
+    }
+
     async function chooseDirectory() {
       if (busy) return;
       if (!nativeScan) {
@@ -308,7 +391,16 @@ WML.define({
 
           const fallbackButton = h('button', { type: 'button', style: 'font:inherit;padding:8px 10px;max-width:100%' }, '호환용 폴더 선택');
           fallbackButton.addEventListener('click', () => fallbackInput.click());
-          row.append(nativeButton, fallbackButton);
+
+          zipInput = document.createElement('input');
+          zipInput.type = 'file';
+          zipInput.accept = '.zip,application/zip,application/x-zip-compressed';
+          zipInput.setAttribute('aria-label', '이미지팩 ZIP 파일 선택');
+          zipInput.style.display = 'none';
+          zipInput.addEventListener('change', onZipChange);
+          const zipButton = h('button', { type: 'button', style: 'font:inherit;padding:8px 10px;max-width:100%' }, 'ZIP 이미지팩 불러오기');
+          zipButton.addEventListener('click', () => zipInput.click());
+          row.append(nativeButton, fallbackButton, zipButton);
 
           statusEl = h('div', {
             role: 'status',
@@ -317,7 +409,7 @@ WML.define({
             ? '이미지팩 등록을 기다리는 중입니다.'
             : '원본 등록 함수를 찾지 못했습니다. 현재 게임에서 등록할 수 없습니다.');
 
-          root.append(row, fallbackInput, statusEl);
+          root.append(row, fallbackInput, zipInput, statusEl);
           body.append(root);
         },
       });
