@@ -186,7 +186,7 @@ WML.define({
           const parts = relative.split('/').filter(Boolean);
           if (parts.length > 1) parts.shift();
           let key = normalizedPath(parts.join('/'));
-          key = key.replace(/^images\\//, '');
+          key = key.replace(/^images\//, '');
           if (!key) key = normalizedPath(file.name);
           fileMap.set(key, file);
           const base = normalizedPath(file.name);
