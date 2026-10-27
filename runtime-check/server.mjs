@@ -154,7 +154,10 @@ function scanHtmlIn4096ByteChunks() {
     'packFormat','packId','imageManifest','imageServerUrl','imagePackReset',
     'imageAutoProbeAllowed','FileList','type="file"','createObjectURL'
   ]);
-  const selectedChunkIndices = new Set();
+  const selectedChunkIndices = new Set([
+    Math.floor(2611938 / chunkSize), Math.floor(3270865 / chunkSize),
+    1349, 1350, 1351, 1352, 1353
+  ]);
   for (const needle of selectedNeedles) {
     for (const at of (keywordOffsets[needle] || []).slice(0, 12)) selectedChunkIndices.add(Math.floor(at / chunkSize));
   }
