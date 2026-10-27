@@ -18,6 +18,8 @@ WML.define({
     let busy = false;
     let observer = null;
     let patchQueued = false;
+    let statusEl = null;
+    let toggleButton = null;
     const original = new WeakMap();
     const activeBlob = new WeakMap();
     const IMAGE_EXT = /\.(avif|gif|jpe?g|png|webp|bmp)$/i;
@@ -160,7 +162,8 @@ WML.define({
     }
 
     function updateStatus() {
-      if (win && win.el && win.el.isConnected && win.refresh) win.refresh();
+      if (statusEl && statusEl.isConnected) statusEl.textContent = statusText();
+      if (toggleButton && toggleButton.isConnected) toggleButton.textContent = active ? '로컬 이미지 연결 사용 중' : '로컬 이미지 연결 사용 안 함';
     }
 
     async function loadFolder(files) {
@@ -218,12 +221,13 @@ WML.define({
           fileInput.addEventListener('change', async () => {
             if (!fileInput.files || !fileInput.files.length) return;
             try { await loadFolder(fileInput.files); }
-            catch (error) { folderLabel = ''; busy = false; root.querySelector('.wfil-status').textContent = String(error.message || error); }
+            catch (error) { folderLabel = ''; busy = false; if (statusEl) statusEl.textContent = String(error.message || error); }
             finally { fileInput.value = ''; }
             updateStatus();
           });
           const row = h('div', { class: 'wfil-row' });
           const toggle = document.createElement('button');
+          toggleButton = toggle;
           toggle.type = 'button';
           toggle.textContent = active ? '로컬 이미지 연결 사용 중' : '로컬 이미지 연결 사용 안 함';
           toggle.addEventListener('click', () => {
@@ -238,9 +242,8 @@ WML.define({
           clear.textContent = '연결 해제';
           clear.addEventListener('click', () => { clearFolder(); busy = false; updateStatus(); });
           row.append(toggle, clear);
-          const status = h('div', { class: 'wfil-status', role: 'status' }, statusText());
-          status.classList.add('wfil-status');
-          root.append(fileInput, row, status);
+          statusEl = h('div', { class: 'wfil-status', role: 'status' }, statusText());
+          root.append(fileInput, row, statusEl);
           body.append(root);
         },
       });
