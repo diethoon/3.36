@@ -124,7 +124,9 @@ function scanHtmlIn4096ByteChunks() {
     'webkitdirectory', 'showDirectoryPicker', 'FileSystemDirectoryHandle',
     'image pack', 'imagepack', 'image-pack', 'imagepacks', 'faith',
     'input type="file"', 'type="file"', 'FileList', 'createObjectURL',
-    'WML.install', 'window.WML', 'mods/', 'register', 'image'
+    'WML.install', 'window.WML', 'mods/', 'register', 'image',
+    '__WAYWARD_IMAGE_PACKS__', 'packFormat', 'packId', 'imageManifest',
+    'imageServerUrl', 'imagePackReset', 'imageAutoProbeAllowed', 'FileReader', 'directory'
   ];
   const lower = bytes.toString('latin1').toLowerCase();
   const keywordOffsets = {};
