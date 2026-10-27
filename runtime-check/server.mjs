@@ -1,5 +1,4 @@
 import http from 'node:http';
-import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import chromiumBinary from '@sparticuz/chromium';
@@ -94,86 +93,6 @@ function nameHits(v) {
   walk(v,'$',0);
   return hits;
 }
-function scanHtmlIn4096ByteChunks() {
-  const file = GAME_FILE;
-  const chunkSize = 4096;
-  const fd = fs.openSync(file, 'r');
-  const digest = createHash('sha256');
-  const chunks = [];
-  const manifest = [];
-  let total = 0, index = 0;
-  try {
-    while (true) {
-      const buf = Buffer.alloc(chunkSize);
-      const n = fs.readSync(fd, buf, 0, chunkSize, null);
-      if (n === 0) break;
-      const chunk = buf.subarray(0, n);
-      digest.update(chunk);
-      chunks.push(Buffer.from(chunk));
-      manifest.push({ index, offset: total, length: n, sha256: createHash('sha256').update(chunk).digest('hex') });
-      total += n;
-      index++;
-    }
-  } finally { fs.closeSync(fd); }
-  const bytes = Buffer.concat(chunks);
-  const sizeOnDisk = fs.statSync(file).size;
-  if (total !== sizeOnDisk || (!manifest.length ? total !== 0 : manifest[manifest.length-1].offset + manifest[manifest.length-1].length !== total)) {
-    throw new Error('4096-byte chunk EOF coverage check failed');
-  }
-  const needles = [
-    'webkitdirectory', 'showDirectoryPicker', 'FileSystemDirectoryHandle',
-    'image pack', 'imagepack', 'image-pack', 'imagepacks', 'faith',
-    'input type="file"', 'type="file"', 'FileList', 'createObjectURL',
-    'WML.install', 'window.WML', 'mods/', 'register', 'image',
-    '__WAYWARD_IMAGE_PACKS__', 'packFormat', 'packId', 'imageManifest',
-    'imageServerUrl', 'imagePackReset', 'imageAutoProbeAllowed', 'FileReader', 'directory'
-  ];
-  const lower = bytes.toString('latin1').toLowerCase();
-  const keywordOffsets = {};
-  const excerpts = [];
-  for (const needle of needles) {
-    const key = needle.toLowerCase();
-    const hits = [];
-    let from = 0;
-    while (hits.length < 200) {
-      const at = lower.indexOf(key, from);
-      if (at < 0) break;
-      hits.push(at);
-      from = at + 1;
-    }
-    keywordOffsets[needle] = hits;
-    for (const at of hits.slice(0, 8)) {
-      const start = Math.max(0, at - 220), end = Math.min(bytes.length, at + needle.length + 360);
-      excerpts.push({ needle, offset: at, chunkIndex: Math.floor(at / chunkSize), start, end,
-        text: bytes.subarray(start, end).toString('utf8').replace(/\\r/g, '\\\\r').replace(/\\n/g, '\\\\n') });
-    }
-  }
-  const selectedNeedles = new Set([
-    'webkitdirectory','showDirectoryPicker','FileSystemDirectoryHandle',
-    'image pack','imagepack','image-pack','imagepacks','__WAYWARD_IMAGE_PACKS__',
-    'packFormat','packId','imageManifest','imageServerUrl','imagePackReset',
-    'imageAutoProbeAllowed','FileList','type="file"','createObjectURL'
-  ]);
-  const selectedChunkIndices = new Set([
-    Math.floor(2611938 / chunkSize), Math.floor(3270865 / chunkSize),
-    1349, 1350, 1351, 1352, 1353
-  ]);
-  for (const needle of selectedNeedles) {
-    for (const at of (keywordOffsets[needle] || []).slice(0, 12)) selectedChunkIndices.add(Math.floor(at / chunkSize));
-  }
-  const selectedChunks = [...selectedChunkIndices].sort((a,b)=>a-b).map(chunkIndex => ({
-    chunkIndex, offset: chunkIndex * chunkSize,
-    length: Math.min(chunkSize, total - chunkIndex * chunkSize),
-    text: bytes.subarray(chunkIndex * chunkSize, Math.min(bytes.length, (chunkIndex + 1) * chunkSize)).toString('utf8')
-      .replace(/\\r/g, '\\\\r').replace(/\\n/g, '\\\\n')
-  }));
-  return {
-    file: path.relative(ROOT, file), chunkSize, bytes: total, sizeOnDisk,
-    chunkCount: manifest.length, eofReached: true, sha256: digest.digest('hex'),
-    chunkManifest: manifest, keywordOffsets, excerpts, selectedChunks
-  };
-}
-
 async function runTest() {
   result = Object.assign({},result,{state:'running',startedAt:new Date().toISOString()});
   log('INFO','Starting headless Chromium test',{
@@ -362,21 +281,6 @@ async function runTest() {
   } finally {
     if(browser) await browser.close().catch(()=>{});
   }
-}
-result.forensicScan = scanHtmlIn4096ByteChunks();
-log('FORENSIC', '4096-byte EOF scan summary', {
-  file: result.forensicScan.file, bytes: result.forensicScan.bytes,
-  chunkSize: result.forensicScan.chunkSize, chunkCount: result.forensicScan.chunkCount,
-  eofReached: result.forensicScan.eofReached, sha256: result.forensicScan.sha256,
-  offsets: Object.fromEntries(Object.entries(result.forensicScan.keywordOffsets).map(([k,v]) => [k, v.slice(0,80)]))
-});
-for (const chunk of result.forensicScan.selectedChunks) {
-  log('FORENSIC_CHUNK', 'exact chunk ' + chunk.chunkIndex + ' @byte ' + chunk.offset, chunk);
-}
-for (const item of result.forensicScan.excerpts.filter(x =>
-  ['webkitdirectory','showDirectoryPicker','FileSystemDirectoryHandle','image pack','imagepack','image-pack','imagepacks','__WAYWARD_IMAGE_PACKS__','packFormat','packId','input type="file"','type="file"','FileList','createObjectURL','imageManifest','imageServerUrl','imagePackReset','imageAutoProbeAllowed'].includes(x.needle)
-).slice(0,100)) {
-  log('FORENSIC_EXCERPT', item.needle + ' @byte ' + item.offset, item);
 }
 server.listen(PORT,'0.0.0.0',()=>{
   log('INFO','HTTP server listening',{port:PORT});
