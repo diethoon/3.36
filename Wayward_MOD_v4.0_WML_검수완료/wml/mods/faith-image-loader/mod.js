@@ -147,7 +147,7 @@ WML.define({
       const current = el.style.backgroundImage || '';
       const activeValue = activeBackground.get(el);
       if (activeValue && current === activeValue) return;
-      if (!originalBackground.has(el) || activeValue) originalBackground.set(el, current);
+      originalBackground.set(el, current);
       if (!active || fileMap.size === 0 || !current) return;
 
       let changed = false;
