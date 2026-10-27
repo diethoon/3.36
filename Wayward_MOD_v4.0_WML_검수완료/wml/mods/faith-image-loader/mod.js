@@ -172,6 +172,11 @@ WML.define({
       key = key.replace(/^images\//, '');
       if (!key) key = normalizedPath(file.name);
       fileMap.set(key, file);
+      const parts = key.split('/').filter(Boolean);
+      if (parts.length > 1) {
+        const withoutRoot = parts.slice(1).join('/');
+        if (withoutRoot && !fileMap.has(withoutRoot)) fileMap.set(withoutRoot, file);
+      }
       const base = normalizedPath(file.name);
       const names = basenameMap.get(base) || [];
       names.push(file);
@@ -193,7 +198,6 @@ WML.define({
         for (const file of batch) {
           const relative = String(file.webkitRelativePath || file.name).replace(/\\/g, '/');
           const parts = relative.split('/').filter(Boolean);
-          if (parts.length > 1) parts.shift();
           addFileToMaps(file, parts.join('/'));
         }
         scanned = Math.min(start + batch.length, list.length);
