@@ -2,6 +2,7 @@ import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
+import { spawnSync } from 'node:child_process';
 
 const ROOT = process.cwd();
 const TARGET = path.join(ROOT, 'Wayward_MOD_v4.0_WML_검수완료', 'Wayward_WML_ko.html');
@@ -83,6 +84,8 @@ function scan() {
     chunkManifest:chunkRecords
   };
 }
+const syntax = spawnSync(process.execPath, ['--check', path.join(ROOT, 'forensic-faith-html/mod-prototype.js')], { encoding:'utf8' });
+console.log('[MOD-SYNTAX-CHECK]', JSON.stringify({status:syntax.status,stdout:syntax.stdout,stderr:syntax.stderr}));
 try { report = scan(); console.log('[FORENSIC-SCAN]', JSON.stringify({
   state:report.state, source:report.source, bytes:report.bytes,
   chunkSize:report.chunkSize, chunkCount:report.chunkCount,
