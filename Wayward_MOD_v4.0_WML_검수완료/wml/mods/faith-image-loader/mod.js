@@ -169,7 +169,7 @@ WML.define({
 
     function addFileToMaps(file, relativePath) {
       let key = normalizedPath(relativePath);
-      key = key.replace(/^images\\//, '');
+      key = key.replace(/^images\//, '');
       if (!key) key = normalizedPath(file.name);
       fileMap.set(key, file);
       const base = normalizedPath(file.name);
