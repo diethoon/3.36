@@ -158,9 +158,9 @@ WML.define({
 
     function statusText() {
       if (busy) return '폴더 파일 확인 중: ' + scanned + ' / ' + total;
-      if (!folderLabel) return '연결된 이미지 폴더가 없습니다.';
-      return '폴더: ' + folderLabel + '\n이미지 파일: ' + total + '\n현재 연결된 이미지: ' + matched +
-        '\n파일은 실제로 화면에 필요할 때만 메모리에 올립니다.';
+      if (folderLabels.size === 0) return '연결된 이미지 폴더가 없습니다.';
+      return '연결된 폴더: ' + Array.from(folderLabels).join(', ') + '\n이미지 파일: ' + total + '\n현재 연결된 이미지: ' + matched +
+        '\n폴더는 하나씩 추가하며, 이미지 데이터는 실제 화면에 필요할 때만 메모리에 올립니다.';
     }
 
     function updateStatus() {
