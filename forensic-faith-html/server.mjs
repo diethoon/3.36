@@ -12,7 +12,7 @@ const terms = [
   'webkitdirectory','showDirectoryPicker','FileSystemDirectoryHandle','createObjectURL',
   'image-pack','image pack','imagepack','imagegen','faith','register','mod loader',
   'WML.install','__WAYWARD_IMAGE_PACKS__','image','upload','FileList','webkitRelativePath',
-  'IndexedDB','indexedDB','localStorage','backgroundImage','background-image','src:ak(','src: ak(','ak(e)','imagePath','imageUrl','<img','createElement(\"img\")','imageRendering'
+  'IndexedDB','indexedDB','localStorage','backgroundImage','background-image','src:ak(','src: ak(','ak(e)','imagePath','imageUrl','<img','createElement(\"img\")','imageRendering','wfPackInstalled','wfPackResolve','wfPackFindImage','wfPackLoad','wfPackParse','wfPackRead','wfPackImage','FileReader','readAsText','arrayBuffer','createImageBitmap','ImageData','wfPackChoices','wfPackUse'
 ];
 let report = {state:'starting'};
 function scan() {
@@ -59,11 +59,11 @@ function scan() {
   const wanted = [
     'webkitdirectory','showDirectoryPicker','FileSystemDirectoryHandle','createObjectURL',
     'image-pack','image pack','imagepack','imagegen','WML.install','__WAYWARD_IMAGE_PACKS__',
-    'webkitRelativePath','IndexedDB','indexedDB'
+    'webkitRelativePath','IndexedDB','indexedDB','wfPackInstalled','wfPackResolve','wfPackFindImage','wfPackLoad','wfPackParse','wfPackRead','wfPackImage','FileReader','readAsText','arrayBuffer','createImageBitmap','ImageData','wfPackChoices','wfPackUse','imagePath','backgroundImage'
   ];
   const seen = new Set();
   for (const term of wanted) {
-    for (const pos of (hits[term] || []).slice(0, 40)) {
+    for (const pos of (hits[term] || []).slice(0, 6)) {
       const key = term + ':' + pos;
       if (seen.has(key)) continue;
       seen.add(key);
@@ -75,7 +75,7 @@ function scan() {
     }
   }
   return {
-    state:'complete', source:path.relative(ROOT,TARGET), bytes:st.size,
+    state:'complete', source:'Wayward_Faith/Wayward_Faith_v3.0.0.html (extracted from Faith ZIP)', bytes:st.size,
     chunkSize:CHUNK, chunkCount:chunkRecords.length, eofReached:true,
     sha256:hash.digest('hex'),
     finalChunk:chunkRecords[chunkRecords.length-1],
