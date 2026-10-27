@@ -178,12 +178,14 @@ WML.define({
       folderLabel = firstPath.includes('/') ? firstPath.split('/')[0] : '(선택한 파일)';
       folderLabels.add(folderLabel);
       updateStatus();
+      let added = 0;
 
       for (let start = 0; start < count; start += 200) {
         const end = Math.min(start + 200, count);
         for (let i = start; i < end; i++) {
           const file = files[i];
           if (!file || !IMAGE_EXT.test(file.name || '')) continue;
+          added++;
           const relative = String(file.webkitRelativePath || file.name).replace(/\\/g, '/');
           const parts = relative.split('/').filter(Boolean);
           if (parts.length > 1) parts.shift();
@@ -200,7 +202,20 @@ WML.define({
         updateStatus();
         await new Promise(resolve => setTimeout(resolve, 0));
       }
-      if (fileMap.size === 0) throw new Error('선택한 폴더에서 지원되는 이미지 파일을 찾지 못했습니다.');
+      if (added === 0) {
+        folderLabels.delete(folderLabel);
+        folderLabel = '';
+        busy = false;
+        updateStatus();
+        throw new Error('선택한 폴더에서 지원되는 이미지 파일을 찾지 못했습니다.');
+      }
+      basenameMap = new Map();
+      for (const file of fileMap.values()) {
+        const base = normalizedPath(file.name);
+        const names = basenameMap.get(base) || [];
+        names.push(file);
+        basenameMap.set(base, names);
+      }
       total = fileMap.size;
       scanned = count;
       busy = false;
