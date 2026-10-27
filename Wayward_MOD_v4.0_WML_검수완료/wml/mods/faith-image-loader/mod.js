@@ -1,7 +1,7 @@
 WML.define({
   id: 'faith-image-loader',
   name: 'Faith 이미지팩 로더',
-  version: '0.1.1',
+  version: '0.1.2',
   game: '>=2026-10-04',
   description: '이미지 팩 폴더를 한 번에 하나씩 연결하고 파일 처리를 나눠 실행합니다.',
   async setup(api) {
