@@ -203,33 +203,40 @@ WML.define({
 
     // ZIP 입력에서는 중앙 디렉터리만 훑고 pack.js만 추출합니다.
     async function collectFromZip(file) {
-      const buffer = await file.arrayBuffer();
-      const bytes = new Uint8Array(buffer);
-      const view = new DataView(buffer);
-      const u32 = p => view.getUint32(p, true);
-      const u16 = p => view.getUint16(p, true);
-      const eocdMin = Math.max(0, bytes.length - 22 - 65535);
+      // 큰 이미지팩 ZIP은 통째로 메모리에 올리지 않습니다. ZIP 꼬리/중앙 디렉터리와
+      // 실제 등록 대상 pack.js의 바이트만 읽습니다.
+      const size = Number(file.size) || 0;
+      if (size < 22) throw new Error('ZIP 파일이 너무 작거나 올바르지 않습니다.');
+      const tailStart = Math.max(0, size - 22 - 65535);
+      const tail = new Uint8Array(await file.slice(tailStart, size).arrayBuffer());
+      const tailView = new DataView(tail.buffer, tail.byteOffset, tail.byteLength);
+      const t32 = p => tailView.getUint32(p, true);
+      const t16 = p => tailView.getUint16(p, true);
       let eocd = -1;
-      for (let p = bytes.length - 22; p >= eocdMin; p--) {
-        if (u32(p) === 0x06054b50) { eocd = p; break; }
+      for (let p = tail.length - 22; p >= 0; p--) {
+        if (t32(p) === 0x06054b50) { eocd = p; break; }
       }
       if (eocd < 0) throw new Error('올바른 ZIP 파일이 아니거나 ZIP 중앙 디렉터리를 찾지 못했습니다.');
-      const disk = u16(eocd + 4), cdDisk = u16(eocd + 6), count = u16(eocd + 10);
-      const cdSize = u32(eocd + 12), cdOffset = u32(eocd + 16);
+      const disk = t16(eocd + 4), cdDisk = t16(eocd + 6), count = t16(eocd + 10);
+      const cdSize = t32(eocd + 12), cdOffset = t32(eocd + 16);
       if (disk || cdDisk || count === 0xffff || cdOffset === 0xffffffff || cdSize === 0xffffffff) {
         throw new Error('분할 ZIP 또는 ZIP64는 지원하지 않습니다. 일반 ZIP으로 다시 압축하세요.');
       }
-      if (cdOffset + cdSize > bytes.length) throw new Error('ZIP 중앙 디렉터리 범위가 올바르지 않습니다.');
+      if (cdSize > 64 * 1024 * 1024) throw new Error('ZIP 중앙 디렉터리가 너무 큽니다(64MB 제한).');
+      if (cdOffset + cdSize > size) throw new Error('ZIP 중앙 디렉터리 범위가 올바르지 않습니다.');
+      const cdBytes = new Uint8Array(await file.slice(cdOffset, cdOffset + cdSize).arrayBuffer());
+      const view = new DataView(cdBytes.buffer, cdBytes.byteOffset, cdBytes.byteLength);
+      const u32 = p => view.getUint32(p, true), u16 = p => view.getUint16(p, true);
       const decoder = new TextDecoder('utf-8');
       const found = [];
-      let p = cdOffset;
+      let p = 0;
       for (let i = 0; i < count; i++) {
-        if (p + 46 > bytes.length || u32(p) !== 0x02014b50) throw new Error('ZIP 중앙 디렉터리 항목이 손상되었습니다.');
+        if (p + 46 > cdBytes.length || u32(p) !== 0x02014b50) throw new Error('ZIP 중앙 디렉터리 항목이 손상되었습니다.');
         const flags = u16(p + 8), method = u16(p + 10);
         const compressedSize = u32(p + 20), uncompressedSize = u32(p + 24);
         const nameLength = u16(p + 28), extraLength = u16(p + 30), commentLength = u16(p + 32);
         const localOffset = u32(p + 42);
-        let path = decoder.decode(bytes.subarray(p + 46, p + 46 + nameLength)).replace(/\\/g, '/').replace(/^\.\//, '');
+        let path = decoder.decode(cdBytes.subarray(p + 46, p + 46 + nameLength)).replace(/\\/g, '/').replace(/^\.\//, '');
         p += 46 + nameLength + extraLength + commentLength;
         const marker = path.toLowerCase().indexOf('image-packs/');
         if (marker > 0) path = path.slice(marker);
@@ -240,11 +247,15 @@ WML.define({
         if (!/^image-packs\/.+\/pack\.js$/i.test(path) || path.endsWith('/')) continue;
         if (flags & 1) throw new Error('암호화된 ZIP은 지원하지 않습니다. 암호를 제거한 ZIP을 사용하세요.');
         if (uncompressedSize > 4 * 1024 * 1024) throw new Error('pack.js가 4MB를 초과합니다. 안전을 위해 등록을 중단했습니다.');
-        if (localOffset + 30 > bytes.length || u32(localOffset) !== 0x04034b50) throw new Error('ZIP의 pack.js 로컬 헤더가 손상되었습니다.');
-        const dataStart = localOffset + 30 + u16(localOffset + 26) + u16(localOffset + 28);
+        const localHeader = new Uint8Array(await file.slice(localOffset, localOffset + 30).arrayBuffer());
+        if (localHeader.length < 30 || new DataView(localHeader.buffer, localHeader.byteOffset, localHeader.byteLength).getUint32(0, true) !== 0x04034b50) {
+          throw new Error('ZIP의 pack.js 로컬 헤더가 손상되었습니다.');
+        }
+        const localView = new DataView(localHeader.buffer, localHeader.byteOffset, localHeader.byteLength);
+        const dataStart = localOffset + 30 + localView.getUint16(26, true) + localView.getUint16(28, true);
         const dataEnd = dataStart + compressedSize;
-        if (dataEnd > bytes.length) throw new Error('ZIP의 pack.js 데이터 범위가 올바르지 않습니다.');
-        const compressed = bytes.slice(dataStart, dataEnd);
+        if (dataEnd > size) throw new Error('ZIP의 pack.js 데이터 범위가 올바르지 않습니다.');
+        const compressed = new Uint8Array(await file.slice(dataStart, dataEnd).arrayBuffer());
         let contentBytes;
         if (method === 0) contentBytes = compressed;
         else if (method === 8) {
