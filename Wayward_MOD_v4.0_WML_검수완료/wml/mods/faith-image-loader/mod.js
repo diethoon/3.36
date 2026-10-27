@@ -1,9 +1,9 @@
 WML.define({
   id: 'faith-image-loader',
   name: 'Faith 이미지팩 로더',
-  version: '0.1.0',
+  version: '0.2.0',
   game: '>=2026-10-04',
-  description: '이미지 팩 폴더를 한 번에 하나씩 연결하고 파일 처리를 나눠 실행합니다.',
+  description: '모바일 폴더 선택을 순차 처리하고 이미지 경로를 로컬 파일로 연결합니다.',
   async setup(api) {
     const h = api.ui.h;
     let win = null;
@@ -281,7 +281,7 @@ WML.define({
           body.replaceChildren();
           const root = h('div', { class: 'wfil-wrap', 'data-wml-ui': 'true' });
           root.append(h('p', { class: 'wfil-note' },
-            '이미지 팩 폴더를 한 번에 하나씩 연결합니다. 65,000개 파일이 든 상위 폴더 전체를 선택하지 마세요. 각 팩 폴더를 따로 선택하세요.'));
+            '가능하면 “이미지 폴더 선택 (순차 읽기)”를 사용하세요. 폴더를 한 번에 하나씩 선택하면 모바일에서 파일 목록을 단계적으로 읽습니다. 호환용 선택은 브라우저가 파일 목록을 먼저 만드는 방식이므로 대형 폴더에서 느릴 수 있습니다.'));
           const fileInput = document.createElement('input');
           fileInput.type = 'file';
           fileInput.multiple = true;
