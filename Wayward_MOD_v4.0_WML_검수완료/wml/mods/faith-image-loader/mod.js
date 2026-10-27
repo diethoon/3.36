@@ -9,6 +9,7 @@ WML.define({
     let win = null;
     let active = true;
     let folderLabel = '';
+    const folderLabels = new Set();
     let fileMap = new Map();
     let basenameMap = new Map();
     let objectUrls = new Map();
@@ -78,6 +79,7 @@ WML.define({
       fileMap = new Map();
       basenameMap = new Map();
       folderLabel = '';
+      folderLabels.clear();
       matched = 0;
       scanned = 0;
       total = 0;
