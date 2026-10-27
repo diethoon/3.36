@@ -171,12 +171,12 @@ WML.define({
     async function loadFolder(files) {
       const count = files && Number.isFinite(files.length) ? files.length : 0;
       if (!count) throw new Error('선택한 폴더에 파일이 없습니다.');
-      clearFolder();
       busy = true;
       total = count;
       const first = files[0];
       const firstPath = String(first && (first.webkitRelativePath || first.name) || '');
       folderLabel = firstPath.includes('/') ? firstPath.split('/')[0] : '(선택한 파일)';
+      folderLabels.add(folderLabel);
       updateStatus();
 
       for (let start = 0; start < count; start += 200) {
