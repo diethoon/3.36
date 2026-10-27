@@ -1,4 +1,5 @@
 import http from 'node:http';
+import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import chromiumBinary from '@sparticuz/chromium';
@@ -93,6 +94,65 @@ function nameHits(v) {
   walk(v,'$',0);
   return hits;
 }
+function scanHtmlIn4096ByteChunks() {
+  const file = GAME_FILE;
+  const chunkSize = 4096;
+  const fd = fs.openSync(file, 'r');
+  const digest = createHash('sha256');
+  const chunks = [];
+  const manifest = [];
+  let total = 0, index = 0;
+  try {
+    while (true) {
+      const buf = Buffer.alloc(chunkSize);
+      const n = fs.readSync(fd, buf, 0, chunkSize, null);
+      if (n === 0) break;
+      const chunk = buf.subarray(0, n);
+      digest.update(chunk);
+      chunks.push(Buffer.from(chunk));
+      manifest.push({ index, offset: total, length: n, sha256: createHash('sha256').update(chunk).digest('hex') });
+      total += n;
+      index++;
+    }
+  } finally { fs.closeSync(fd); }
+  const bytes = Buffer.concat(chunks);
+  const sizeOnDisk = fs.statSync(file).size;
+  if (total !== sizeOnDisk || (!manifest.length ? total !== 0 : manifest[manifest.length-1].offset + manifest[manifest.length-1].length !== total)) {
+    throw new Error('4096-byte chunk EOF coverage check failed');
+  }
+  const needles = [
+    'webkitdirectory', 'showDirectoryPicker', 'FileSystemDirectoryHandle',
+    'image pack', 'imagepack', 'image-pack', 'imagepacks', 'faith',
+    'input type="file"', 'type="file"', 'FileList', 'createObjectURL',
+    'WML.install', 'window.WML', 'mods/', 'register', 'image'
+  ];
+  const lower = bytes.toString('latin1').toLowerCase();
+  const keywordOffsets = {};
+  const excerpts = [];
+  for (const needle of needles) {
+    const key = needle.toLowerCase();
+    const hits = [];
+    let from = 0;
+    while (hits.length < 200) {
+      const at = lower.indexOf(key, from);
+      if (at < 0) break;
+      hits.push(at);
+      from = at + 1;
+    }
+    keywordOffsets[needle] = hits;
+    for (const at of hits.slice(0, 8)) {
+      const start = Math.max(0, at - 220), end = Math.min(bytes.length, at + needle.length + 360);
+      excerpts.push({ needle, offset: at, chunkIndex: Math.floor(at / chunkSize), start, end,
+        text: bytes.subarray(start, end).toString('utf8').replace(/\\r/g, '\\\\r').replace(/\\n/g, '\\\\n') });
+    }
+  }
+  return {
+    file: path.relative(ROOT, file), chunkSize, bytes: total, sizeOnDisk,
+    chunkCount: manifest.length, eofReached: true, sha256: digest.digest('hex'),
+    chunkManifest: manifest, keywordOffsets, excerpts
+  };
+}
+
 async function runTest() {
   result = Object.assign({},result,{state:'running',startedAt:new Date().toISOString()});
   log('INFO','Starting headless Chromium test',{
@@ -282,6 +342,7 @@ async function runTest() {
     if(browser) await browser.close().catch(()=>{});
   }
 }
+result.forensicScan = scanHtmlIn4096ByteChunks();
 server.listen(PORT,'0.0.0.0',()=>{
   log('INFO','HTTP server listening',{port:PORT});
   log('INFO','Public asset access disabled; starting isolated local Chromium runtime verification.');
