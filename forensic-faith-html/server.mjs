@@ -89,7 +89,10 @@ try { report = scan(); console.log('[FORENSIC-SCAN]', JSON.stringify({
   eofReached:report.eofReached, sha256:report.sha256,
   finalChunk:report.finalChunk, keywordCounts:Object.fromEntries(Object.entries(report.keywordOffsets).map(([k,v])=>[k,v.count])),
   excerptCount:report.excerpts.length
-})); } catch (e) { report = {state:'error',error:String(e.stack||e)}; console.error('[FORENSIC-SCAN-ERROR]',report.error); }
+}));
+  for (const item of report.excerpts) console.log('[FORENSIC-EXCERPT]', JSON.stringify(item));
+  for (const term of ['webkitdirectory','showDirectoryPicker','image pack','imagegen','faith','__WAYWARD_IMAGE_PACKS__','webkitRelativePath','IndexedDB','indexedDB','localStorage']) console.log('[FORENSIC-HITS]', term, JSON.stringify(report.keywordOffsets[term]));
+} catch (e) { report = {state:'error',error:String(e.stack||e)}; console.error('[FORENSIC-SCAN-ERROR]',report.error); }
 const server = http.createServer((req,res) => {
   const u = new URL(req.url || '/', 'http://localhost');
   res.setHeader('cache-control','no-store');
