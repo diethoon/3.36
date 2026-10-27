@@ -4,7 +4,7 @@
 WML.define({
   id: 'faith-image-loader',
   name: { ko: 'Faith 이미지팩 등록 보조', en: 'Faith image-pack registration helper' },
-  version: '0.2.0',
+  version: '0.2.1',
   game: 'faith',
   author: 'WML',
   tags: ['util'],
@@ -56,10 +56,10 @@ WML.define({
         for (let i = start; i < end; i++) {
           const file = typeof fileList.item === 'function' ? fileList.item(i) : fileList[i];
           if (!file) continue;
-          const path = String(file.webkitRelativePath || file.name || '').replace(/\\\\/g, '/');
-          if (!/(^|\\/)pack\\.js$/i.test(path)) continue;
+          const path = String(file.webkitRelativePath || file.name || '').replace(/\\/g, '/');
+          if (!/(^|\/)pack\.js$/i.test(path)) continue;
           allPacks.push(file);
-          if (/(^|\\/)image-packs\\//i.test(path)) imagePacks.push(file);
+          if (/(^|\/)image-packs\//i.test(path)) imagePacks.push(file);
         }
         if (end < total) await yieldToBrowser();
       }
@@ -72,7 +72,7 @@ WML.define({
       if (attached.has(input)) return;
       attached.add(input);
       const label = input.closest('label');
-      showStatus(input, 'Faith 이미지팩 등록 보조 활성화됨. 이 입력에서 폴더를 선택하면 pack.js를 찾아 기존 등록 처리기로 전달합니다.');
+      showStatus(input, 'Faith 이미지팩 등록 보조 활성화됨. 이 입력에서 폴더를 선택하면 pack.js를 찾아 기존 등록 처리기에 전달합니다.');
 
       input.addEventListener('change', async event => {
         if (replaying.has(input)) {
@@ -93,7 +93,7 @@ WML.define({
 
         input.disabled = true;
         setLabel(label, '이미지팩 등록 파일 확인 중…');
-        showStatus(input, `선택된 파일 ${files.length.toLocaleString()}개를 나눠 확인합니다.`);
+        showStatus(input, '선택된 파일 ' + files.length.toLocaleString() + '개를 나눠 확인합니다.');
 
         try {
           const packFiles = await findPackScripts(files);
@@ -108,19 +108,19 @@ WML.define({
           for (const file of packFiles) transfer.items.add(file);
           input.files = transfer.files;
           input.disabled = false;
-          setLabel(label, `이미지팩 ${packFiles.length.toLocaleString()}개 등록 중…`);
-          showStatus(input, `전체 ${files.length.toLocaleString()}개 중 pack.js ${packFiles.length.toLocaleString()}개만 Faith의 기존 등록 처리기에 전달합니다.`);
+          setLabel(label, '이미지팩 ' + packFiles.length.toLocaleString() + '개 등록 중…');
+          showStatus(input, '전체 ' + files.length.toLocaleString() + '개 중 pack.js ' + packFiles.length.toLocaleString() + '개만 Faith의 기존 등록 처리기에 전달합니다.');
 
           replaying.add(input);
           input.dispatchEvent(new Event('change', { bubbles: true }));
           setTimeout(() => {
             input.value = '';
             setLabel(label, oldText.trim() || '이미지팩 폴더 선택');
-            showStatus(input, `pack.js ${packFiles.length.toLocaleString()}개를 기존 등록 처리기에 전달했습니다. Faith의 이미지팩 목록에서 등록 결과를 확인하세요.`);
+            showStatus(input, 'pack.js ' + packFiles.length.toLocaleString() + '개를 기존 등록 처리기에 전달했습니다. Faith의 이미지팩 목록에서 등록 결과를 확인하세요.');
           }, 1500);
         } catch (error) {
           const message = error instanceof Error ? error.message : String(error);
-          showStatus(input, `이미지팩 처리 중단: ${message}`, true);
+          showStatus(input, '이미지팩 처리 중단: ' + message, true);
           console.error('[faith-image-loader] pack registration helper failed', error);
           input.value = '';
           input.disabled = false;
