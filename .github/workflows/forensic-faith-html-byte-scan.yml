@@ -1,0 +1,128 @@
+name: Forensic Faith HTML byte scan
+
+on:
+  push:
+    branches:
+      - forensic/faith-html-byte-scan
+    paths:
+      - ".github/workflows/forensic-faith-html-byte-scan.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+      - name: Read exact HTML in 4096-byte chunks through EOF
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib, json, re
+
+          source = Path("Wayward_MOD_v4.0_WML_검수완료/Wayward_WML_ko.html")
+          if not source.is_file():
+              raise SystemExit(f"SOURCE_NOT_FOUND: {source}")
+          out = Path("evidence")
+          chunks_dir = out / "chunks"
+          chunks_dir.mkdir(parents=True, exist_ok=True)
+          patterns = [
+              b"webkitdirectory", b"showDirectoryPicker", b"FileSystemDirectoryHandle",
+              b"image pack", b"imagepack", b"image-pack", b"upload", b"FileList",
+              b"createObjectURL", b"image/", b"imagegen", b"faith", b"register",
+              b"mod loader", b"\.wml", b"image"
+          ]
+          digest = hashlib.sha256()
+          offsets = []
+          keyword_hits = {p.decode("ascii", "replace"): [] for p in patterns}
+          carry = b""
+          total = 0
+          chunk_count = 0
+          with source.open("rb") as f:
+              while True:
+                  chunk = f.read(4096)
+                  if not chunk:
+                      break
+                  digest.update(chunk)
+                  (chunks_dir / f"chunk-{chunk_count:06d}.bin").write_bytes(chunk)
+                  offsets.append({"index": chunk_count, "offset": total, "length": len(chunk), "sha256": hashlib.sha256(chunk).hexdigest()})
+                  scan = carry + chunk
+                  base = total - len(carry)
+                  for p in patterns:
+                      start = 0
+                      while True:
+                          at = scan.lower().find(p.lower(), start)
+                          if at < 0:
+                              break
+                          absolute = base + at
+                          key = p.decode("ascii", "replace")
+                          hits = keyword_hits[key]
+                          if not hits or hits[-1] != absolute:
+                              if len(hits) < 300:
+                                  hits.append(absolute)
+                          start = at + 1
+                  carry = scan[-max(max(map(len, patterns))-1, 0):]
+                  total += len(chunk)
+                  chunk_count += 1
+
+          if total != source.stat().st_size:
+              raise SystemExit(f"BYTE_COUNT_MISMATCH read={total} stat={source.stat().st_size}")
+          if not offsets or offsets[-1]["offset"] + offsets[-1]["length"] != total:
+              raise SystemExit("EOF_COVERAGE_FAILURE")
+          manifest = {
+              "source": str(source), "bytes": total, "chunk_size": 4096,
+              "chunk_count": chunk_count, "eof_reached": True,
+              "sha256": digest.hexdigest(), "chunks": offsets,
+              "keyword_offsets": keyword_hits
+          }
+          (out / "manifest.json").write_text(json.dumps(manifest, indent=2), encoding="utf-8")
+          report = [
+              "FAITH HTML BYTE FORENSIC REPORT",
+              f"source={source}",
+              f"bytes={total}",
+              f"chunk_size=4096",
+              f"chunk_count={chunk_count}",
+              f"eof_reached=true",
+              f"sha256={digest.hexdigest()}",
+              ""
+          ]
+          raw = source.read_bytes()
+          for key, hits in keyword_hits.items():
+              report.append(f"[{key}] occurrences_recorded={len(hits)}")
+              for pos in hits[:25]:
+                  lo, hi = max(0, pos-180), min(len(raw), pos+300)
+                  excerpt = raw[lo:hi].decode("utf-8", "replace").replace("\r", "\\r").replace("\n", "\\n")
+                  report.append(f"  offset={pos} chunk={pos//4096} excerpt={excerpt}")
+              if len(hits) > 25:
+                  report.append(f"  ... additional recorded hits={len(hits)-25}")
+          (out / "report.txt").write_text("\n".join(report), encoding="utf-8")
+          print("\n".join(report[:20]))
+          print(f"CHUNK_MANIFEST= evidence/manifest.json")
+          print(f"REPORT= evidence/report.txt")
+          PY
+      - name: Package all exact 4096-byte chunks
+        if: always()
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import zipfile
+          base=Path("evidence")
+          with zipfile.ZipFile("faith-html-byte-chunks.zip","w",zipfile.ZIP_DEFLATED) as z:
+              for p in sorted(base.rglob("*")):
+                  if p.is_file():
+                      z.write(p, p.relative_to(base.parent))
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: faith-html-byte-forensic
+          path: |
+            evidence/report.txt
+            evidence/manifest.json
+            faith-html-byte-chunks.zip
+          if-no-files-found: error
