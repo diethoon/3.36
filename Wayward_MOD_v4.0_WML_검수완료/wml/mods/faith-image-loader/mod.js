@@ -24,6 +24,7 @@ WML.define({
     const original = new WeakMap();
     const activeBlob = new WeakMap();
     const IMAGE_EXT = /\.(avif|gif|jpe?g|png|webp|bmp)$/i;
+    const MAX_SELECTED_FILES = 20000;
 
     const styleId = 'faith-image-loader-style';
     if (!document.getElementById(styleId)) {
@@ -173,6 +174,7 @@ WML.define({
     async function loadFolder(files) {
       const count = files && Number.isFinite(files.length) ? files.length : 0;
       if (!count) throw new Error('선택한 폴더에 파일이 없습니다.');
+      if (count > MAX_SELECTED_FILES) throw new Error('파일이 ' + count.toLocaleString() + '개입니다. 모바일 안정성을 위해 한 번에 20,000개 이하인 개별 이미지 팩 폴더를 선택하세요.');
       busy = true;
       total = count;
       const first = files[0];
@@ -238,6 +240,7 @@ WML.define({
           const fileInput = document.createElement('input');
           fileInput.type = 'file';
           fileInput.multiple = true;
+          fileInput.accept = 'image/*';
           fileInput.setAttribute('webkitdirectory', '');
           fileInput.setAttribute('directory', '');
           fileInput.setAttribute('aria-label', '이미지 팩 폴더 선택');
