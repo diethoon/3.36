@@ -229,7 +229,7 @@ WML.define({
 
     function addFileToIndex(target, file, relativePath) {
       let key = normalizedPath(relativePath);
-      key = key.replace(/^images\\//, '');
+      key = key.replace(/^images\//, '');
       if (!key) key = normalizedPath(file.name);
       target.set(key, file);
     }
