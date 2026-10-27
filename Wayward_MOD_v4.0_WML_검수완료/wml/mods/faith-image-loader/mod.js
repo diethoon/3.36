@@ -218,6 +218,7 @@ WML.define({
       folderLabel = handle.name || '(선택한 폴더)';
       updateStatus();
       let unavailable = 0;
+      let visited = 0;
 
       async function walk(directory, prefix) {
         for await (const [name, entry] of directory.entries()) {
@@ -228,13 +229,14 @@ WML.define({
               const file = await entry.getFile();
               addFileToMaps(file, prefix + name);
               scanned++;
-              if (scanned % 100 === 0) {
-                updateStatus();
-                await new Promise(resolve => setTimeout(resolve, 0));
-              }
             } catch (_) {
               unavailable++;
             }
+          }
+          visited++;
+          if (visited % 100 === 0) {
+            updateStatus();
+            await new Promise(resolve => setTimeout(resolve, 0));
           }
         }
       }
