@@ -32,8 +32,66 @@ WML.define({
       return mode === 'auto' || mode === 'custom';
     }
 
+    function removeRegisteredFaithPacks() {
+      // 이 모드가 등록한 팩만 제거합니다. 원본 내장팩과 생성형 백엔드 설정은 건드리지 않습니다.
+      let names = [];
+      try {
+        const stored = JSON.parse(localStorage.getItem('wfil-successful-pack-names') || '[]');
+        if (Array.isArray(stored)) names = stored.filter(x => typeof x === 'string' && x.trim());
+      } catch (_) {}
+      names = [...new Set([...lastSuccessfulNames, ...names].map(x => String(x).trim().toLowerCase()).filter(Boolean))];
+      if (!names.length) return;
+
+      const matches = (item, key = '') => {
+        const label = String(item && (item.name || item.title || item.id || item.packName || item.folderName || item.key) || key).toLowerCase();
+        const path = String(item && (item.path || item.baseUrl || item.baseURL || item.url || item.webkitRelativePath) || '').replace(/\\\\/g, '/').toLowerCase();
+        return names.some(name => label === name || label.startsWith(name + '/') ||
+          path.includes('/' + name + '/') || path.endsWith('/' + name) || path.endsWith('/' + name + '/pack.js'));
+      };
+
+      const visited = new Set();
+      function scrub(value, key = '') {
+        if (!value || typeof value !== 'object' || visited.has(value)) return false;
+        visited.add(value);
+        let changed = false;
+        if (Array.isArray(value)) {
+          for (let i = value.length - 1; i >= 0; i--) {
+            if (matches(value[i])) { value.splice(i, 1); changed = true; }
+            else if (scrub(value[i], String(i))) changed = true;
+          }
+          return changed;
+        }
+        for (const [childKey, child] of Object.entries(value)) {
+          if (names.includes(String(childKey).toLowerCase()) || matches(child, childKey)) {
+            try { delete value[childKey]; changed = true; } catch (_) {}
+          } else if (scrub(child, childKey)) changed = true;
+        }
+        return changed;
+      }
+
+      for (const root of [api.engine, window]) {
+        if (!root) continue;
+        for (const key of ['wfImagePacks', 'imagePacks', 'image_packs', '__WAYWARD_IMAGE_PACKS__']) {
+          try { if (root[key]) scrub(root[key], key); } catch (_) {}
+        }
+      }
+
+      try {
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i);
+          if (!key || !/wfImagePacks|imagePacks|image_packs/i.test(key)) continue;
+          try {
+            const parsed = JSON.parse(localStorage.getItem(key));
+            visited.clear();
+            if (scrub(parsed, key)) localStorage.setItem(key, JSON.stringify(parsed));
+          } catch (_) {}
+        }
+      } catch (_) {}
+    }
+
     function syncGenerationMode() {
       generationModeActive = readGenerationMode();
+      if (generationModeActive) removeRegisteredFaithPacks();
       const buttons = [...document.querySelectorAll('button')].filter(button =>
         (button.textContent || '').trim() === 'Faith 이미지팩 로더');
       for (const button of buttons) {
