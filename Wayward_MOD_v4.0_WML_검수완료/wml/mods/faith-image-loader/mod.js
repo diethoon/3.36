@@ -17,6 +17,38 @@ WML.define({
     let zipInput = null;
     let nativeScan = null;
     let lastSuccessfulNames = [];
+    let generationModeActive = false;
+
+    // 원본 Faith 상태 저장소의 실제 설정 imageBackendMode를 사용합니다.
+    // auto/custom은 생성형 백엔드 경로, off는 기존 그림만 사용하는 모드입니다.
+    function readGenerationMode() {
+      let mode = '';
+      try {
+        const saved = JSON.parse(localStorage.getItem('tavern-settings') || 'null');
+        mode = String(saved?.state?.imageBackendMode || '');
+      } catch (_) {}
+      const selected = document.querySelector('input[name="imageBackendMode"]:checked');
+      if (selected && ['auto', 'custom', 'off'].includes(selected.value)) mode = selected.value;
+      return mode === 'auto' || mode === 'custom';
+    }
+
+    function syncGenerationMode() {
+      generationModeActive = readGenerationMode();
+      const buttons = [...document.querySelectorAll('button')].filter(button =>
+        (button.textContent || '').trim() === 'Faith 이미지팩 로더');
+      for (const button of buttons) {
+        button.disabled = generationModeActive;
+        button.style.display = generationModeActive ? 'none' : '';
+        button.title = generationModeActive
+          ? '이미지 생성(auto/custom) 모드에서는 Faith 이미지팩 로더가 비활성화됩니다.'
+          : 'Faith 원본 이미지팩 등록기를 사용해 pack.js만 등록합니다.';
+      }
+      if (generationModeActive && statusEl && statusEl.isConnected) {
+        statusEl.textContent = '이미지 생성(auto/custom) 모드입니다. Faith 이미지팩 등록을 중단했습니다.';
+        statusEl.style.color = '#fca5a5';
+      }
+      return generationModeActive;
+    }
 
     function findNativeScanner() {
       const engine = api.engine || {};
@@ -96,7 +128,7 @@ WML.define({
     }
 
     function hideFalseNoImageWarning() {
-      if (!getLoadedNames().length) return;
+      if (syncGenerationMode() || !getLoadedNames().length) return;
       const leaf = [...document.querySelectorAll('body *')].find(el =>
         el.children.length === 0 && (el.textContent || '').trim() === '그림이 준비되지 않았습니다');
       if (!leaf) return;
@@ -181,6 +213,7 @@ WML.define({
     }
 
     async function registerPackFiles(files) {
+      if (syncGenerationMode()) throw new Error('이미지 생성(auto/custom) 모드에서는 이미지팩을 등록하지 않습니다.');
       if (!nativeScan) {
         throw new Error('현재 실행 중인 게임에서 원본 wfPackScanFolder 함수를 찾지 못했습니다. 이 모드는 Faith 원본 게임의 WML 브리지에서 실행해야 합니다. 다른 게임 HTML에는 등록을 시도하지 않았습니다.');
       }
@@ -273,6 +306,7 @@ WML.define({
     }
 
     async function onZipChange() {
+      if (syncGenerationMode()) { setStatus('이미지 생성(auto/custom) 모드에서는 ZIP 등록을 하지 않습니다.', true); if (zipInput) zipInput.value = ''; return; }
       const file = zipInput?.files?.[0];
       if (!file || busy) return;
       if (!nativeScan) {
@@ -295,6 +329,7 @@ WML.define({
     }
 
     async function chooseDirectory() {
+      if (syncGenerationMode()) { setStatus('이미지 생성(auto/custom) 모드에서는 폴더 등록을 하지 않습니다.', true); return; }
       if (busy) return;
       if (!nativeScan) {
         setStatus('원본 wfPackScanFolder를 찾지 못했습니다. 이 게임에서 등록할 수 없으므로 폴더를 읽지 않았습니다.', true);
@@ -337,6 +372,7 @@ WML.define({
     }
 
     async function onFallbackChange() {
+      if (syncGenerationMode()) { setStatus('이미지 생성(auto/custom) 모드에서는 폴더 등록을 하지 않습니다.', true); if (fallbackInput) fallbackInput.value = ''; return; }
       if (busy || !fallbackInput?.files?.length) return;
       if (!nativeScan) {
         setStatus('원본 wfPackScanFolder를 찾지 못했습니다. 이 게임에서 등록할 수 없으므로 파일 목록을 읽지 않았습니다.', true);
@@ -371,6 +407,7 @@ WML.define({
     }
 
     function openWindow() {
+      if (syncGenerationMode()) return;
       win = api.ui.window({
         id: 'faith-image-packs',
         title: 'Faith 이미지팩 로더',
@@ -431,5 +468,15 @@ WML.define({
       title: 'Faith 원본 이미지팩 등록기를 사용해 pack.js만 등록합니다.',
       onClick: openWindow,
     }) || null;
+
+    window.addEventListener('storage', syncGenerationMode);
+    document.addEventListener('change', event => {
+      if (event.target?.name === 'imageBackendMode') syncGenerationMode();
+    }, true);
+    const modeObserver = new MutationObserver(syncGenerationMode);
+    modeObserver.observe(document.documentElement, { childList: true, subtree: true });
+    setInterval(syncGenerationMode, 1000);
+    syncGenerationMode();
+    watchNoImageWarning();
   },
 });
