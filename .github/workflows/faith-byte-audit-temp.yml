@@ -1,0 +1,58 @@
+name: Temporary Faith byte-level source audit
+on:
+  push:
+    branches:
+      - audit/faith-byte-scan-temp
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Unpack Faith archive and inspect source in byte chunks
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/faith-unpacked audit-output
+          unzip -q Wayward_Faith_NoSound_v3.0.0.zip -d /tmp/faith-unpacked
+          python3 - <<'PY'
+          from pathlib import Path
+          root=Path('/tmp/faith-unpacked')
+          out=Path('audit-output/faith-byte-audit.txt')
+          exts={'.html','.htm','.js','.json','.css'}
+          terms=[b'webkitdirectory',b'webkitRelativePath',b'image-packs',b'pack.js',b'showDirectoryPicker',b'FileReader',b'input.files',b'.files',b'onchange',b'change',b'readAsText',b'arrayBuffer',b'createObjectURL',b'fetch(']
+          lines=[]
+          files=[p for p in root.rglob('*') if p.is_file() and p.suffix.lower() in exts]
+          lines.append(f'ARCHIVE_ROOT={root} SOURCE_FILES={len(files)}')
+          for p in files:
+              data=p.read_bytes()
+              rel=str(p.relative_to(root))
+              hits=[]
+              low=data.lower()
+              for term in terms:
+                  pos=0
+                  while True:
+                      pos=low.find(term.lower(),pos)
+                      if pos<0: break
+                      hits.append((pos,term.decode('ascii','replace')))
+                      pos+=len(term)
+              if not hits: continue
+              lines.append(f'\n===== FILE {rel} SIZE_BYTES={len(data)} HITS={len(hits)} =====')
+              for pos,term in sorted(hits):
+                  start=max(0,pos-1800); end=min(len(data),start+4096)
+                  if end-start<4096: start=max(0,end-4096)
+                  chunk=data[start:end]
+                  lines.append(f'\n--- TERM={term} BYTE_OFFSET={pos} CHUNK_START={start} CHUNK_END={end} CHUNK_BYTES={len(chunk)} ---')
+                  lines.append(chunk.decode('utf-8','replace'))
+          out.write_text('\n'.join(lines),encoding='utf-8')
+          print(f'FILES={len(files)} OUTPUT_BYTES={out.stat().st_size}')
+          for line in lines:
+              if line.startswith('===== FILE') or line.startswith('ARCHIVE_ROOT'):
+                  print(line)
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: faith-byte-audit
+          path: audit-output/faith-byte-audit.txt
+          if-no-files-found: error
