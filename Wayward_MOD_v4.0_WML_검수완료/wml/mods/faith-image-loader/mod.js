@@ -6,7 +6,7 @@ WML.define({
   name: 'Faith 원본 이미지팩 로더',
   version: '1.0.0',
   game: 'faith',
-  description: '원본 이미지팩 등록기를 재사용합니다. image-packs 안의 pack.js만 읽고 이미지 파일 수만 개는 열거하지 않습니다.',
+  description: '원본 이미지팩 등록기를 재사용합니다. 이미지 파일을 직접 색인하지 않고 가능한 경우 images 하위 폴더를 건너뛰며 pack.js만 읽습니다.',
   async setup(api) {
     const h = api.ui.h;
     let win = null;
