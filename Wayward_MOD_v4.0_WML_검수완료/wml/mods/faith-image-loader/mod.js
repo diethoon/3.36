@@ -214,11 +214,11 @@ WML.define({
     function statusText() {
       const names = Array.from(folderFiles.keys());
       const folderSummary = names.length
-        ? '연결된 이미지 폴더 (' + names.length + ')\\n' + names.map((name, i) => (i + 1) + '. ' + name + ' — ' + (folderFiles.get(name)?.size || 0) + '개 이미지').join('\\n')
+        ? '연결된 이미지 폴더 (' + names.length + ')\n' + names.map((name, i) => (i + 1) + '. ' + name + ' — ' + (folderFiles.get(name)?.size || 0) + '개 이미지').join('\n')
         : '연결된 이미지 폴더가 없습니다.';
-      const pending = busy ? '\\n읽는 중: ' + scanned + '개 항목 확인' : '';
-      const saved = savedHandleAvailable && !names.length ? '\\n저장된 폴더가 있습니다. 권한이 필요하면 “저장 폴더 다시 연결”을 누르세요.' : '';
-      return folderSummary + '\\n현재 연결된 이미지: ' + matched + pending + saved;
+      const pending = busy ? '\n읽는 중: ' + scanned + '개 항목 확인' : '';
+      const saved = savedHandleAvailable && !names.length ? '\n저장된 폴더가 있습니다. 권한이 필요하면 “저장 폴더 다시 연결”을 누르세요.' : '';
+      return folderSummary + '\n현재 연결된 이미지: ' + matched + pending + saved;
     }
 
     function updateStatus() {
@@ -466,7 +466,7 @@ WML.define({
           await loadDirectoryHandle(handle);
         }
         if (needsPermission && statusEl) {
-          statusEl.textContent = '저장된 폴더 중 일부는 접근 권한 재승인이 필요합니다. “저장 폴더 다시 연결”을 누르세요.\\n' + statusText();
+          statusEl.textContent = '저장된 폴더 중 일부는 접근 권한 재승인이 필요합니다. “저장 폴더 다시 연결”을 누르세요.\n' + statusText();
         }
       } catch (error) {
         if (statusEl) statusEl.textContent = '저장된 폴더를 다시 연결하지 못했습니다: ' + String(error?.message || error);
