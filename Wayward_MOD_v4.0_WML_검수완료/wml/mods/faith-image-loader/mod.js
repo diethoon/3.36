@@ -1,7 +1,7 @@
 WML.define({
   id: 'faith-image-loader',
   name: 'Faith 이미지팩 로더',
-  version: '0.4.0',
+  version: '0.5.0',
   game: '>=2026-10-04',
   description: 'Faith 이미지팩의 로컬 경로를 보정하고, 폴더 핸들을 저장해 새로고침 후 다시 연결합니다.',
   async setup(api) {
@@ -10,6 +10,8 @@ WML.define({
     let active = true;
     let folderLabel = '';
     let savedHandleAvailable = false;
+    const folderFiles = new Map();
+    const folderHandles = new Map();
     let restoreInProgress = false;
     let reconnectButton = null;
     let fileMap = new Map();
@@ -32,7 +34,8 @@ WML.define({
     const IMAGE_EXT = /\.(avif|gif|jpe?g|png|webp|bmp)$/i;
     const HANDLE_DB = 'faith-image-loader-v1';
     const HANDLE_STORE = 'directory-handles';
-    const HANDLE_KEY = 'last-image-pack';
+    const HANDLE_KEY = 'image-packs';
+    const LEGACY_HANDLE_KEY = 'last-image-pack';
 
     const styleId = 'faith-image-loader-style';
     if (!document.getElementById(styleId)) {
@@ -95,6 +98,8 @@ WML.define({
       basenameMap = new Map();
       aliasMap = new Map();
       ambiguousAliases = new Set();
+      folderFiles.clear();
+      folderHandles.clear();
       folderLabel = '';
       matched = 0;
       scanned = 0;
@@ -207,11 +212,13 @@ WML.define({
     }
 
     function statusText() {
-      if (busy && total < 0) return '폴더를 순차적으로 읽는 중: 이미지 ' + scanned + '개 확인';
-      if (busy) return '폴더 파일 확인 중: ' + scanned + ' / ' + total;
-      if (!folderLabel) return savedHandleAvailable ? '저장된 이미지 폴더가 있습니다. 다시 연결을 눌러 불러오세요.' : '연결된 이미지 폴더가 없습니다.';
-      return '폴더: ' + folderLabel + '\n이미지 파일: ' + total + '\n현재 연결된 이미지: ' + matched +
-        '\n파일은 실제로 화면에 필요할 때만 메모리에 올립니다.';
+      const names = Array.from(folderFiles.keys());
+      const folderSummary = names.length
+        ? '연결된 이미지 폴더 (' + names.length + ')\\n' + names.map((name, i) => (i + 1) + '. ' + name + ' — ' + (folderFiles.get(name)?.size || 0) + '개 이미지').join('\\n')
+        : '연결된 이미지 폴더가 없습니다.';
+      const pending = busy ? '\\n읽는 중: ' + scanned + '개 항목 확인' : '';
+      const saved = savedHandleAvailable && !names.length ? '\\n저장된 폴더가 있습니다. 권한이 필요하면 “저장 폴더 다시 연결”을 누르세요.' : '';
+      return folderSummary + '\\n현재 연결된 이미지: ' + matched + pending + saved;
     }
 
     function updateStatus() {
@@ -220,41 +227,68 @@ WML.define({
       if (reconnectButton && reconnectButton.isConnected) reconnectButton.disabled = busy || !savedHandleAvailable;
     }
 
-    function addFileToMaps(file, relativePath) {
+    function addFileToIndex(target, file, relativePath) {
       let key = normalizedPath(relativePath);
-      key = key.replace(/^images\//, '');
+      key = key.replace(/^images\\//, '');
       if (!key) key = normalizedPath(file.name);
-      fileMap.set(key, file);
-      const parts = key.split('/').filter(Boolean);
-      // Faith/Android directory pickers may include an extra selected-folder prefix.
-      // Register every path suffix so "pack/images/x.png", "images/x.png" and
-      // "x.png" can resolve without guessing between duplicate basenames.
-      for (let i = 1; i < parts.length; i++) {
-        const alias = parts.slice(i).join('/');
-        if (!alias || ambiguousAliases.has(alias) || fileMap.has(alias)) continue;
-        const previous = aliasMap.get(alias);
-        if (previous && previous !== file) {
-          aliasMap.delete(alias);
-          ambiguousAliases.add(alias);
-        } else if (!previous) {
-          aliasMap.set(alias, file);
+      target.set(key, file);
+    }
+
+    function rebuildFileMaps() {
+      fileMap = new Map();
+      basenameMap = new Map();
+      aliasMap = new Map();
+      ambiguousAliases = new Set();
+      for (const files of folderFiles.values()) {
+        for (const [key, file] of files) {
+          if (!fileMap.has(key)) fileMap.set(key, file);
+          else if (fileMap.get(key) !== file) {
+            // Keep the first full path match; ambiguous suffixes are never guessed.
+          }
+          const parts = key.split('/').filter(Boolean);
+          for (let i = 1; i < parts.length; i++) {
+            const alias = parts.slice(i).join('/');
+            if (!alias || ambiguousAliases.has(alias) || fileMap.has(alias)) continue;
+            const previous = aliasMap.get(alias);
+            if (previous && previous !== file) {
+              aliasMap.delete(alias);
+              ambiguousAliases.add(alias);
+            } else if (!previous) aliasMap.set(alias, file);
+          }
+          const base = normalizedPath(file.name);
+          const names = basenameMap.get(base) || [];
+          if (!names.includes(file)) names.push(file);
+          basenameMap.set(base, names);
         }
       }
-      const base = normalizedPath(file.name);
-      const names = basenameMap.get(base) || [];
-      names.push(file);
-      basenameMap.set(base, names);
+      total = Array.from(folderFiles.values()).reduce((n, files) => n + files.size, 0);
+      folderLabel = Array.from(folderFiles.keys()).join(', ');
+      matched = 0;
+    }
+
+    async function persistDirectoryHandles() {
+      const db = await openHandleDb();
+      try {
+        await new Promise((resolve, reject) => {
+          const tx = db.transaction(HANDLE_STORE, 'readwrite');
+          tx.objectStore(HANDLE_STORE).put(Array.from(folderHandles.values()), HANDLE_KEY);
+          tx.objectStore(HANDLE_STORE).delete(LEGACY_HANDLE_KEY);
+          tx.oncomplete = resolve;
+          tx.onerror = () => reject(tx.error || new Error('폴더 목록 저장 실패'));
+          tx.onabort = () => reject(tx.error || new Error('폴더 목록 저장 취소'));
+        });
+      } finally { db.close(); }
     }
 
     async function loadFolder(files) {
       const count = files && Number.isFinite(files.length) ? files.length : 0;
       if (!count) throw new Error('선택한 폴더에 파일이 없습니다.');
-      clearFolder();
       busy = true;
-      total = count;
+      scanned = 0;
       const first = files[0];
       const firstPath = String(first && (first.webkitRelativePath || first.name) || '');
-      folderLabel = firstPath.includes('/') ? firstPath.split('/')[0] : '(선택한 파일)';
+      const label = firstPath.includes('/') ? firstPath.split('/')[0] : '(선택한 파일)';
+      const collected = new Map();
       updateStatus();
 
       for (let start = 0; start < count; start += 200) {
@@ -263,20 +297,19 @@ WML.define({
           const file = files[i];
           if (!file || !IMAGE_EXT.test(file.name || '')) continue;
           const relative = String(file.webkitRelativePath || file.name).replace(/\\/g, '/');
-          addFileToMaps(file, relative);
+          addFileToIndex(collected, file, relative);
         }
         scanned = end;
         updateStatus();
         await new Promise(resolve => setTimeout(resolve, 0));
       }
-      if (fileMap.size === 0) {
+      if (!collected.size) {
         busy = false;
-        clearFolder();
         updateStatus();
         throw new Error('선택한 폴더에서 지원되는 이미지 파일을 찾지 못했습니다.');
       }
-      total = fileMap.size;
-      scanned = count;
+      folderFiles.set(label, collected);
+      rebuildFileMaps();
       busy = false;
       installObserver();
       schedulePatch();
@@ -284,14 +317,13 @@ WML.define({
     }
 
     async function loadDirectoryHandle(handle) {
-      clearFolder();
       busy = true;
-      total = -1;
       scanned = 0;
-      folderLabel = handle.name || '(선택한 폴더)';
+      const label = String(handle.name || '(선택한 폴더)');
       updateStatus();
       let unavailable = 0;
       let visited = 0;
+      const collected = new Map();
 
       async function walk(directory, prefix) {
         let batch = [];
@@ -305,7 +337,7 @@ WML.define({
           }));
           for (const result of results) {
             if (!result) continue;
-            addFileToMaps(result.file, result.path);
+            addFileToIndex(collected, result.file, result.path);
             scanned++;
           }
           updateStatus();
@@ -328,17 +360,24 @@ WML.define({
       }
 
       try {
-        await walk(handle, handle.name ? handle.name + '/' : '');
-        total = fileMap.size;
-        if (!total) throw new Error('선택한 폴더에서 지원되는 이미지 파일을 찾지 못했습니다.');
+        await walk(handle, '');
+        if (!collected.size) throw new Error('선택한 폴더에서 지원되는 이미지 파일을 찾지 못했습니다.');
+        folderFiles.set(label, collected);
+        folderHandles.set(label, handle);
+        rebuildFileMaps();
+        await persistDirectoryHandles();
+        savedHandleAvailable = folderHandles.size > 0;
         busy = false;
         installObserver();
         schedulePatch();
-        if (unavailable) folderLabel += ' (' + unavailable + '개 파일을 읽지 못함)';
+        if (unavailable) {
+          const prior = folderFiles.get(label);
+          // Keep the connected folder visible; report inaccessible files separately.
+          folderLabel = Array.from(folderFiles.keys()).join(', ');
+        }
         updateStatus();
       } catch (error) {
         busy = false;
-        clearFolder();
         updateStatus();
         throw error;
       }
@@ -375,8 +414,14 @@ WML.define({
       try {
         return await new Promise((resolve, reject) => {
           const tx = db.transaction(HANDLE_STORE, 'readonly');
-          const req = tx.objectStore(HANDLE_STORE).get(HANDLE_KEY);
-          req.onsuccess = () => resolve(req.result || null);
+          const store = tx.objectStore(HANDLE_STORE);
+          const req = store.get(HANDLE_KEY);
+          req.onsuccess = () => {
+            if (Array.isArray(req.result)) return resolve(req.result);
+            const legacy = store.get(LEGACY_HANDLE_KEY);
+            legacy.onsuccess = () => resolve(legacy.result ? [legacy.result] : []);
+            legacy.onerror = () => reject(legacy.error || new Error('이전 폴더 핸들 읽기 실패'));
+          };
           req.onerror = () => reject(req.error || new Error('저장된 폴더 핸들 읽기 실패'));
         });
       } finally { db.close(); }
@@ -389,35 +434,40 @@ WML.define({
           await new Promise((resolve, reject) => {
             const tx = db.transaction(HANDLE_STORE, 'readwrite');
             tx.objectStore(HANDLE_STORE).delete(HANDLE_KEY);
+            tx.objectStore(HANDLE_STORE).delete(LEGACY_HANDLE_KEY);
             tx.oncomplete = resolve;
             tx.onerror = () => reject(tx.error || new Error('저장된 폴더 핸들 삭제 실패'));
           });
         } finally { db.close(); }
       } catch (_) {}
       savedHandleAvailable = false;
+      folderHandles.clear();
       updateStatus();
     }
 
     async function restoreSavedHandle() {
-      if (restoreInProgress || busy || fileMap.size) return;
+      if (restoreInProgress || busy || folderFiles.size) return;
       restoreInProgress = true;
       try {
-        const handle = await readDirectoryHandle();
-        if (!handle) {
+        const handles = await readDirectoryHandle();
+        if (!handles.length) {
           savedHandleAvailable = false;
           updateStatus();
           return;
         }
         savedHandleAvailable = true;
-        if (typeof handle.queryPermission === 'function') {
-          const permission = await handle.queryPermission({ mode: 'read' });
-          if (permission !== 'granted') {
-            if (statusEl) statusEl.textContent = '이전에 선택한 폴더가 저장되어 있습니다. 아래 “이전 폴더 다시 연결”을 눌러 접근 권한을 허용하세요.';
-            updateStatus();
-            return;
+        let needsPermission = false;
+        for (const handle of handles) {
+          folderHandles.set(String(handle.name || '(선택한 폴더)'), handle);
+          if (typeof handle.queryPermission === 'function') {
+            const permission = await handle.queryPermission({ mode: 'read' });
+            if (permission !== 'granted') { needsPermission = true; continue; }
           }
+          await loadDirectoryHandle(handle);
         }
-        await loadDirectoryHandle(handle);
+        if (needsPermission && statusEl) {
+          statusEl.textContent = '저장된 폴더 중 일부는 접근 권한 재승인이 필요합니다. “저장 폴더 다시 연결”을 누르세요.\\n' + statusText();
+        }
       } catch (error) {
         if (statusEl) statusEl.textContent = '저장된 폴더를 다시 연결하지 못했습니다: ' + String(error?.message || error);
       } finally {
@@ -434,7 +484,8 @@ WML.define({
       }
       try {
         const handle = await window.showDirectoryPicker({ id: 'wayward-faith-image-pack', mode: 'read' });
-        await saveDirectoryHandle(handle);
+        folderHandles.set(String(handle.name || '(선택한 폴더)'), handle);
+        await persistDirectoryHandles();
         savedHandleAvailable = true;
         updateStatus();
         await loadDirectoryHandle(handle);
@@ -496,20 +547,22 @@ WML.define({
           const clear = document.createElement('button');
           clear.type = 'button';
           clear.textContent = '연결 해제';
-          clear.addEventListener('click', () => { clearFolder(); busy = false; updateStatus(); });
           reconnectButton = document.createElement('button');
           reconnectButton.type = 'button';
-          reconnectButton.textContent = '이전 폴더 다시 연결';
+          reconnectButton.textContent = '저장 폴더 다시 연결';
           reconnectButton.addEventListener('click', async () => {
             if (busy) return;
             try {
-              const handle = await readDirectoryHandle();
-              if (!handle) throw new Error('저장된 폴더가 없습니다. 먼저 이미지 폴더를 선택하세요.');
-              if (typeof handle.requestPermission === 'function') {
-                const permission = await handle.requestPermission({ mode: 'read' });
-                if (permission !== 'granted') throw new Error('폴더 접근 권한이 허용되지 않았습니다.');
+              const handles = await readDirectoryHandle();
+              if (!handles.length) throw new Error('저장된 폴더가 없습니다. 먼저 이미지 폴더를 선택하세요.');
+              for (const handle of handles) {
+                if (typeof handle.requestPermission === 'function') {
+                  const permission = await handle.requestPermission({ mode: 'read' });
+                  if (permission !== 'granted') continue;
+                }
+                await loadDirectoryHandle(handle);
               }
-              await loadDirectoryHandle(handle);
+              if (!folderFiles.size) throw new Error('연결 가능한 저장 폴더가 없습니다.');
             } catch (error) {
               if (statusEl) statusEl.textContent = String(error?.message || error);
             }
@@ -527,7 +580,7 @@ WML.define({
 
     api.ui.addButton({
       label: 'Faith 이미지 로더',
-      title: '이미지 팩 폴더를 하나씩 연결합니다.',
+      title: '이미지 폴더를 여러 개 연결하고 현재 연결 목록을 확인합니다.',
       onClick: openWindow,
     });
     installObserver();
