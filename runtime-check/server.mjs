@@ -343,6 +343,17 @@ async function runTest() {
   }
 }
 result.forensicScan = scanHtmlIn4096ByteChunks();
+log('FORENSIC', '4096-byte EOF scan summary', {
+  file: result.forensicScan.file, bytes: result.forensicScan.bytes,
+  chunkSize: result.forensicScan.chunkSize, chunkCount: result.forensicScan.chunkCount,
+  eofReached: result.forensicScan.eofReached, sha256: result.forensicScan.sha256,
+  offsets: Object.fromEntries(Object.entries(result.forensicScan.keywordOffsets).map(([k,v]) => [k, v.slice(0,80)]))
+});
+for (const item of result.forensicScan.excerpts.filter(x =>
+  ['webkitdirectory','showDirectoryPicker','FileSystemDirectoryHandle','image pack','imagepack','image-pack','imagepacks','input type="file"','type="file"','FileList','createObjectURL','imageManifest','imageServerUrl','imagePackReset','imageAutoProbeAllowed'].includes(x.needle)
+).slice(0,100)) {
+  log('FORENSIC_EXCERPT', item.needle + ' @byte ' + item.offset, item);
+}
 server.listen(PORT,'0.0.0.0',()=>{
   log('INFO','HTTP server listening',{port:PORT});
   log('INFO','Public asset access disabled; starting isolated local Chromium runtime verification.');
