@@ -96,7 +96,7 @@ try { report = scan(); console.log('[FORENSIC-SCAN]', JSON.stringify({
   for (const item of report.excerpts) console.log('[FORENSIC-EXCERPT]', JSON.stringify(item));
   for (const term of ['webkitdirectory','showDirectoryPicker','image pack','imagegen','faith','__WAYWARD_IMAGE_PACKS__','webkitRelativePath','IndexedDB','indexedDB','localStorage']) console.log('[FORENSIC-HITS]', term, JSON.stringify(report.keywordOffsets[term]));
   for (const term of ['backgroundImage','background-image','src:ak(','src: ak(','ak(e)','imagePath','imageUrl','<img','createElement(\\\"img\\\")','imageRendering']) { const found=report.keywordOffsets[term]; if(found) console.log('[FORENSIC-TARGET-HITS]', term, JSON.stringify(found)); }
-  for (const index of [1348,1349,1350,1351,1352]) { const start=index*CHUNK; if(start>=report.bytes) continue; const len=Math.min(CHUNK,report.bytes-start); const fd=fs.openSync(TARGET,'r'), b=Buffer.alloc(len); try{fs.readSync(fd,b,0,len,start);}finally{fs.closeSync(fd);} console.log('[FORENSIC-CHUNK]', index, start, b.toString('utf8')); }
+  for (const index of [662,663,1348,1349,1350,1351,1352,1353,1354]) { const start=index*CHUNK; if(start>=report.bytes) continue; const len=Math.min(CHUNK,report.bytes-start); const fd=fs.openSync(TARGET,'r'), b=Buffer.alloc(len); try{fs.readSync(fd,b,0,len,start);}finally{fs.closeSync(fd);} console.log('[FORENSIC-CHUNK]', index, start, b.toString('utf8')); }
 } catch (e) { report = {state:'error',error:String(e.stack||e)}; console.error('[FORENSIC-SCAN-ERROR]',report.error); }
 const server = http.createServer((req,res) => {
   const u = new URL(req.url || '/', 'http://localhost');
