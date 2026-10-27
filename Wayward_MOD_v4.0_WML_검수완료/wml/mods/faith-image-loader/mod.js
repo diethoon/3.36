@@ -28,6 +28,58 @@ WML.define({
     }
 
     nativeScan = findNativeScanner();
+
+    // 생성형 외형/프롬프트 옵션 패널이 실제로 활성화되면 이 로더를 비활성화합니다.
+    let generationModeActive = false;
+    let loaderButton = null;
+
+    function detectGenerationMode() {
+      const labels = ['메인 프롬프트', '네거티브 프롬프트', '캐릭터 LORA 파일명', '상황별 프롬프트'];
+      const visibleLabels = [...document.querySelectorAll('body *')].filter(el => {
+        if (el.children.length > 0) return false;
+        const text = (el.textContent || '').trim();
+        if (!labels.includes(text) && !['외형 내보내기', '외형 가져오기'].includes(text)) return false;
+        const style = getComputedStyle(el);
+        return style.display !== 'none' && style.visibility !== 'hidden' && el.getClientRects().length > 0;
+      });
+      const bodyText = document.body?.innerText || '';
+      const labelHits = labels.filter(label => bodyText.includes(label)).length;
+      const exportImportHits = ['외형 내보내기', '외형 가져오기'].filter(label => bodyText.includes(label)).length;
+      const hasPromptInputs = [...document.querySelectorAll('textarea, input')].some(el => {
+        if (el.type === 'hidden' || el.disabled || !el.getClientRects().length) return false;
+        const hint = [el.getAttribute('placeholder'), el.getAttribute('aria-label'), el.name, el.id].join(' ').toLowerCase();
+        const parent = el.parentElement?.parentElement?.innerText || el.parentElement?.innerText || '';
+        return /프롬프트|lora|외형/i.test(hint + ' ' + parent) && String(el.value || '').trim().length > 0;
+      });
+      return visibleLabels.length >= 2 && (labelHits >= 2 || exportImportHits >= 1) && hasPromptInputs;
+    }
+
+    function syncGenerationMode() {
+      const active = detectGenerationMode();
+      generationModeActive = active;
+      const buttons = [...document.querySelectorAll('button, [role="button"]')].filter(el =>
+        (el.textContent || '').trim() === 'Faith 이미지팩 로더');
+      for (const button of buttons) {
+        button.style.display = active ? 'none' : '';
+        button.disabled = active;
+        button.title = active
+          ? '생성형 외형/프롬프트 설정 사용 중에는 Faith 이미지팩 로더가 비활성화됩니다.'
+          : 'Faith 원본 이미지팩 등록기를 사용해 pack.js만 등록합니다.';
+      }
+      if (loaderButton && typeof loaderButton === 'object' && 'style' in loaderButton) {
+        loaderButton.style.display = active ? 'none' : '';
+        loaderButton.disabled = active;
+      }
+      if (!active) hideFalseNoImageWarning();
+      return active;
+    }
+
+    const generationObserver = new MutationObserver(() => syncGenerationMode());
+    generationObserver.observe(document.documentElement, { childList: true, subtree: true, characterData: true });
+    document.addEventListener('input', syncGenerationMode, true);
+    document.addEventListener('change', syncGenerationMode, true);
+    setTimeout(syncGenerationMode, 300);
+    setTimeout(syncGenerationMode, 1500);
     watchNoImageWarning();
 
     // 원본 게임이 보유한 이미지팩 카탈로그를 읽기 전용으로 확인합니다.
@@ -96,7 +148,7 @@ WML.define({
     }
 
     function hideFalseNoImageWarning() {
-      if (!getLoadedNames().length) return;
+      if (generationModeActive || !getLoadedNames().length) return;
       const leaf = [...document.querySelectorAll('body *')].find(el =>
         el.children.length === 0 && (el.textContent || '').trim() === '그림이 준비되지 않았습니다');
       if (!leaf) return;
@@ -107,7 +159,10 @@ WML.define({
     // 시작화면 경고를 새로 만들거나 덧붙이지 않습니다. 이미지팩 등록 후 원본의
     // "그림이 준비되지 않았습니다" 경고만 숨기고, 팩 목록은 모드 창 안에 표시합니다.
     function watchNoImageWarning() {
-      const observer = new MutationObserver(() => hideFalseNoImageWarning());
+      const observer = new MutationObserver(() => {
+        syncGenerationMode();
+        hideFalseNoImageWarning();
+      });
       observer.observe(document.documentElement, { childList: true, subtree: true, characterData: true });
       setTimeout(hideFalseNoImageWarning, 500);
       setTimeout(hideFalseNoImageWarning, 2000);
@@ -202,6 +257,10 @@ WML.define({
     }
 
     async function chooseDirectory() {
+      if (syncGenerationMode()) {
+        setStatus('생성형 외형/프롬프트 설정이 활성화되어 있어 이미지팩 로더를 비활성화했습니다.');
+        return;
+      }
       if (busy) return;
       if (!nativeScan) {
         setStatus('원본 wfPackScanFolder를 찾지 못했습니다. 이 게임에서 등록할 수 없으므로 폴더를 읽지 않았습니다.', true);
@@ -244,6 +303,11 @@ WML.define({
     }
 
     async function onFallbackChange() {
+      if (syncGenerationMode()) {
+        if (fallbackInput) fallbackInput.value = '';
+        setStatus('생성형 외형/프롬프트 설정이 활성화되어 있어 이미지팩 로더를 비활성화했습니다.');
+        return;
+      }
       if (busy || !fallbackInput?.files?.length) return;
       if (!nativeScan) {
         setStatus('원본 wfPackScanFolder를 찾지 못했습니다. 이 게임에서 등록할 수 없으므로 파일 목록을 읽지 않았습니다.', true);
@@ -278,6 +342,10 @@ WML.define({
     }
 
     function openWindow() {
+      if (syncGenerationMode()) {
+        console.info('[faith-image-loader] 생성형 옵션 사용 중이므로 모드 창 열기를 차단했습니다.');
+        return;
+      }
       win = api.ui.window({
         id: 'faith-image-packs',
         title: 'Faith 이미지팩 로더',
@@ -324,10 +392,11 @@ WML.define({
       });
     }
 
-    api.ui.addButton({
+    loaderButton = api.ui.addButton({
       label: 'Faith 이미지팩 로더',
       title: 'Faith 원본 이미지팩 등록기를 사용해 pack.js만 등록합니다.',
       onClick: openWindow,
-    });
+    }) || null;
+    syncGenerationMode();
   },
 });
