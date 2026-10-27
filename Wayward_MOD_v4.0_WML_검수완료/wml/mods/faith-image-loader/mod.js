@@ -32,6 +32,7 @@ WML.define({
     // 생성형 외형/프롬프트 옵션 패널이 실제로 활성화되면 이 로더를 비활성화합니다.
     let generationModeActive = false;
     let loaderButton = null;
+    try { generationModeActive = sessionStorage.getItem('wfil-generation-mode-active') === '1'; } catch (_) {}
 
     function detectGenerationMode() {
       const labels = ['메인 프롬프트', '네거티브 프롬프트', '캐릭터 LORA 파일명', '상황별 프롬프트'];
@@ -55,8 +56,13 @@ WML.define({
     }
 
     function syncGenerationMode() {
-      const active = detectGenerationMode();
-      generationModeActive = active;
+      // 한 번 생성형 설정을 감지하면 현재 게임 세션에서는 계속 비활성화합니다.
+      // 설정 패널을 닫아도 다시 살아나지 않도록 세션 저장소에 기록합니다.
+      if (detectGenerationMode()) {
+        generationModeActive = true;
+        try { sessionStorage.setItem('wfil-generation-mode-active', '1'); } catch (_) {}
+      }
+      const active = generationModeActive;
       const buttons = [...document.querySelectorAll('button, [role="button"]')].filter(el =>
         (el.textContent || '').trim() === 'Faith 이미지팩 로더');
       for (const button of buttons) {
