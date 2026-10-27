@@ -81,8 +81,8 @@ WML.define({
         for (let i = start; i < end; i++) {
           const file = typeof fileList.item === 'function' ? fileList.item(i) : fileList[i];
           if (!file) continue;
-          const path = String(file.webkitRelativePath || '').replace(/\\\\/g, '/');
-          if (!/^image-packs\\/.+\\/pack\\.js$/i.test(path)) continue;
+          const path = String(file.webkitRelativePath || '').replace(/\\/g, '/');
+          if (!/^image-packs\/.+\/pack\.js$/i.test(path)) continue;
           found.push({
             name: file.name,
             webkitRelativePath: path,
