@@ -55,8 +55,6 @@ WML.define({
         if (readGenerationMode()) return [];
         return original.apply(this, args);
       };
-      try { window.qD?.(); } catch (_) {}
-      try { window.m312ImageChanged?.(); } catch (_) {}
       return typeof window.WOe === 'function';
     }
 
@@ -118,8 +116,18 @@ WML.define({
     }
 
     function syncGenerationMode() {
-      generationModeActive = readGenerationMode();
-      installNativePackModeGate();
+      const nextGenerationModeActive = readGenerationMode();
+      const modeChanged = nextGenerationModeActive !== generationModeActive;
+      const gateWasInstalled = typeof window.__WML_FAITH_IMAGE_LOADER_ORIGINAL_WOE__ === 'function';
+      const gateReady = installNativePackModeGate();
+      generationModeActive = nextGenerationModeActive;
+
+      // WOe may cache the combined native/generated pack list. Invalidate that cache
+      // not only on initial hook installation, but whenever the actual backend mode flips.
+      if (gateReady && (!gateWasInstalled || modeChanged)) {
+        try { window.qD?.(); } catch (_) {}
+        try { window.m312ImageChanged?.(); } catch (_) {}
+      }
       const buttons = [...document.querySelectorAll('button')].filter(button =>
         (button.textContent || '').trim() === 'Faith 이미지팩 로더');
       for (const button of buttons) {
