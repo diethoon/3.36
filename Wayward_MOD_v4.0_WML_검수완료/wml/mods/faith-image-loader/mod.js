@@ -4,7 +4,7 @@
 WML.define({
   id: 'faith-image-loader',
   name: 'Faith 이미지팩 로더',
-  version: '1.1.0',
+  version: '1.2.0',
   game: 'faith',
   description: '기존 이미지팩 로딩과 Faith outfit ZIP(pack.js + WebP)을 지원하며 생성형 모드와 분리합니다.',
   async setup(api) {
@@ -136,11 +136,11 @@ WML.define({
         button.disabled = false;
         button.style.display = '';
         button.title = generationModeActive
-          ? '현재 이미지 생성(auto/custom) 모드입니다. 로더 창은 열리지만 이미지팩 등록은 차단됩니다.'
-          : '폴더 방식은 원본 등록기, ZIP 방식은 Faith outfit 팩 레지스트리를 사용합니다.';
+          ? '생성형 모드에서도 이미지팩 등록·관리가 가능합니다. 로컬 이미지 출력은 억제됩니다.'
+          : '폴더와 ZIP 이미지팩을 등록·관리합니다.';
       }
       if (generationModeActive && statusEl && statusEl.isConnected) {
-        statusEl.textContent = '이미지 생성(auto/custom) 모드입니다. Faith 이미지팩 등록을 중단했습니다.';
+        statusEl.textContent = '생성형 모드입니다. 이미지팩 등록·관리는 가능하며 로컬 이미지 출력은 억제됩니다.';
         statusEl.style.color = '#fca5a5';
       }
       return generationModeActive;
@@ -309,7 +309,7 @@ WML.define({
     }
 
     async function registerPackFiles(files) {
-      if (syncGenerationMode()) throw new Error('이미지 생성(auto/custom) 모드에서는 이미지팩을 등록하지 않습니다.');
+      // 생성형 모드에서도 팩 등록·관리를 허용합니다.
       if (!nativeScan) {
         throw new Error('현재 실행 중인 게임에서 원본 wfPackScanFolder 함수를 찾지 못했습니다. 이 모드는 Faith 원본 게임의 WML 브리지에서 실행해야 합니다. 다른 게임 HTML에는 등록을 시도하지 않았습니다.');
       }
@@ -478,7 +478,7 @@ WML.define({
     }
 
     function registerZipPack(imported) {
-      if (syncGenerationMode()) throw new Error('이미지 생성(auto/custom) 모드에서는 ZIP 이미지팩을 등록하지 않습니다.');
+      // 생성형 모드에서도 ZIP 등록·관리를 허용합니다.
       const registry = window.__WF_OUTFIT_PACKS__ || (window.__WF_OUTFIT_PACKS__ = Object.create(null));
       if (!registry || typeof registry !== 'object') throw new Error('게임의 __WF_OUTFIT_PACKS__ 레지스트리를 사용할 수 없습니다.');
       const old = registry[imported.key];
@@ -496,7 +496,7 @@ WML.define({
     }
 
     async function onZipChange() {
-      if (syncGenerationMode()) { setStatus('이미지 생성(auto/custom) 모드에서는 ZIP 등록을 하지 않습니다.', true); if (zipInput) zipInput.value = ''; return; }
+      // 생성형 모드에서도 ZIP 등록·관리를 허용합니다.
       const file = zipInput?.files?.[0];
       if (!file || busy) return;
       busy = true;
@@ -522,7 +522,7 @@ WML.define({
     }
 
     async function chooseDirectory() {
-      if (syncGenerationMode()) { setStatus('이미지 생성(auto/custom) 모드에서는 폴더 등록을 하지 않습니다.', true); return; }
+      // 생성형 모드에서도 폴더 등록·관리를 허용합니다.
       if (busy) return;
       if (!nativeScan) {
         setStatus('원본 wfPackScanFolder를 찾지 못했습니다. 이 게임에서 등록할 수 없으므로 폴더를 읽지 않았습니다.', true);
@@ -565,7 +565,7 @@ WML.define({
     }
 
     async function onFallbackChange() {
-      if (syncGenerationMode()) { setStatus('이미지 생성(auto/custom) 모드에서는 폴더 등록을 하지 않습니다.', true); if (fallbackInput) fallbackInput.value = ''; return; }
+      // 생성형 모드에서도 호환용 폴더 등록·관리를 허용합니다.
       if (busy || !fallbackInput?.files?.length) return;
       if (!nativeScan) {
         setStatus('원본 wfPackScanFolder를 찾지 못했습니다. 이 게임에서 등록할 수 없으므로 파일 목록을 읽지 않았습니다.', true);
@@ -612,7 +612,7 @@ WML.define({
           body.replaceChildren();
           const root = h('div', { class: 'wfil-wrap', style: 'display:flex;flex-direction:column;gap:10px;font:inherit;color:inherit' });
           root.append(h('p', { style: 'font-size:.9em;line-height:1.5;opacity:.9;margin:0' },
-            '폴더 방식은 원본 이미지팩 등록기를 사용하고, ZIP 방식은 Faith outfit pack.js와 참조 WebP를 연결합니다.'));
+            '폴더와 ZIP 이미지팩을 등록·관리합니다. ZIP 이미지는 실제 표시 시점에 연결합니다.'));
 
           root.append(h('strong', { style: 'margin-top:2px' }, '등록된 이미지팩'));
           packListEl = h('div', { style: 'max-height:150px;overflow:auto;padding:8px 10px;border:1px solid var(--wml-border,#7778);border-radius:7px' });
@@ -718,10 +718,6 @@ WML.define({
       event.preventDefault();
       event.stopPropagation();
       event.stopImmediatePropagation();
-      if (syncGenerationMode()) {
-        setStatus('이미지 생성(auto/custom) 모드에서는 이미지팩 로더가 비활성화됩니다.', true);
-        return;
-      }
       openWindow();
     }, true);
     const settingsMenuObserver = new MutationObserver(scanNativeImagePackMenu);
