@@ -121,6 +121,10 @@ WML.define({
       const gateWasInstalled = typeof window.__WML_FAITH_IMAGE_LOADER_ORIGINAL_WOE__ === 'function';
       const gateReady = installNativePackModeGate();
       generationModeActive = nextGenerationModeActive;
+      if (modeChanged) {
+        if (generationModeActive) restoreZipImages();
+        else patchZipTree(document.documentElement);
+      }
 
       // WOe may cache the combined native/generated pack list. Invalidate that cache
       // not only on initial hook installation, but whenever the actual backend mode flips.
@@ -333,7 +337,12 @@ WML.define({
     // ZIP 파서는 중앙 디렉터리만 읽고, 이미지 파일은 하나씩 풀어 Blob URL로 연결합니다.
     // 전체 ZIP을 ArrayBuffer로 올리지 않아 250MB급 팩의 메모리 피크를 줄입니다.
     const zipObjectUrls = new Map();
-    let zipPackId = '';
+    const zipInflight = new Map();
+    const zipImageEntries = new Map();
+    const zipPackPaths = new Map();
+    const zipImageOriginal = new WeakMap();
+    const zipImageActiveBlob = new WeakMap();
+    let zipImageObserver = null;
 
     function normalizeZipPath(path) {
       return String(path || '').replace(/\\/g, '/').replace(/^\.\/+/, '').replace(/\/+/g, '/');
@@ -458,7 +467,7 @@ WML.define({
         if (value && typeof value.imagePath === 'string') refs.add(normalizeZipPath(value.imagePath));
       }
       if (!refs.size) throw new Error('pack.js의 entries에서 imagePath를 찾지 못했습니다.');
-      const urls = new Map();
+      const entriesByVirtualPath = new Map();
       let totalBytes = 0;
       for (const ref of refs) {
         const entry = byRelativePath.get(ref.toLowerCase());
@@ -466,36 +475,99 @@ WML.define({
         if (entry.uncompressedSize > 20 * 1024 * 1024) throw new Error('개별 이미지가 20MB를 초과합니다: ' + ref);
         totalBytes += entry.uncompressedSize;
         if (totalBytes > 600 * 1024 * 1024) throw new Error('참조 이미지 총량이 600MB를 초과합니다. 안전을 위해 중단했습니다.');
-        const bytes = await inflateZipEntry(file, entry);
-        const url = URL.createObjectURL(new Blob([bytes], { type: 'image/webp' }));
-        urls.set(ref, url);
-        if (urls.size % 64 === 0) await yieldToBrowser();
+        const virtualPath = normalizeZipPath('wfil-zip/' + parsed.pack.packId + '/' + ref).toLowerCase();
+        entriesByVirtualPath.set(virtualPath, entry);
+        for (const value of Object.values(parsed.pack.entries)) {
+          if (value && typeof value.imagePath === 'string' && normalizeZipPath(value.imagePath).toLowerCase() === ref.toLowerCase()) value.imagePath = virtualPath;
+        }
       }
-      for (const value of Object.values(parsed.pack.entries)) {
-        if (value && typeof value.imagePath === 'string') value.imagePath = urls.get(normalizeZipPath(value.imagePath));
-      }
-      return { key: parsed.key, pack: parsed.pack, urls, imageCount: urls.size, bytes: totalBytes };
+      return { file, key: parsed.key, pack: parsed.pack, entriesByVirtualPath, imageCount: refs.size, bytes: totalBytes };
     }
 
     function registerZipPack(imported) {
-      // 생성형 모드에서도 ZIP 등록·관리를 허용합니다.
       const registry = window.__WF_OUTFIT_PACKS__ || (window.__WF_OUTFIT_PACKS__ = Object.create(null));
       if (!registry || typeof registry !== 'object') throw new Error('게임의 __WF_OUTFIT_PACKS__ 레지스트리를 사용할 수 없습니다.');
       const old = registry[imported.key];
       if (old && old.packId !== imported.pack.packId) throw new Error('같은 레지스트리 키에 다른 팩이 이미 등록되어 있습니다: ' + imported.key);
-      if (old && zipObjectUrls.has(imported.pack.packId)) {
-        for (const url of zipObjectUrls.get(imported.pack.packId)) URL.revokeObjectURL(url);
+      for (const key of zipPackPaths.get(imported.pack.packId) || []) {
+        zipImageEntries.delete(key);
+        const oldUrl = zipObjectUrls.get(key);
+        if (oldUrl) URL.revokeObjectURL(oldUrl);
+        zipObjectUrls.delete(key);
       }
       registry[imported.key] = imported.pack;
-      zipObjectUrls.set(imported.pack.packId, [...imported.urls.values()]);
-      zipPackId = imported.pack.packId;
+      const paths = [];
+      for (const [key, entry] of imported.entriesByVirtualPath) {
+        zipImageEntries.set(key, { file: imported.file, entry });
+        paths.push(key);
+      }
+      zipPackPaths.set(imported.pack.packId, paths);
       try { window.qD?.(); } catch (_) {}
       try { window.m312ImageChanged?.(); } catch (_) {}
       try { window.dispatchEvent(new CustomEvent('wf-outfit-packs-changed', { detail: { packId: imported.pack.packId } })); } catch (_) {}
+      installZipImageObserver();
       return imported;
     }
 
-    async function onZipChange() {
+    async function patchZipImage(img) {
+      if (!(img instanceof HTMLImageElement) || syncGenerationMode()) return;
+      const current = img.getAttribute('src') || '';
+      if (zipImageActiveBlob.get(img) === current) return;
+      let pathname = current;
+      try { pathname = new URL(current, document.baseURI).pathname; } catch (_) {}
+      const at = pathname.toLowerCase().lastIndexOf('/wfil-zip/');
+      if (at < 0) return;
+      const key = normalizeZipPath(pathname.slice(at + 1)).toLowerCase();
+      const source = zipImageEntries.get(key);
+      if (!source) return;
+      zipImageOriginal.set(img, current);
+      let url = zipObjectUrls.get(key);
+      if (!url) {
+        let pending = zipInflight.get(key);
+        if (!pending) {
+          pending = inflateZipEntry(source.file, source.entry).then(bytes => {
+            const created = URL.createObjectURL(new Blob([bytes], { type: 'image/webp' }));
+            zipObjectUrls.set(key, created);
+            return created;
+          }).finally(() => zipInflight.delete(key));
+          zipInflight.set(key, pending);
+        }
+        try { url = await pending; } catch (error) { console.error('[faith-image-loader] ZIP 이미지 로드 실패:', key, error); return; }
+      }
+      if (!syncGenerationMode() && img.isConnected && img.getAttribute('src') === current) {
+        zipImageActiveBlob.set(img, url);
+        img.setAttribute('src', url);
+      }
+    }
+
+    function patchZipTree(root) {
+      if (!root) return;
+      if (root instanceof HTMLImageElement) void patchZipImage(root);
+      if (root.querySelectorAll) root.querySelectorAll('img').forEach(img => void patchZipImage(img));
+    }
+
+    function installZipImageObserver() {
+      if (zipImageObserver || !document.documentElement) return;
+      zipImageObserver = new MutationObserver(records => {
+        for (const record of records) {
+          if (record.type === 'attributes' && record.target instanceof HTMLImageElement) void patchZipImage(record.target);
+          else for (const node of record.addedNodes || []) patchZipTree(node);
+        }
+      });
+      zipImageObserver.observe(document.documentElement, { subtree: true, childList: true, attributes: true, attributeFilter: ['src'] });
+    }
+
+    function restoreZipImages() {
+      for (const img of document.querySelectorAll('img')) {
+        const activeUrl = zipImageActiveBlob.get(img);
+        if (!activeUrl) continue;
+        const original = zipImageOriginal.get(img);
+        if (original !== undefined && img.getAttribute('src') === activeUrl) img.setAttribute('src', original);
+        zipImageActiveBlob.delete(img);
+      }
+    }
+
+        async function onZipChange() {
       // 생성형 모드에서도 ZIP 등록·관리를 허용합니다.
       const file = zipInput?.files?.[0];
       if (!file || busy) return;
@@ -511,9 +583,8 @@ WML.define({
         renderPackList();
         hideFalseNoImageWarning();
         setStatus('ZIP 이미지팩을 등록했습니다: ' + lastSuccessfulNames[0] + ' · 이미지 ' +
-          imported.imageCount.toLocaleString() + '개 · 메모리 연결량 약 ' + mb + 'MB. 페이지를 새로고침하면 다시 ZIP을 불러와야 합니다.');
+          imported.imageCount.toLocaleString() + '개 · 이미지 데이터는 실제 표시 시점에 연결됩니다. 페이지를 새로고침하면 ZIP을 다시 불러와야 합니다.');
       } catch (error) {
-        if (imported?.urls) for (const url of imported.urls.values()) URL.revokeObjectURL(url);
         setStatus('ZIP 등록 실패: ' + String(error && error.message || error), true);
       } finally {
         if (zipInput) zipInput.value = '';
@@ -731,6 +802,7 @@ WML.define({
     const modeObserver = new MutationObserver(syncGenerationMode);
     modeObserver.observe(document.documentElement, { childList: true, subtree: true });
     setInterval(syncGenerationMode, 1000);
+    installZipImageObserver();
     syncGenerationMode();
     watchNoImageWarning();
   },
