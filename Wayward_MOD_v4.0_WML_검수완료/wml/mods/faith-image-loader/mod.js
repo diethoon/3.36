@@ -6,7 +6,7 @@ WML.define({
   name: 'Faith 이미지팩 로더',
   version: '1.0.0',
   game: 'faith',
-  description: '원본 이미지팩 등록기를 재사용합니다. 이미지 파일을 직접 색인하지 않고 가능한 경우 images 하위 폴더를 건너뛰며 pack.js만 읽습니다.',
+  description: '기존 이미지팩 로딩과 Faith outfit ZIP(pack.js + WebP)을 지원하며 생성형 모드와 분리합니다.',
   async setup(api) {
     const h = api.ui.h;
     let win = null;
@@ -135,7 +135,7 @@ WML.define({
         button.style.display = generationModeActive ? 'none' : '';
         button.title = generationModeActive
           ? '이미지 생성(auto/custom) 모드에서는 Faith 이미지팩 로더가 비활성화됩니다.'
-          : 'Faith 원본 이미지팩 등록기를 사용해 pack.js만 등록합니다.';
+          : '폴더 방식은 원본 등록기, ZIP 방식은 Faith outfit 팩 레지스트리를 사용합니다.';
       }
       if (generationModeActive && statusEl && statusEl.isConnected) {
         statusEl.textContent = '이미지 생성(auto/custom) 모드입니다. Faith 이미지팩 등록을 중단했습니다.';
@@ -328,34 +328,95 @@ WML.define({
         : '원본 등록 함수는 실행됐지만 팩 이름을 확인하지 못했습니다. 원본 이미지팩 설정에서 확인하세요.');
     }
 
-    // ZIP 입력에서는 중앙 디렉터리만 훑고 pack.js만 추출합니다.
+    // ZIP 파서는 중앙 디렉터리만 읽고, 이미지 파일은 하나씩 풀어 Blob URL로 연결합니다.
+    // 전체 ZIP을 ArrayBuffer로 올리지 않아 250MB급 팩의 메모리 피크를 줄입니다.
+    const zipObjectUrls = new Map();
+    let zipPackId = '';
+
+    function normalizeZipPath(path) {
+      return String(path || '').replace(/\\/g, '/').replace(/^\.\/+/, '').replace(/\/+/g, '/');
+    }
+
+    async function inflateZipEntry(file, entry) {
+      const localHeader = new Uint8Array(await file.slice(entry.localOffset, entry.localOffset + 30).arrayBuffer());
+      if (localHeader.length < 30 || new DataView(localHeader.buffer, localHeader.byteOffset, localHeader.byteLength).getUint32(0, true) !== 0x04034b50) {
+        throw new Error('ZIP 항목의 로컬 헤더가 손상되었습니다: ' + entry.path);
+      }
+      const lv = new DataView(localHeader.buffer, localHeader.byteOffset, localHeader.byteLength);
+      const dataStart = entry.localOffset + 30 + lv.getUint16(26, true) + lv.getUint16(28, true);
+      const dataEnd = dataStart + entry.compressedSize;
+      if (dataEnd > file.size) throw new Error('ZIP 항목의 데이터 범위가 올바르지 않습니다: ' + entry.path);
+      const compressed = new Uint8Array(await file.slice(dataStart, dataEnd).arrayBuffer());
+      let bytes;
+      if (entry.method === 0) bytes = compressed;
+      else if (entry.method === 8) {
+        if (typeof DecompressionStream !== 'function') {
+          throw new Error('이 브라우저는 ZIP deflate 압축 해제를 지원하지 않습니다. 최신 브라우저에서 다시 시도하세요.');
+        }
+        try {
+          const stream = new Blob([compressed]).stream().pipeThrough(new DecompressionStream('deflate-raw'));
+          bytes = new Uint8Array(await new Response(stream).arrayBuffer());
+        } catch (_) {
+          throw new Error('ZIP 압축 해제 실패: ' + entry.path);
+        }
+      } else throw new Error('지원하지 않는 ZIP 압축 방식(' + entry.method + '): ' + entry.path);
+      if (bytes.length !== entry.uncompressedSize) throw new Error('ZIP 크기 검증 실패: ' + entry.path);
+      return bytes;
+    }
+
+    function parseFaithPackScript(scriptText) {
+      const match = /window\.__WF_OUTFIT_PACKS__\s*\[\s*(['"])(.*?)\1\s*\]\s*=\s*/s.exec(scriptText);
+      if (!match) throw new Error('pack.js에서 window.__WF_OUTFIT_PACKS__[키] 등록문을 찾지 못했습니다.');
+      const objectStart = match.index + match[0].length;
+      let depth = 0, inString = '', escaped = false, objectEnd = -1;
+      for (let i = objectStart; i < scriptText.length; i++) {
+        const ch = scriptText[i];
+        if (inString) {
+          if (escaped) escaped = false;
+          else if (ch === '\\') escaped = true;
+          else if (ch === inString) inString = '';
+          continue;
+        }
+        if (ch === '"' || ch === "'") { inString = ch; continue; }
+        if (ch === '{') depth++;
+        else if (ch === '}') {
+          depth--;
+          if (depth === 0) { objectEnd = i + 1; break; }
+        }
+      }
+      if (objectEnd < 0) throw new Error('pack.js의 팩 데이터 객체가 완성되지 않았습니다.');
+      let pack;
+      try { pack = JSON.parse(scriptText.slice(objectStart, objectEnd)); }
+      catch (_) { throw new Error('pack.js의 팩 데이터가 JSON 형식이 아닙니다.'); }
+      if (!pack || pack.packFormat !== 1 || !pack.packId || !pack.entries || typeof pack.entries !== 'object') {
+        throw new Error('지원하지 않는 Faith 이미지팩 형식입니다(packFormat 1 필요).');
+      }
+      return { key: match[2], pack };
+    }
+
     async function collectFromZip(file) {
-      // 큰 이미지팩 ZIP은 통째로 메모리에 올리지 않습니다. ZIP 꼬리/중앙 디렉터리와
-      // 실제 등록 대상 pack.js의 바이트만 읽습니다.
       const size = Number(file.size) || 0;
       if (size < 22) throw new Error('ZIP 파일이 너무 작거나 올바르지 않습니다.');
       const tailStart = Math.max(0, size - 22 - 65535);
       const tail = new Uint8Array(await file.slice(tailStart, size).arrayBuffer());
-      const tailView = new DataView(tail.buffer, tail.byteOffset, tail.byteLength);
-      const t32 = p => tailView.getUint32(p, true);
-      const t16 = p => tailView.getUint16(p, true);
+      const tv = new DataView(tail.buffer, tail.byteOffset, tail.byteLength);
       let eocd = -1;
       for (let p = tail.length - 22; p >= 0; p--) {
-        if (t32(p) === 0x06054b50) { eocd = p; break; }
+        if (tv.getUint32(p, true) === 0x06054b50) { eocd = p; break; }
       }
-      if (eocd < 0) throw new Error('올바른 ZIP 파일이 아니거나 ZIP 중앙 디렉터리를 찾지 못했습니다.');
+      if (eocd < 0) throw new Error('ZIP 중앙 디렉터리를 찾지 못했습니다.');
+      const t16 = p => tv.getUint16(p, true), t32 = p => tv.getUint32(p, true);
       const disk = t16(eocd + 4), cdDisk = t16(eocd + 6), count = t16(eocd + 10);
       const cdSize = t32(eocd + 12), cdOffset = t32(eocd + 16);
       if (disk || cdDisk || count === 0xffff || cdOffset === 0xffffffff || cdSize === 0xffffffff) {
-        throw new Error('분할 ZIP 또는 ZIP64는 지원하지 않습니다. 일반 ZIP으로 다시 압축하세요.');
+        throw new Error('분할 ZIP 또는 ZIP64는 지원하지 않습니다.');
       }
-      if (cdSize > 64 * 1024 * 1024) throw new Error('ZIP 중앙 디렉터리가 너무 큽니다(64MB 제한).');
-      if (cdOffset + cdSize > size) throw new Error('ZIP 중앙 디렉터리 범위가 올바르지 않습니다.');
+      if (cdSize > 64 * 1024 * 1024 || cdOffset + cdSize > size) throw new Error('ZIP 중앙 디렉터리 크기/범위가 올바르지 않습니다.');
       const cdBytes = new Uint8Array(await file.slice(cdOffset, cdOffset + cdSize).arrayBuffer());
-      const view = new DataView(cdBytes.buffer, cdBytes.byteOffset, cdBytes.byteLength);
-      const u32 = p => view.getUint32(p, true), u16 = p => view.getUint16(p, true);
+      const cv = new DataView(cdBytes.buffer, cdBytes.byteOffset, cdBytes.byteLength);
+      const u16 = p => cv.getUint16(p, true), u32 = p => cv.getUint32(p, true);
       const decoder = new TextDecoder('utf-8');
-      const found = [];
+      const entries = [];
       let p = 0;
       for (let i = 0; i < count; i++) {
         if (p + 46 > cdBytes.length || u32(p) !== 0x02014b50) throw new Error('ZIP 중앙 디렉터리 항목이 손상되었습니다.');
@@ -363,58 +424,94 @@ WML.define({
         const compressedSize = u32(p + 20), uncompressedSize = u32(p + 24);
         const nameLength = u16(p + 28), extraLength = u16(p + 30), commentLength = u16(p + 32);
         const localOffset = u32(p + 42);
-        let path = decoder.decode(cdBytes.subarray(p + 46, p + 46 + nameLength)).replace(/\\/g, '/').replace(/^\.\//, '');
+        const rawName = decoder.decode(cdBytes.subarray(p + 46, p + 46 + nameLength));
         p += 46 + nameLength + extraLength + commentLength;
-        const marker = path.toLowerCase().indexOf('image-packs/');
-        if (marker > 0) path = path.slice(marker);
-        if (!path.toLowerCase().startsWith('image-packs/')) continue;
-        const segments = path.split('/');
-        if (segments.some(part => part === '..' || part === '.')) continue;
-        if (segments.some(part => part.toLowerCase() === 'images')) continue;
-        if (!/^image-packs\/.+\/pack\.js$/i.test(path) || path.endsWith('/')) continue;
-        if (flags & 1) throw new Error('암호화된 ZIP은 지원하지 않습니다. 암호를 제거한 ZIP을 사용하세요.');
-        if (uncompressedSize > 4 * 1024 * 1024) throw new Error('pack.js가 4MB를 초과합니다. 안전을 위해 등록을 중단했습니다.');
-        const localHeader = new Uint8Array(await file.slice(localOffset, localOffset + 30).arrayBuffer());
-        if (localHeader.length < 30 || new DataView(localHeader.buffer, localHeader.byteOffset, localHeader.byteLength).getUint32(0, true) !== 0x04034b50) {
-          throw new Error('ZIP의 pack.js 로컬 헤더가 손상되었습니다.');
-        }
-        const localView = new DataView(localHeader.buffer, localHeader.byteOffset, localHeader.byteLength);
-        const dataStart = localOffset + 30 + localView.getUint16(26, true) + localView.getUint16(28, true);
-        const dataEnd = dataStart + compressedSize;
-        if (dataEnd > size) throw new Error('ZIP의 pack.js 데이터 범위가 올바르지 않습니다.');
-        const compressed = new Uint8Array(await file.slice(dataStart, dataEnd).arrayBuffer());
-        let contentBytes;
-        if (method === 0) contentBytes = compressed;
-        else if (method === 8) {
-          if (typeof DecompressionStream !== 'function') throw new Error('이 브라우저는 ZIP 압축 해제를 지원하지 않습니다. 압축 안 함(Store) ZIP 또는 최신 브라우저를 사용하세요.');
-          try {
-            const stream = new Blob([compressed]).stream().pipeThrough(new DecompressionStream('deflate-raw'));
-            contentBytes = new Uint8Array(await new Response(stream).arrayBuffer());
-          } catch (_) { throw new Error('ZIP의 deflate 압축을 해제하지 못했습니다. 일반 ZIP으로 다시 압축하세요.'); }
-        } else throw new Error('지원하지 않는 ZIP 압축 방식입니다: ' + method);
-        if (contentBytes.length !== uncompressedSize) throw new Error('ZIP 안의 pack.js 크기 검증에 실패했습니다.');
-        const textContent = decoder.decode(contentBytes);
-        found.push({ name: segments[segments.length - 1], webkitRelativePath: path, text: async () => textContent });
+        const name = normalizeZipPath(rawName);
+        if (!name || name.endsWith('/') || name.split('/').some(part => part === '..')) continue;
+        if (flags & 1) throw new Error('암호화된 ZIP은 지원하지 않습니다.');
+        entries.push({ path: name, flags, method, compressedSize, uncompressedSize, localOffset });
       }
-      return found;
+      const packEntries = entries.filter(e => /(^|\/)pack\.js$/i.test(e.path));
+      if (packEntries.length !== 1) throw new Error('ZIP 안에 pack.js가 정확히 하나 있어야 합니다. 발견: ' + packEntries.length);
+      const packEntry = packEntries[0];
+      const packRoot = packEntry.path.slice(0, packEntry.path.lastIndexOf('/') + 1);
+      const imageEntries = entries.filter(e => {
+        const relative = e.path.startsWith(packRoot) ? e.path.slice(packRoot.length) : '';
+        return relative && /^images\/.+\.webp$/i.test(relative);
+      });
+      if (!imageEntries.length) throw new Error('pack.js와 같은 폴더 아래 images/*.webp를 찾지 못했습니다.');
+      const scriptBytes = await inflateZipEntry(file, packEntry);
+      if (scriptBytes.length > 4 * 1024 * 1024) throw new Error('pack.js가 4MB를 초과합니다.');
+      const parsed = parseFaithPackScript(decoder.decode(scriptBytes));
+      const byRelativePath = new Map();
+      for (const entry of imageEntries) {
+        const relative = normalizeZipPath(entry.path.slice(packRoot.length));
+        byRelativePath.set(relative.toLowerCase(), entry);
+      }
+
+      // 팩에서 실제 참조하는 이미지에 대해서만 Blob URL을 생성합니다.
+      // 파일 전체를 동시에 압축 해제하지 않으며, 존재하지 않는 이미지 경로는 명시적으로 거부합니다.
+      const refs = new Set();
+      for (const value of Object.values(parsed.pack.entries)) {
+        if (value && typeof value.imagePath === 'string') refs.add(normalizeZipPath(value.imagePath));
+      }
+      if (!refs.size) throw new Error('pack.js의 entries에서 imagePath를 찾지 못했습니다.');
+      const urls = new Map();
+      let totalBytes = 0;
+      for (const ref of refs) {
+        const entry = byRelativePath.get(ref.toLowerCase());
+        if (!entry) throw new Error('pack.js가 참조하는 이미지가 ZIP에 없습니다: ' + ref);
+        if (entry.uncompressedSize > 20 * 1024 * 1024) throw new Error('개별 이미지가 20MB를 초과합니다: ' + ref);
+        totalBytes += entry.uncompressedSize;
+        if (totalBytes > 600 * 1024 * 1024) throw new Error('참조 이미지 총량이 600MB를 초과합니다. 안전을 위해 중단했습니다.');
+        const bytes = await inflateZipEntry(file, entry);
+        const url = URL.createObjectURL(new Blob([bytes], { type: 'image/webp' }));
+        urls.set(ref, url);
+        if (urls.size % 64 === 0) await yieldToBrowser();
+      }
+      for (const value of Object.values(parsed.pack.entries)) {
+        if (value && typeof value.imagePath === 'string') value.imagePath = urls.get(normalizeZipPath(value.imagePath));
+      }
+      return { key: parsed.key, pack: parsed.pack, urls, imageCount: urls.size, bytes: totalBytes };
+    }
+
+    function registerZipPack(imported) {
+      if (syncGenerationMode()) throw new Error('이미지 생성(auto/custom) 모드에서는 ZIP 이미지팩을 등록하지 않습니다.');
+      const registry = window.__WF_OUTFIT_PACKS__ || (window.__WF_OUTFIT_PACKS__ = Object.create(null));
+      if (!registry || typeof registry !== 'object') throw new Error('게임의 __WF_OUTFIT_PACKS__ 레지스트리를 사용할 수 없습니다.');
+      const old = registry[imported.key];
+      if (old && old.packId !== imported.pack.packId) throw new Error('같은 레지스트리 키에 다른 팩이 이미 등록되어 있습니다: ' + imported.key);
+      if (old && zipObjectUrls.has(imported.pack.packId)) {
+        for (const url of zipObjectUrls.get(imported.pack.packId)) URL.revokeObjectURL(url);
+      }
+      registry[imported.key] = imported.pack;
+      zipObjectUrls.set(imported.pack.packId, [...imported.urls.values()]);
+      zipPackId = imported.pack.packId;
+      try { window.qD?.(); } catch (_) {}
+      try { window.m312ImageChanged?.(); } catch (_) {}
+      try { window.dispatchEvent(new CustomEvent('wf-outfit-packs-changed', { detail: { packId: imported.pack.packId } })); } catch (_) {}
+      return imported;
     }
 
     async function onZipChange() {
       if (syncGenerationMode()) { setStatus('이미지 생성(auto/custom) 모드에서는 ZIP 등록을 하지 않습니다.', true); if (zipInput) zipInput.value = ''; return; }
       const file = zipInput?.files?.[0];
       if (!file || busy) return;
-      if (!nativeScan) {
-        setStatus('원본 wfPackScanFolder를 찾지 못했습니다. ZIP을 읽거나 등록하지 않았습니다.', true);
-        zipInput.value = '';
-        return;
-      }
       busy = true;
+      let imported = null;
       try {
-        setStatus('ZIP 구조를 확인하고 pack.js만 추출하는 중입니다. 이미지 파일은 추출하지 않습니다…');
-        const packFiles = await collectFromZip(file);
-        if (!packFiles.length) throw new Error('ZIP에서 image-packs/<팩 이름>/.../pack.js를 찾지 못했습니다. image-packs 폴더가 최상위에 오도록 압축하세요.');
-        await registerPackFiles(packFiles);
+        setStatus('ZIP의 pack.js와 이미지 경로를 확인하는 중입니다…');
+        imported = await collectFromZip(file);
+        registerZipPack(imported);
+        const mb = (imported.bytes / (1024 * 1024)).toFixed(1);
+        lastSuccessfulNames = [String(imported.pack.name || imported.pack.folderName || imported.pack.packId)];
+        try { localStorage.setItem('wfil-successful-pack-names', JSON.stringify(lastSuccessfulNames)); } catch (_) {}
+        renderPackList();
+        hideFalseNoImageWarning();
+        setStatus('ZIP 이미지팩을 등록했습니다: ' + lastSuccessfulNames[0] + ' · 이미지 ' +
+          imported.imageCount.toLocaleString() + '개 · 메모리 연결량 약 ' + mb + 'MB. 페이지를 새로고침하면 다시 ZIP을 불러와야 합니다.');
       } catch (error) {
+        if (imported?.urls) for (const url of imported.urls.values()) URL.revokeObjectURL(url);
         setStatus('ZIP 등록 실패: ' + String(error && error.message || error), true);
       } finally {
         if (zipInput) zipInput.value = '';
@@ -511,7 +608,7 @@ WML.define({
           body.replaceChildren();
           const root = h('div', { class: 'wfil-wrap', style: 'display:flex;flex-direction:column;gap:10px;font:inherit;color:inherit' });
           root.append(h('p', { style: 'font-size:.9em;line-height:1.5;opacity:.9;margin:0' },
-            '게임 HTML 옆의 image-packs 최상위 폴더를 선택하세요. 이미지 파일은 직접 색인하지 않고 pack.js만 원본 등록기에 전달합니다.'));
+            '폴더 방식은 원본 이미지팩 등록기를 사용하고, ZIP 방식은 Faith outfit pack.js와 참조 WebP를 연결합니다.'));
 
           root.append(h('strong', { style: 'margin-top:2px' }, '등록된 이미지팩'));
           packListEl = h('div', { style: 'max-height:150px;overflow:auto;padding:8px 10px;border:1px solid var(--wml-border,#7778);border-radius:7px' });
@@ -559,7 +656,7 @@ WML.define({
 
     loaderButton = api.ui.addButton({
       label: 'Faith 이미지팩 로더',
-      title: 'Faith 원본 이미지팩 등록기를 사용해 pack.js만 등록합니다.',
+      title: '폴더 방식은 원본 등록기, ZIP 방식은 Faith outfit 팩 레지스트리를 사용합니다.',
       onClick: openWindow,
     }) || null;
 
