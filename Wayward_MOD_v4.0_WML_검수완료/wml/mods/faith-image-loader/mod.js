@@ -18,7 +18,6 @@ WML.define({
     let nativeScan = null;
     let lastSuccessfulNames = [];
     let generationModeActive = false;
-    let nativePackGateInstalled = false;
     let loaderButton = null;
 
     // 원본 Faith 상태 저장소의 실제 설정 imageBackendMode를 사용합니다.
@@ -120,7 +119,7 @@ WML.define({
 
     function syncGenerationMode() {
       generationModeActive = readGenerationMode();
-      nativePackGateInstalled = installNativePackModeGate() || nativePackGateInstalled;
+      installNativePackModeGate();
       const buttons = [...document.querySelectorAll('button')].filter(button =>
         (button.textContent || '').trim() === 'Faith 이미지팩 로더');
       for (const button of buttons) {
