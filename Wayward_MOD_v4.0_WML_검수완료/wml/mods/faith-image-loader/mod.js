@@ -201,6 +201,44 @@ WML.define({
     }
 
     // ZIP 중앙 디렉터리와 pack.js만 먼저 읽고, 각 WebP는 화면에서 참조될 때만 압축 해제합니다.
+    // ZIP 파일 핸들은 IndexedDB에 저장합니다. 지원 브라우저에서는 새로고침/재실행 뒤
+    // 원본 ZIP을 다시 선택하지 않고 재등록할 수 있습니다. 브라우저 정책상 권한 재승인이 필요할 수 있습니다.
+    const ZIP_HANDLE_DB = 'wfil-persistent-files-v1';
+    function openZipHandleDB() {
+      return new Promise((resolve, reject) => {
+        if (!('indexedDB' in window)) { reject(new Error('IndexedDB를 지원하지 않습니다.')); return; }
+        const request = indexedDB.open(ZIP_HANDLE_DB, 1);
+        request.onupgradeneeded = () => {
+          const db = request.result;
+          if (!db.objectStoreNames.contains('handles')) db.createObjectStore('handles');
+        };
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error || new Error('파일 핸들 저장소를 열 수 없습니다.'));
+      });
+    }
+    async function storeZipHandle(handle) {
+      const db = await openZipHandleDB();
+      try {
+        await new Promise((resolve, reject) => {
+          const tx = db.transaction('handles', 'readwrite');
+          tx.objectStore('handles').put(handle, 'lastZip');
+          tx.oncomplete = resolve;
+          tx.onerror = () => reject(tx.error || new Error('ZIP 파일 핸들을 저장하지 못했습니다.'));
+          tx.onabort = () => reject(tx.error || new Error('ZIP 파일 핸들 저장이 취소되었습니다.'));
+        });
+      } finally { db.close(); }
+    }
+    async function readZipHandle() {
+      const db = await openZipHandleDB();
+      try {
+        return await new Promise((resolve, reject) => {
+          const tx = db.transaction('handles', 'readonly');
+          const request = tx.objectStore('handles').get('lastZip');
+          request.onsuccess = () => resolve(request.result || null);
+          request.onerror = () => reject(request.error || new Error('저장된 ZIP 파일 핸들을 읽지 못했습니다.'));
+        });
+      } finally { db.close(); }
+    }
     const zipObjectUrls = new Map();
     const zipInflight = new Map();
     const zipImageEntries = new Map();
@@ -454,8 +492,7 @@ WML.define({
       }
     }
 
-        async function onZipChange() {
-      const file = zipInput?.files?.[0];
+        async function loadZipFile(file, persistHandle = false) {
       if (!file || busy) return;
       busy = true;
       let imported = null;
@@ -467,13 +504,80 @@ WML.define({
         try { localStorage.setItem('wfil-successful-pack-names', JSON.stringify(lastSuccessfulNames)); } catch (_) {}
         renderPackList();
         hideFalseNoImageWarning();
+        let persistence = '';
+        if (persistHandle) {
+          try {
+            await storeZipHandle(persistHandle);
+            persistence = ' · 다음 실행에서도 복원할 파일 핸들을 저장했습니다.';
+          } catch (error) {
+            persistence = ' · 이 브라우저는 ZIP 핸들을 영구 저장하지 못했습니다: ' + String(error && error.message || error);
+          }
+        } else {
+          persistence = ' · 파일 선택기 호환 모드에서는 새로고침 후 ZIP을 다시 선택해야 할 수 있습니다.';
+        }
         setStatus('ZIP 이미지팩을 등록했습니다: ' + lastSuccessfulNames[0] + ' · 이미지 ' +
-          imported.imageCount.toLocaleString() + '개 · 이미지 데이터는 실제 표시 시점에 연결됩니다. 페이지를 새로고침하면 ZIP을 다시 불러와야 합니다.');
+          imported.imageCount.toLocaleString() + '개 · 이미지 데이터는 실제 표시 시점에 연결됩니다.' + persistence);
       } catch (error) {
         setStatus('ZIP 등록 실패: ' + String(error && error.message || error), true);
       } finally {
         if (zipInput) zipInput.value = '';
         busy = false;
+      }
+    }
+
+    async function onZipChange() {
+      const file = zipInput?.files?.[0];
+      if (!file || busy) return;
+      await loadZipFile(file, false);
+    }
+
+    async function chooseZipFile() {
+      if (busy) return;
+      if (typeof window.showOpenFilePicker !== 'function') {
+        zipInput?.click();
+        return;
+      }
+      busy = true;
+      try {
+        const handles = await window.showOpenFilePicker({
+          multiple: false,
+          types: [{ description: 'Faith 이미지팩 ZIP', accept: { 'application/zip': ['.zip'] } }]
+        });
+        const handle = handles && handles[0];
+        if (!handle) return;
+        const file = await handle.getFile();
+        busy = false;
+        await loadZipFile(file, handle);
+      } catch (error) {
+        if (error && error.name === 'AbortError') return;
+        setStatus('ZIP 파일 선택 실패: ' + String(error && error.message || error), true);
+      } finally {
+        busy = false;
+      }
+    }
+
+    async function restoreSavedZipFromHandle(requestPermission = false) {
+      let handle;
+      try { handle = await readZipHandle(); }
+      catch (_) { return false; }
+      if (!handle || typeof handle.getFile !== 'function') return false;
+      try {
+        let permission = typeof handle.queryPermission === 'function'
+          ? await handle.queryPermission({ mode: 'read' }) : 'prompt';
+        if (permission !== 'granted' && requestPermission && typeof handle.requestPermission === 'function') {
+          permission = await handle.requestPermission({ mode: 'read' });
+        }
+        if (permission !== 'granted') {
+          if (requestPermission) setStatus('저장된 ZIP에 대한 접근 권한이 없습니다. 파일을 다시 선택해 등록하세요.', true);
+          return false;
+        }
+        const file = await handle.getFile();
+        await loadZipFile(file, handle);
+        return true;
+      } catch (error) {
+        setStatus('저장된 ZIP을 복원하지 못했습니다. 원본 파일이 이동·삭제되었거나 권한이 만료되었을 수 있습니다: ' +
+          String(error && error.message || error), true);
+        return false;
       }
     }
 
@@ -594,8 +698,10 @@ WML.define({
           zipInput.style.display = 'none';
           zipInput.addEventListener('change', onZipChange);
           const zipButton = h('button', { type: 'button', style: 'font:inherit;padding:8px 10px;max-width:100%' }, 'ZIP 이미지팩 불러오기');
-          zipButton.addEventListener('click', () => zipInput.click());
-          row.append(nativeButton, fallbackButton, zipButton);
+          zipButton.addEventListener('click', chooseZipFile);
+          const restoreZipButton = h('button', { type: 'button', style: 'font:inherit;padding:8px 10px;max-width:100%' }, '저장된 ZIP 복원');
+          restoreZipButton.addEventListener('click', () => restoreSavedZipFromHandle(true));
+          row.append(nativeButton, fallbackButton, zipButton, restoreZipButton);
 
           statusEl = h('div', {
             role: 'status',
@@ -678,5 +784,8 @@ WML.define({
 
     installZipImageObserver();
     watchNoImageWarning();
+    // 저장된 파일 핸들이 있고 권한이 이미 허용된 경우에만 조용히 복원합니다.
+    // 권한 팝업이 필요한 경우는 모드 창의 '저장된 ZIP 복원' 버튼으로 사용자 동작 안에서 처리합니다.
+    setTimeout(() => { void restoreSavedZipFromHandle(false); }, 0);
   },
 });
