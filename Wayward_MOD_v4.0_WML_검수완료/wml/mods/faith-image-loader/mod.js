@@ -666,6 +666,7 @@ WML.define({
     function getNativeImagePackItem(target) {
       const clickable = target?.closest?.('button,[role="button"],a,label,[tabindex]');
       if (!clickable) return null;
+      if (clickable.dataset?.wmlFaithImagePackMenu === '1') return clickable;
       const label = normalizedLabel(clickable.getAttribute('aria-label') || clickable.getAttribute('title') || clickable.innerText || clickable.textContent);
       if ([...nativeImagePackLabels].some(value => normalizedLabel(value) === label)) return clickable;
       // Some settings rows contain a separate text span and a larger clickable parent.
@@ -701,7 +702,8 @@ WML.define({
       for (const item of candidates) {
         const label = normalizedLabel(item.getAttribute('aria-label') || item.getAttribute('title') || item.innerText || item.textContent);
         if ([...nativeImagePackLabels].some(value => normalizedLabel(value) === label) ||
-            [...nativeImagePackLabels].some(value => normalizedLabel(value) === normalizedLabel(item.textContent))) {
+            [...nativeImagePackLabels].some(value => normalizedLabel(value) === normalizedLabel(item.textContent)) ||
+            [...nativeImagePackLabels].some(value => normalizedLabel(item.textContent).includes(normalizedLabel(value)))) {
           renameNativeImagePackItem(item);
         }
       }
