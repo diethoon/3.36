@@ -238,10 +238,11 @@ WML.define({
     // 시작화면 경고를 새로 만들거나 덧붙이지 않습니다. 이미지팩 등록 후 원본의
     // "그림이 준비되지 않았습니다" 경고만 숨기고, 팩 목록은 모드 창 안에 표시합니다.
     function watchNoImageWarning() {
-      const observer = new MutationObserver(() => hideFalseNoImageWarning());
-      observer.observe(document.documentElement, { childList: true, subtree: true, characterData: true });
-      setTimeout(hideFalseNoImageWarning, 500);
-      setTimeout(hideFalseNoImageWarning, 2000);
+      // Do not walk the entire game DOM on every mutation. The old subtree observer
+      // repeatedly scanned body * and the global pack registry during popup rendering,
+      // which could starve click handling on large/mobile game sessions.
+      setTimeout(hideFalseNoImageWarning, 1200);
+      setTimeout(hideFalseNoImageWarning, 3500);
     }
 
     function setStatus(message, error = false) {
@@ -796,9 +797,10 @@ WML.define({
     document.addEventListener('change', event => {
       if (event.target?.name === 'imageBackendMode') syncGenerationMode();
     }, true);
-    const modeObserver = new MutationObserver(syncGenerationMode);
-    modeObserver.observe(document.documentElement, { childList: true, subtree: true });
-    setInterval(syncGenerationMode, 1000);
+    // The settings change event + storage event cover explicit mode changes.
+    // Poll at a low frequency as a fallback; avoid a subtree-wide observer that runs
+    // on every popup/game DOM update.
+    setInterval(syncGenerationMode, 2000);
     installZipImageObserver();
     syncGenerationMode();
     watchNoImageWarning();
