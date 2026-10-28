@@ -2,7 +2,7 @@
 WML.define({
   id: 'faith-image-loader',
   name: 'Faith 이미지팩 로더',
-  version: '1.2.0',
+  version: '1.3.0',
   game: 'faith',
   description: '폴더와 Faith outfit ZIP(pack.js + WebP) 이미지팩을 등록하고 출력합니다.',
   async setup(api) {
