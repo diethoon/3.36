@@ -1,12 +1,10 @@
-// Faith 이미지팩 로더 — 원본 wfPackScanFolder를 호출하고 pack.js만 읽습니다.
-// 이미지 파일을 직접 색인하거나 <img>/CSS를 가로채지 않습니다.
-// 이미지팩 등록은 게임의 기존 wfPackScanFolder -> wfPackValidate -> wfImagePacks 저장 흐름에 맡깁니다.
+// Faith 이미지팩 로더 — 폴더와 ZIP 이미지팩을 등록하고, ZIP 내부 이미지도 필요할 때 직접 연결합니다.
 WML.define({
   id: 'faith-image-loader',
   name: 'Faith 이미지팩 로더',
   version: '1.2.0',
   game: 'faith',
-  description: '기존 이미지팩 로딩과 Faith outfit ZIP(pack.js + WebP)을 지원하며 생성형 모드와 분리합니다.',
+  description: '폴더와 Faith outfit ZIP(pack.js + WebP) 이미지팩을 등록하고 출력합니다.',
   async setup(api) {
     const h = api.ui.h;
     let win = null;
@@ -17,137 +15,6 @@ WML.define({
     let zipInput = null;
     let nativeScan = null;
     let lastSuccessfulNames = [];
-    let generationModeActive = false;
-    let loaderButton = null;
-
-    // 원본 Faith 상태 저장소의 실제 설정 imageBackendMode를 사용합니다.
-    // auto/custom은 생성형 백엔드 경로, off는 기존 그림만 사용하는 모드입니다.
-    function readGenerationMode() {
-      let mode = '';
-      // Prefer the live game settings store exposed by the original bundle.
-      try {
-        const liveMode = window.At?.getState?.()?.imageBackendMode;
-        if (['auto', 'custom', 'off'].includes(liveMode)) mode = liveMode;
-      } catch (_) {}
-      if (!mode) {
-        try {
-          const saved = JSON.parse(localStorage.getItem('tavern-settings') || 'null');
-          mode = String(saved?.state?.imageBackendMode || '');
-        } catch (_) {}
-      }
-      if (!['auto', 'custom', 'off'].includes(mode)) {
-        const selected = document.querySelector('input[name="imageBackendMode"]:checked');
-        if (selected && ['auto', 'custom', 'off'].includes(selected.value)) mode = selected.value;
-      }
-      return mode === 'auto' || mode === 'custom';
-    }
-
-    // The original game exposes WOe with a setter that updates its lexical binding.
-    // Returning no native packs in generation mode leaves the separate server/generated
-    // image pack path (JOe) untouched and does not delete the original pack registry.
-    function installNativePackModeGate() {
-      const key = '__WML_FAITH_IMAGE_LOADER_ORIGINAL_WOE__';
-      if (typeof window.WOe !== 'function') return false;
-      if (typeof window[key] === 'function') return true;
-      const original = window.WOe;
-      window[key] = original;
-      window.WOe = async function (...args) {
-        if (readGenerationMode()) return [];
-        return original.apply(this, args);
-      };
-      return typeof window.WOe === 'function';
-    }
-
-    function removeRegisteredFaithPacks() {
-      // 이 모드가 등록한 팩만 제거합니다. 원본 내장팩과 생성형 백엔드 설정은 건드리지 않습니다.
-      let names = [];
-      try {
-        const stored = JSON.parse(localStorage.getItem('wfil-successful-pack-names') || '[]');
-        if (Array.isArray(stored)) names = stored.filter(x => typeof x === 'string' && x.trim());
-      } catch (_) {}
-      names = [...new Set([...lastSuccessfulNames, ...names].map(x => String(x).trim().toLowerCase()).filter(Boolean))];
-      if (!names.length) return;
-
-      const matches = (item, key = '') => {
-        const label = String(item && (item.name || item.title || item.id || item.packName || item.folderName || item.key) || key).toLowerCase();
-        const path = String(item && (item.path || item.baseUrl || item.baseURL || item.url || item.webkitRelativePath) || '').replace(/\\\\/g, '/').toLowerCase();
-        return names.some(name => label === name || label.startsWith(name + '/') ||
-          path.includes('/' + name + '/') || path.endsWith('/' + name) || path.endsWith('/' + name + '/pack.js'));
-      };
-
-      const visited = new Set();
-      function scrub(value, key = '') {
-        if (!value || typeof value !== 'object' || visited.has(value)) return false;
-        visited.add(value);
-        let changed = false;
-        if (Array.isArray(value)) {
-          for (let i = value.length - 1; i >= 0; i--) {
-            if (matches(value[i])) { value.splice(i, 1); changed = true; }
-            else if (scrub(value[i], String(i))) changed = true;
-          }
-          return changed;
-        }
-        for (const [childKey, child] of Object.entries(value)) {
-          if (names.includes(String(childKey).toLowerCase()) || matches(child, childKey)) {
-            try { delete value[childKey]; changed = true; } catch (_) {}
-          } else if (scrub(child, childKey)) changed = true;
-        }
-        return changed;
-      }
-
-      for (const root of [api.engine, window]) {
-        if (!root) continue;
-        for (const key of ['wfImagePacks', 'imagePacks', 'image_packs', '__WAYWARD_IMAGE_PACKS__']) {
-          try { if (root[key]) scrub(root[key], key); } catch (_) {}
-        }
-      }
-
-      try {
-        for (let i = 0; i < localStorage.length; i++) {
-          const key = localStorage.key(i);
-          if (!key || !/wfImagePacks|imagePacks|image_packs/i.test(key)) continue;
-          try {
-            const parsed = JSON.parse(localStorage.getItem(key));
-            visited.clear();
-            if (scrub(parsed, key)) localStorage.setItem(key, JSON.stringify(parsed));
-          } catch (_) {}
-        }
-      } catch (_) {}
-    }
-
-    function syncGenerationMode() {
-      const nextGenerationModeActive = readGenerationMode();
-      const modeChanged = nextGenerationModeActive !== generationModeActive;
-      const gateWasInstalled = typeof window.__WML_FAITH_IMAGE_LOADER_ORIGINAL_WOE__ === 'function';
-      const gateReady = installNativePackModeGate();
-      generationModeActive = nextGenerationModeActive;
-      if (modeChanged) {
-        if (generationModeActive) restoreZipImages();
-        else patchZipTree(document.documentElement);
-      }
-
-      // WOe may cache the combined native/generated pack list. Invalidate that cache
-      // not only on initial hook installation, but whenever the actual backend mode flips.
-      if (gateReady && (!gateWasInstalled || modeChanged)) {
-        try { window.qD?.(); } catch (_) {}
-        try { window.m312ImageChanged?.(); } catch (_) {}
-      }
-      const buttons = [...document.querySelectorAll('button')].filter(button =>
-        (button.textContent || '').trim() === 'Faith 이미지팩 로더');
-      for (const button of buttons) {
-        // 메뉴와 등록·관리 기능은 생성형 모드에서도 항상 사용할 수 있습니다.
-        button.disabled = false;
-        button.style.display = '';
-        button.title = generationModeActive
-          ? '생성형 모드에서도 이미지팩 등록·관리가 가능합니다. 로컬 이미지 출력은 억제됩니다.'
-          : '폴더와 ZIP 이미지팩을 등록·관리합니다.';
-      }
-      if (generationModeActive && statusEl && statusEl.isConnected) {
-        statusEl.textContent = '생성형 모드입니다. 이미지팩 등록·관리는 가능하며 로컬 이미지 출력은 억제됩니다.';
-        statusEl.style.color = '#fca5a5';
-      }
-      return generationModeActive;
-    }
 
     function findNativeScanner() {
       const engine = api.engine || {};
@@ -227,7 +94,7 @@ WML.define({
     }
 
     function hideFalseNoImageWarning() {
-      if (syncGenerationMode() || !getLoadedNames().length) return;
+      if (!getLoadedNames().length) return;
       const leaf = [...document.querySelectorAll('body *')].find(el =>
         el.children.length === 0 && (el.textContent || '').trim() === '그림이 준비되지 않았습니다');
       if (!leaf) return;
@@ -313,7 +180,6 @@ WML.define({
     }
 
     async function registerPackFiles(files) {
-      // 팩 등록·관리는 생성형 이미지 출력 설정과 독립적입니다.
       if (!nativeScan) {
         throw new Error('현재 실행 중인 게임에서 원본 wfPackScanFolder 함수를 찾지 못했습니다. 이 모드는 Faith 원본 게임의 WML 브리지에서 실행해야 합니다. 다른 게임 HTML에는 등록을 시도하지 않았습니다.');
       }
@@ -509,7 +375,7 @@ WML.define({
     }
 
     async function patchZipImage(img) {
-      if (!(img instanceof HTMLImageElement) || syncGenerationMode()) return;
+      if (!(img instanceof HTMLImageElement)) return;
       const current = img.getAttribute('src') || '';
       if (zipImageActiveBlob.get(img) === current) return;
       let pathname = current;
@@ -533,7 +399,7 @@ WML.define({
         }
         try { url = await pending; } catch (error) { console.error('[faith-image-loader] ZIP 이미지 로드 실패:', key, error); return; }
       }
-      if (!syncGenerationMode() && img.isConnected && img.getAttribute('src') === current) {
+      if (img.isConnected && img.getAttribute('src') === current) {
         zipImageActiveBlob.set(img, url);
         img.setAttribute('src', url);
       }
@@ -567,7 +433,6 @@ WML.define({
     }
 
         async function onZipChange() {
-      // ZIP 등록·관리는 생성형 이미지 출력 설정과 독립적입니다.
       const file = zipInput?.files?.[0];
       if (!file || busy) return;
       busy = true;
@@ -591,7 +456,6 @@ WML.define({
     }
 
     async function chooseDirectory() {
-      // 생성형 모드에서도 폴더 등록·관리를 허용합니다.
       if (busy) return;
       if (!nativeScan) {
         setStatus('원본 wfPackScanFolder를 찾지 못했습니다. 이 게임에서 등록할 수 없으므로 폴더를 읽지 않았습니다.', true);
@@ -634,7 +498,6 @@ WML.define({
     }
 
     async function onFallbackChange() {
-      // 호환용 폴더 등록·관리는 생성형 이미지 출력 설정과 독립적입니다.
       if (busy || !fallbackInput?.files?.length) return;
       if (!nativeScan) {
         setStatus('원본 wfPackScanFolder를 찾지 못했습니다. 이 게임에서 등록할 수 없으므로 파일 목록을 읽지 않았습니다.', true);
@@ -644,7 +507,7 @@ WML.define({
       busy = true;
       const files = fallbackInput.files;
       try {
-        setStatus('선택 목록에서 pack.js만 추리는 중입니다. 이미지 파일은 읽지 않습니다…');
+        setStatus('선택 목록에서 pack.js만 추리는 중입니다. 이미지 파일을 불필요하게 읽지 않고 pack.js를 찾는 중…');
         const packFiles = await collectFromFileList(files);
         await registerPackFiles(packFiles);
       } catch (error) {
@@ -669,9 +532,7 @@ WML.define({
     }
 
     function openWindow() {
-      // 생성형 모드에서도 상태와 안내를 확인할 수 있도록 창 열기는 허용합니다.
-      // 실제 폴더/ZIP 등록 함수에서 모드 상태를 재확인해 등록만 차단합니다.
-      syncGenerationMode();
+      // 폴더와 ZIP 등록 기능을 같은 관리 창에서 제공합니다.
       win = api.ui.window({
         id: 'faith-image-packs',
         title: 'Faith 이미지팩 로더',
@@ -793,16 +654,7 @@ WML.define({
     settingsMenuObserver.observe(document.documentElement, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ['aria-label', 'title'] });
     scanNativeImagePackMenu();
 
-    window.addEventListener('storage', syncGenerationMode);
-    document.addEventListener('change', event => {
-      if (event.target?.name === 'imageBackendMode') syncGenerationMode();
-    }, true);
-    // The settings change event + storage event cover explicit mode changes.
-    // Poll at a low frequency as a fallback; avoid a subtree-wide observer that runs
-    // on every popup/game DOM update.
-    setInterval(syncGenerationMode, 2000);
     installZipImageObserver();
-    syncGenerationMode();
     watchNoImageWarning();
   },
 });
