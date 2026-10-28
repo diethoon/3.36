@@ -18,19 +18,47 @@ WML.define({
     let nativeScan = null;
     let lastSuccessfulNames = [];
     let generationModeActive = false;
+    let nativePackGateInstalled = false;
     let loaderButton = null;
 
     // 원본 Faith 상태 저장소의 실제 설정 imageBackendMode를 사용합니다.
     // auto/custom은 생성형 백엔드 경로, off는 기존 그림만 사용하는 모드입니다.
     function readGenerationMode() {
       let mode = '';
+      // Prefer the live game settings store exposed by the original bundle.
       try {
-        const saved = JSON.parse(localStorage.getItem('tavern-settings') || 'null');
-        mode = String(saved?.state?.imageBackendMode || '');
+        const liveMode = window.At?.getState?.()?.imageBackendMode;
+        if (['auto', 'custom', 'off'].includes(liveMode)) mode = liveMode;
       } catch (_) {}
-      const selected = document.querySelector('input[name="imageBackendMode"]:checked');
-      if (selected && ['auto', 'custom', 'off'].includes(selected.value)) mode = selected.value;
+      if (!mode) {
+        try {
+          const saved = JSON.parse(localStorage.getItem('tavern-settings') || 'null');
+          mode = String(saved?.state?.imageBackendMode || '');
+        } catch (_) {}
+      }
+      if (!['auto', 'custom', 'off'].includes(mode)) {
+        const selected = document.querySelector('input[name="imageBackendMode"]:checked');
+        if (selected && ['auto', 'custom', 'off'].includes(selected.value)) mode = selected.value;
+      }
       return mode === 'auto' || mode === 'custom';
+    }
+
+    // The original game exposes WOe with a setter that updates its lexical binding.
+    // Returning no native packs in generation mode leaves the separate server/generated
+    // image pack path (JOe) untouched and does not delete the original pack registry.
+    function installNativePackModeGate() {
+      const key = '__WML_FAITH_IMAGE_LOADER_ORIGINAL_WOE__';
+      if (typeof window.WOe !== 'function') return false;
+      if (typeof window[key] === 'function') return true;
+      const original = window.WOe;
+      window[key] = original;
+      window.WOe = async function (...args) {
+        if (readGenerationMode()) return [];
+        return original.apply(this, args);
+      };
+      try { window.qD?.(); } catch (_) {}
+      try { window.m312ImageChanged?.(); } catch (_) {}
+      return typeof window.WOe === 'function';
     }
 
     function removeRegisteredFaithPacks() {
@@ -92,6 +120,7 @@ WML.define({
 
     function syncGenerationMode() {
       generationModeActive = readGenerationMode();
+      nativePackGateInstalled = installNativePackModeGate() || nativePackGateInstalled;
       const buttons = [...document.querySelectorAll('button')].filter(button =>
         (button.textContent || '').trim() === 'Faith 이미지팩 로더');
       for (const button of buttons) {
