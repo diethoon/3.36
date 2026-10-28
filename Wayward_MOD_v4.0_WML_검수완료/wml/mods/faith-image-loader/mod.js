@@ -135,8 +135,7 @@ WML.define({
       const buttons = [...document.querySelectorAll('button')].filter(button =>
         (button.textContent || '').trim() === 'Faith 이미지팩 로더');
       for (const button of buttons) {
-        // 메뉴 자체는 항상 보여 둡니다. 생성형 모드에서는 등록 동작만 차단하고,
-        // 사용자가 상태를 확인할 수 있도록 로더 창에는 진입할 수 있어야 합니다.
+        // 메뉴와 등록·관리 기능은 생성형 모드에서도 항상 사용할 수 있습니다.
         button.disabled = false;
         button.style.display = '';
         button.title = generationModeActive
@@ -313,7 +312,7 @@ WML.define({
     }
 
     async function registerPackFiles(files) {
-      // 생성형 모드에서도 팩 등록·관리를 허용합니다.
+      // 팩 등록·관리는 생성형 이미지 출력 설정과 독립적입니다.
       if (!nativeScan) {
         throw new Error('현재 실행 중인 게임에서 원본 wfPackScanFolder 함수를 찾지 못했습니다. 이 모드는 Faith 원본 게임의 WML 브리지에서 실행해야 합니다. 다른 게임 HTML에는 등록을 시도하지 않았습니다.');
       }
@@ -334,8 +333,7 @@ WML.define({
         : '원본 등록 함수는 실행됐지만 팩 이름을 확인하지 못했습니다. 원본 이미지팩 설정에서 확인하세요.');
     }
 
-    // ZIP 파서는 중앙 디렉터리만 읽고, 이미지 파일은 하나씩 풀어 Blob URL로 연결합니다.
-    // 전체 ZIP을 ArrayBuffer로 올리지 않아 250MB급 팩의 메모리 피크를 줄입니다.
+    // ZIP 중앙 디렉터리와 pack.js만 먼저 읽고, 각 WebP는 화면에서 참조될 때만 압축 해제합니다.
     const zipObjectUrls = new Map();
     const zipInflight = new Map();
     const zipImageEntries = new Map();
@@ -568,7 +566,7 @@ WML.define({
     }
 
         async function onZipChange() {
-      // 생성형 모드에서도 ZIP 등록·관리를 허용합니다.
+      // ZIP 등록·관리는 생성형 이미지 출력 설정과 독립적입니다.
       const file = zipInput?.files?.[0];
       if (!file || busy) return;
       busy = true;
@@ -577,7 +575,6 @@ WML.define({
         setStatus('ZIP의 pack.js와 이미지 경로를 확인하는 중입니다…');
         imported = await collectFromZip(file);
         registerZipPack(imported);
-        const mb = (imported.bytes / (1024 * 1024)).toFixed(1);
         lastSuccessfulNames = [String(imported.pack.name || imported.pack.folderName || imported.pack.packId)];
         try { localStorage.setItem('wfil-successful-pack-names', JSON.stringify(lastSuccessfulNames)); } catch (_) {}
         renderPackList();
@@ -636,7 +633,7 @@ WML.define({
     }
 
     async function onFallbackChange() {
-      // 생성형 모드에서도 호환용 폴더 등록·관리를 허용합니다.
+      // 호환용 폴더 등록·관리는 생성형 이미지 출력 설정과 독립적입니다.
       if (busy || !fallbackInput?.files?.length) return;
       if (!nativeScan) {
         setStatus('원본 wfPackScanFolder를 찾지 못했습니다. 이 게임에서 등록할 수 없으므로 파일 목록을 읽지 않았습니다.', true);
