@@ -213,8 +213,25 @@ WML.define({
       return String(path || '').replace(/\\/g, '/').replace(/^\.\/+/, '').replace(/\/+/g, '/');
     }
 
+    // File.arrayBuffer() is unavailable in some older embedded WebViews.
+    // FileReader is the compatibility path for reading ZIP slices.
+    function readBlobArrayBuffer(blob) {
+      if (blob && typeof blob.arrayBuffer === 'function') return blob.arrayBuffer();
+      return new Promise((resolve, reject) => {
+        if (typeof FileReader !== 'function') {
+          reject(new Error('이 실행 환경은 파일 데이터를 읽을 수 없습니다.'));
+          return;
+        }
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = () => reject(reader.error || new Error('파일 읽기에 실패했습니다.'));
+        reader.onabort = () => reject(new Error('파일 읽기가 취소되었습니다.'));
+        reader.readAsArrayBuffer(blob);
+      });
+    }
+
     async function inflateZipEntry(file, entry) {
-      const localHeader = new Uint8Array(await file.slice(entry.localOffset, entry.localOffset + 30).arrayBuffer());
+      const localHeader = new Uint8Array(await readBlobArrayBuffer(file.slice(entry.localOffset, entry.localOffset + 30)));
       if (localHeader.length < 30 || new DataView(localHeader.buffer, localHeader.byteOffset, localHeader.byteLength).getUint32(0, true) !== 0x04034b50) {
         throw new Error('ZIP 항목의 로컬 헤더가 손상되었습니다: ' + entry.path);
       }
@@ -222,7 +239,7 @@ WML.define({
       const dataStart = entry.localOffset + 30 + lv.getUint16(26, true) + lv.getUint16(28, true);
       const dataEnd = dataStart + entry.compressedSize;
       if (dataEnd > file.size) throw new Error('ZIP 항목의 데이터 범위가 올바르지 않습니다: ' + entry.path);
-      const compressed = new Uint8Array(await file.slice(dataStart, dataEnd).arrayBuffer());
+      const compressed = new Uint8Array(await readBlobArrayBuffer(file.slice(dataStart, dataEnd)));
       let bytes;
       if (entry.method === 0) bytes = compressed;
       else if (entry.method === 8) {
@@ -274,7 +291,7 @@ WML.define({
       const size = Number(file.size) || 0;
       if (size < 22) throw new Error('ZIP 파일이 너무 작거나 올바르지 않습니다.');
       const tailStart = Math.max(0, size - 22 - 65535);
-      const tail = new Uint8Array(await file.slice(tailStart, size).arrayBuffer());
+      const tail = new Uint8Array(await readBlobArrayBuffer(file.slice(tailStart, size)));
       const tv = new DataView(tail.buffer, tail.byteOffset, tail.byteLength);
       let eocd = -1;
       for (let p = tail.length - 22; p >= 0; p--) {
@@ -288,7 +305,7 @@ WML.define({
         throw new Error('분할 ZIP 또는 ZIP64는 지원하지 않습니다.');
       }
       if (cdSize > 64 * 1024 * 1024 || cdOffset + cdSize > size) throw new Error('ZIP 중앙 디렉터리 크기/범위가 올바르지 않습니다.');
-      const cdBytes = new Uint8Array(await file.slice(cdOffset, cdOffset + cdSize).arrayBuffer());
+      const cdBytes = new Uint8Array(await readBlobArrayBuffer(file.slice(cdOffset, cdOffset + cdSize)));
       const cv = new DataView(cdBytes.buffer, cdBytes.byteOffset, cdBytes.byteLength);
       const u16 = p => cv.getUint16(p, true), u32 = p => cv.getUint32(p, true);
       const decoder = new TextDecoder('utf-8');
@@ -379,7 +396,11 @@ WML.define({
       const current = img.getAttribute('src') || '';
       if (zipImageActiveBlob.get(img) === current) return;
       let pathname = current;
-      try { pathname = new URL(current, document.baseURI).pathname; } catch (_) {}
+      try {
+        pathname = new URL(current, document.baseURI).pathname;
+        // URL.pathname is percent-encoded; ZIP entry names are decoded UTF-8 paths.
+        try { pathname = decodeURIComponent(pathname); } catch (_) {}
+      } catch (_) {}
       const at = pathname.toLowerCase().lastIndexOf('/wfil-zip/');
       if (at < 0) return;
       const key = normalizeZipPath(pathname.slice(at + 1)).toLowerCase();
