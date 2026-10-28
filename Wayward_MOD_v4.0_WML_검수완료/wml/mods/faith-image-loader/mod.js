@@ -15,6 +15,8 @@ WML.define({
     let zipInput = null;
     let nativeScan = null;
     let lastSuccessfulNames = [];
+    // ZIP에서 가져온 Faith pack.js를 원본 게임의 이미지팩 선택기(WOe)에 공급합니다.
+    let zipPacks = [];
 
     function findNativeScanner() {
       const engine = api.engine || {};
@@ -26,7 +28,31 @@ WML.define({
       return null;
     }
 
+
     nativeScan = findNativeScanner();
+
+    // 원본 게임의 이미지팩 선택기는 WOe() 결과만 사용합니다.
+    // pack.js ZIP을 __WF_OUTFIT_PACKS__에만 넣으면 로더는 성공해도 선택기에는 나타나지 않으므로,
+    // 원본 결과를 보존하면서 ZIP 팩을 합쳐 반환하도록 연결합니다.
+    function installZipPackSelectorBridge() {
+      const originalKey = '__WML_FAITH_ZIP_ORIGINAL_WOE__';
+      if (typeof window.WOe !== 'function') return false;
+      if (typeof window[originalKey] === 'function') return true;
+      const original = window.WOe;
+      window[originalKey] = original;
+      window.WOe = async function (...args) {
+        const nativePacks = await original.apply(this, args);
+        const merged = new Map();
+        for (const pack of [...(Array.isArray(nativePacks) ? nativePacks : []), ...zipPacks]) {
+          if (!pack || typeof pack !== 'object' || typeof pack.packId !== 'string') continue;
+          if (Number(pack.packFormat || 0) > 1) continue;
+          if (!merged.has(pack.packId)) merged.set(pack.packId, pack);
+        }
+        return [...merged.values()];
+      };
+      return true;
+    }
+    installZipPackSelectorBridge();
 
     // 원본 게임이 보유한 이미지팩 카탈로그를 읽기 전용으로 확인합니다.
     function readNativePacks() {
@@ -417,6 +443,9 @@ WML.define({
         zipObjectUrls.delete(key);
       }
       registry[imported.key] = imported.pack;
+      zipPacks = zipPacks.filter(pack => pack.packId !== imported.pack.packId);
+      zipPacks.push(imported.pack);
+      installZipPackSelectorBridge();
       const paths = [];
       for (const [key, entry] of imported.entriesByVirtualPath) {
         zipImageEntries.set(key, { file: imported.file, entry });
@@ -425,6 +454,7 @@ WML.define({
       zipPackPaths.set(imported.pack.packId, paths);
       try { window.qD?.(); } catch (_) {}
       try { window.m312ImageChanged?.(); } catch (_) {}
+      try { window.WOe?.(); } catch (_) {}
       try { window.dispatchEvent(new CustomEvent('wf-outfit-packs-changed', { detail: { packId: imported.pack.packId } })); } catch (_) {}
       installZipImageObserver();
       return imported;
