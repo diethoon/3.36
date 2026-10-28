@@ -368,7 +368,7 @@ WML.define({
       if (disk || cdDisk || count === 0xffff || cdOffset === 0xffffffff || cdSize === 0xffffffff) {
         throw new Error('분할 ZIP 또는 ZIP64는 지원하지 않습니다.');
       }
-      if (cdSize > 64 * 1024 * 1024 || cdOffset + cdSize > size) throw new Error('ZIP 중앙 디렉터리 크기/범위가 올바르지 않습니다.');
+      if (cdSize > 128 * 1024 * 1024 || cdOffset + cdSize > size) throw new Error('ZIP 중앙 디렉터리 크기/범위가 올바르지 않습니다.');
       const cdBytes = new Uint8Array(await readBlobArrayBuffer(file.slice(cdOffset, cdOffset + cdSize)));
       const cv = new DataView(cdBytes.buffer, cdBytes.byteOffset, cdBytes.byteLength);
       const u16 = p => cv.getUint16(p, true), u32 = p => cv.getUint32(p, true);
@@ -388,74 +388,100 @@ WML.define({
         if (flags & 1) throw new Error('암호화된 ZIP은 지원하지 않습니다.');
         entries.push({ path: name, flags, method, compressedSize, uncompressedSize, localOffset });
       }
-      const packEntries = entries.filter(e => /(^|\/)pack\.js$/i.test(e.path));
-      if (packEntries.length !== 1) throw new Error('ZIP 안에 pack.js가 정확히 하나 있어야 합니다. 발견: ' + packEntries.length);
-      const packEntry = packEntries[0];
-      const packRoot = packEntry.path.slice(0, packEntry.path.lastIndexOf('/') + 1);
-      const imageEntries = entries.filter(e => {
-        const relative = e.path.startsWith(packRoot) ? e.path.slice(packRoot.length) : '';
-        return relative && /^images\/.+\.webp$/i.test(relative);
-      });
-      if (!imageEntries.length) throw new Error('pack.js와 같은 폴더 아래 images/*.webp를 찾지 못했습니다.');
-      const scriptBytes = await inflateZipEntry(file, packEntry);
-      if (scriptBytes.length > 4 * 1024 * 1024) throw new Error('pack.js가 4MB를 초과합니다.');
-      const parsed = parseFaithPackScript(decoder.decode(scriptBytes));
-      const byRelativePath = new Map();
-      for (const entry of imageEntries) {
-        const relative = normalizeZipPath(entry.path.slice(packRoot.length));
-        byRelativePath.set(relative.toLowerCase(), entry);
-      }
 
-      // 팩에서 실제 참조하는 이미지에 대해서만 Blob URL을 생성합니다.
-      // 파일 전체를 동시에 압축 해제하지 않으며, 존재하지 않는 이미지 경로는 명시적으로 거부합니다.
-      const refs = new Set();
-      for (const value of Object.values(parsed.pack.entries)) {
-        if (value && typeof value.imagePath === 'string') refs.add(normalizeZipPath(value.imagePath));
-      }
-      if (!refs.size) throw new Error('pack.js의 entries에서 imagePath를 찾지 못했습니다.');
-      const entriesByVirtualPath = new Map();
-      let totalBytes = 0;
-      for (const ref of refs) {
-        const entry = byRelativePath.get(ref.toLowerCase());
-        if (!entry) throw new Error('pack.js가 참조하는 이미지가 ZIP에 없습니다: ' + ref);
-        if (entry.uncompressedSize > 20 * 1024 * 1024) throw new Error('개별 이미지가 20MB를 초과합니다: ' + ref);
-        // 전체 참조 용량 제한은 두지 않습니다. ZIP 이미지 데이터는 등록 시 일괄 압축 해제하지 않고
-        // 화면에 실제 표시되는 항목만 개별적으로 압축 해제하므로, 총량 제한은 대형 팩을 불필요하게 막습니다.
-        totalBytes += entry.uncompressedSize;
-        const virtualPath = normalizeZipPath('wfil-zip/' + parsed.pack.packId + '/' + ref).toLowerCase();
-        entriesByVirtualPath.set(virtualPath, entry);
+      // 통합 ZIP은 루트 위치에 상관없이 모든 pack.js를 수집합니다.
+      // 각 pack.js의 기준 폴더를 별도로 계산해 해당 팩의 images/*.webp만 연결합니다.
+      const packEntries = entries.filter(e => /(^|\/)pack\.js$/i.test(e.path));
+      if (!packEntries.length) throw new Error('ZIP 안에서 pack.js를 찾지 못했습니다.');
+      const importedPacks = [];
+      const globalVirtualPaths = new Set();
+      const packIds = new Set();
+      let totalImageCount = 0, totalBytes = 0;
+      for (let packIndex = 0; packIndex < packEntries.length; packIndex++) {
+        const packEntry = packEntries[packIndex];
+        const packRoot = packEntry.path.slice(0, packEntry.path.lastIndexOf('/') + 1);
+        const imageEntries = entries.filter(e => {
+          if (!e.path.startsWith(packRoot)) return false;
+          const relative = e.path.slice(packRoot.length);
+          return relative && /^images\/.+\.webp$/i.test(relative);
+        });
+        if (!imageEntries.length) {
+          throw new Error('팩에 필요한 images/*.webp가 없습니다: ' + packEntry.path);
+        }
+        const scriptBytes = await inflateZipEntry(file, packEntry);
+        if (scriptBytes.length > 4 * 1024 * 1024) throw new Error('pack.js가 4MB를 초과합니다: ' + packEntry.path);
+        const parsed = parseFaithPackScript(decoder.decode(scriptBytes));
+        if (packIds.has(parsed.pack.packId)) throw new Error('중복된 packId가 통합 ZIP에 있습니다: ' + parsed.pack.packId);
+        packIds.add(parsed.pack.packId);
+        const byRelativePath = new Map();
+        for (const entry of imageEntries) {
+          const relative = normalizeZipPath(entry.path.slice(packRoot.length));
+          byRelativePath.set(relative.toLowerCase(), entry);
+        }
+        const refs = new Set();
         for (const value of Object.values(parsed.pack.entries)) {
-          if (value && typeof value.imagePath === 'string' && normalizeZipPath(value.imagePath).toLowerCase() === ref.toLowerCase()) value.imagePath = virtualPath;
+          if (value && typeof value.imagePath === 'string') refs.add(normalizeZipPath(value.imagePath));
+        }
+        if (!refs.size) throw new Error('pack.js의 entries에서 imagePath를 찾지 못했습니다: ' + packEntry.path);
+        const entriesByVirtualPath = new Map();
+        for (const ref of refs) {
+          const entry = byRelativePath.get(ref.toLowerCase());
+          if (!entry) throw new Error('pack.js가 참조하는 이미지가 해당 팩 폴더에 없습니다: ' + packEntry.path + ' → ' + ref);
+          if (entry.uncompressedSize > 20 * 1024 * 1024) throw new Error('개별 이미지가 20MB를 초과합니다: ' + ref);
+          totalBytes += entry.uncompressedSize;
+          const virtualPath = normalizeZipPath('wfil-zip/' + parsed.pack.packId + '/' + ref).toLowerCase();
+          if (globalVirtualPaths.has(virtualPath)) throw new Error('통합 ZIP 안에서 이미지 경로가 충돌합니다: ' + virtualPath);
+          globalVirtualPaths.add(virtualPath);
+          entriesByVirtualPath.set(virtualPath, entry);
+        }
+        for (const value of Object.values(parsed.pack.entries)) {
+          if (!value || typeof value.imagePath !== 'string') continue;
+          const ref = normalizeZipPath(value.imagePath);
+          value.imagePath = normalizeZipPath('wfil-zip/' + parsed.pack.packId + '/' + ref).toLowerCase();
+        }
+        totalImageCount += refs.size;
+        importedPacks.push({
+          file, key: parsed.key, pack: parsed.pack, entriesByVirtualPath,
+          imageCount: refs.size, bytes: [...new Set([...entriesByVirtualPath.values()])].reduce((sum, e) => sum + e.uncompressedSize, 0),
+          sourcePath: packEntry.path
+        });
+        if (packIndex % 8 === 0) {
+          setStatus('통합 ZIP 분석 중… ' + (packIndex + 1) + '/' + packEntries.length + '개 팩');
+          await yieldToBrowser();
         }
       }
-      return { file, key: parsed.key, pack: parsed.pack, entriesByVirtualPath, imageCount: refs.size, bytes: totalBytes };
+      return { file, packs: importedPacks, imageCount: totalImageCount, bytes: totalBytes };
     }
 
     function registerZipPack(imported) {
       const registry = window.__WF_OUTFIT_PACKS__ || (window.__WF_OUTFIT_PACKS__ = Object.create(null));
       if (!registry || typeof registry !== 'object') throw new Error('게임의 __WF_OUTFIT_PACKS__ 레지스트리를 사용할 수 없습니다.');
-      const old = registry[imported.key];
-      if (old && old.packId !== imported.pack.packId) throw new Error('같은 레지스트리 키에 다른 팩이 이미 등록되어 있습니다: ' + imported.key);
-      for (const key of zipPackPaths.get(imported.pack.packId) || []) {
-        zipImageEntries.delete(key);
-        const oldUrl = zipObjectUrls.get(key);
-        if (oldUrl) URL.revokeObjectURL(oldUrl);
-        zipObjectUrls.delete(key);
+      const registered = [];
+      for (const item of imported.packs) {
+        const old = registry[item.key];
+        if (old && old.packId !== item.pack.packId) throw new Error('같은 레지스트리 키에 다른 팩이 이미 등록되어 있습니다: ' + item.key);
+        for (const key of zipPackPaths.get(item.pack.packId) || []) {
+          zipImageEntries.delete(key);
+          const oldUrl = zipObjectUrls.get(key);
+          if (oldUrl) URL.revokeObjectURL(oldUrl);
+          zipObjectUrls.delete(key);
+        }
+        registry[item.key] = item.pack;
+        zipPacks = zipPacks.filter(pack => pack.packId !== item.pack.packId);
+        zipPacks.push(item.pack);
+        const paths = [];
+        for (const [key, entry] of item.entriesByVirtualPath) {
+          zipImageEntries.set(key, { file: imported.file, entry });
+          paths.push(key);
+        }
+        zipPackPaths.set(item.pack.packId, paths);
+        registered.push(item.pack);
       }
-      registry[imported.key] = imported.pack;
-      zipPacks = zipPacks.filter(pack => pack.packId !== imported.pack.packId);
-      zipPacks.push(imported.pack);
       installZipPackSelectorBridge();
-      const paths = [];
-      for (const [key, entry] of imported.entriesByVirtualPath) {
-        zipImageEntries.set(key, { file: imported.file, entry });
-        paths.push(key);
-      }
-      zipPackPaths.set(imported.pack.packId, paths);
       try { window.qD?.(); } catch (_) {}
       try { window.m312ImageChanged?.(); } catch (_) {}
       try { window.WOe?.(); } catch (_) {}
-      try { window.dispatchEvent(new CustomEvent('wf-outfit-packs-changed', { detail: { packId: imported.pack.packId } })); } catch (_) {}
+      try { window.dispatchEvent(new CustomEvent('wf-outfit-packs-changed', { detail: { packIds: registered.map(p => p.packId) } })); } catch (_) {}
       installZipImageObserver();
       return imported;
     }
@@ -530,7 +556,7 @@ WML.define({
         setStatus('ZIP의 pack.js와 이미지 경로를 확인하는 중입니다…');
         imported = await collectFromZip(file);
         registerZipPack(imported);
-        lastSuccessfulNames = [String(imported.pack.name || imported.pack.folderName || imported.pack.packId)];
+        lastSuccessfulNames = [...new Set(imported.packs.map(item => String(item.pack.name || item.pack.folderName || item.pack.packId)))];
         try { localStorage.setItem('wfil-successful-pack-names', JSON.stringify(lastSuccessfulNames)); } catch (_) {}
         renderPackList();
         hideFalseNoImageWarning();
@@ -545,8 +571,7 @@ WML.define({
         } else {
           persistence = ' · 파일 선택기 호환 모드에서는 새로고침 후 ZIP을 다시 선택해야 할 수 있습니다.';
         }
-        setStatus('ZIP 이미지팩을 등록했습니다: ' + lastSuccessfulNames[0] + ' · 이미지 ' +
-          imported.imageCount.toLocaleString() + '개 · 이미지 데이터는 실제 표시 시점에 연결됩니다.' + persistence);
+        setStatus('ZIP 이미지팩 ' + imported.packs.length.toLocaleString() + '개를 등록했습니다: ' + lastSuccessfulNames.join(', ') + ' · 이미지 ' + imported.imageCount.toLocaleString() + '개 · 이미지 데이터는 실제 표시 시점에 연결됩니다.' + persistence);
       } catch (error) {
         setStatus('ZIP 등록 실패: ' + String(error && error.message || error), true);
       } finally {
