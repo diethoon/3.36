@@ -131,10 +131,12 @@ WML.define({
       const buttons = [...document.querySelectorAll('button')].filter(button =>
         (button.textContent || '').trim() === 'Faith 이미지팩 로더');
       for (const button of buttons) {
-        button.disabled = generationModeActive;
-        button.style.display = generationModeActive ? 'none' : '';
+        // 메뉴 자체는 항상 보여 둡니다. 생성형 모드에서는 등록 동작만 차단하고,
+        // 사용자가 상태를 확인할 수 있도록 로더 창에는 진입할 수 있어야 합니다.
+        button.disabled = false;
+        button.style.display = '';
         button.title = generationModeActive
-          ? '이미지 생성(auto/custom) 모드에서는 Faith 이미지팩 로더가 비활성화됩니다.'
+          ? '현재 이미지 생성(auto/custom) 모드입니다. 로더 창은 열리지만 이미지팩 등록은 차단됩니다.'
           : '폴더 방식은 원본 등록기, ZIP 방식은 Faith outfit 팩 레지스트리를 사용합니다.';
       }
       if (generationModeActive && statusEl && statusEl.isConnected) {
@@ -598,7 +600,9 @@ WML.define({
     }
 
     function openWindow() {
-      if (syncGenerationMode()) return;
+      // 생성형 모드에서도 상태와 안내를 확인할 수 있도록 창 열기는 허용합니다.
+      // 실제 폴더/ZIP 등록 함수에서 모드 상태를 재확인해 등록만 차단합니다.
+      syncGenerationMode();
       win = api.ui.window({
         id: 'faith-image-packs',
         title: 'Faith 이미지팩 로더',
