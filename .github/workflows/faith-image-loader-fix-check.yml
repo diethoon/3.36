@@ -3,6 +3,7 @@ on:
   push:
     branches:
       - faith-image-loader-fix-20261028
+      - faith-image-loader-generation-gate-fix-20261029
 permissions:
   contents: read
 jobs:
