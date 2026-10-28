@@ -217,8 +217,9 @@ WML.define({
 
     function getLoadedNames() {
       const nativeNames = readNativePacks().map(pack => pack.name).filter(Boolean);
-      const names = lastSuccessfulNames.length ? lastSuccessfulNames : (nativeNames.length ? nativeNames : savedNames());
-      return [...new Set(names.map(name => String(name).trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b));
+      const importedNames = zipPacks.map(pack => String(pack.name || pack.packId || (pack.characters || []).join(', '))).filter(Boolean);
+      return [...new Set([...importedNames, ...nativeNames].map(name => String(name).trim()).filter(Boolean))]
+        .sort((a, b) => a.localeCompare(b));
     }
 
     function hideFalseNoImageWarning() {
@@ -536,7 +537,7 @@ WML.define({
       packListEl.replaceChildren();
       const names = getLoadedNames();
       if (!names.length) {
-        packListEl.append(h('div', { style: 'opacity:.75;padding:8px 0' }, '아직 표시할 이미지팩이 없습니다. 아래에서 image-packs 폴더를 등록하세요.'));
+        packListEl.append(h('div', { style: 'opacity:.75;padding:8px 0' }, '현재 세션에 등록된 ZIP 이미지팩이 없습니다. ZIP 파일을 선택해 불러오세요.'));
         return;
       }
       const list = h('ul', { style: 'margin:0;padding:0 0 0 20px;display:flex;flex-direction:column;gap:5px' });
@@ -576,9 +577,7 @@ WML.define({
           statusEl = h('div', {
             role: 'status',
             style: 'padding:8px;border:1px solid var(--wml-border,#7778);border-radius:7px;white-space:pre-wrap;overflow-wrap:anywhere;color:#fcd34d'
-          }, nativeScan
-            ? 'ZIP에서 images.js 또는 images-<캐릭터>-<번호>.js를 직접 불러올 수 있습니다.'
-            : '원본 등록 함수를 찾지 못했습니다. 현재 게임에서 등록할 수 없습니다.');
+          }, 'ZIP에서 images.js 또는 images-<캐릭터>-<번호>.js를 직접 불러올 수 있습니다.');
 
           root.append(row, zipInput, statusEl);
           body.append(root);
@@ -588,7 +587,7 @@ WML.define({
 
     loaderButton = api.ui.addButton({
       label: 'Faith 이미지팩 로더',
-      title: 'Faith 원본 이미지팩 등록기를 사용해 pack.js만 등록합니다.',
+      title: 'ZIP에서 네이티브 images*.js 이미지팩을 직접 불러옵니다.',
       onClick: openWindow,
     }) || null;
 
