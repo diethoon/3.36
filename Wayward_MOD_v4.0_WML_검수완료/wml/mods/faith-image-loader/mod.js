@@ -645,8 +645,8 @@ WML.define({
             role: 'status',
             style: 'padding:8px;border:1px solid var(--wml-border,#7778);border-radius:7px;white-space:pre-wrap;overflow-wrap:anywhere;color:#fcd34d'
           }, nativeScan
-            ? '이미지팩 등록을 기다리는 중입니다.'
-            : '원본 등록 함수를 찾지 못했습니다. 현재 게임에서 등록할 수 없습니다.');
+            ? '폴더 등록 또는 Faith outfit ZIP 등록을 기다리는 중입니다.'
+            : '폴더 등록은 원본 함수가 필요하지만, Faith outfit ZIP 등록은 별도 레지스트리 경로를 사용합니다.');
 
           root.append(row, fallbackInput, zipInput, statusEl);
           body.append(root);
