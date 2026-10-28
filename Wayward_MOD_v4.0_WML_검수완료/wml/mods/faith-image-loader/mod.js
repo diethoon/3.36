@@ -555,7 +555,7 @@ WML.define({
           body.replaceChildren();
           const root = h('div', { class: 'wfil-wrap', style: 'display:flex;flex-direction:column;gap:10px;font:inherit;color:inherit' });
           root.append(h('p', { style: 'font-size:.9em;line-height:1.5;opacity:.9;margin:0' },
-            '게임 HTML 옆의 image-packs 최상위 폴더를 선택하세요. 이미지 파일은 직접 색인하지 않고 pack.js만 원본 등록기에 전달합니다.'));
+            '폴더 선택 대신 이미지 ZIP 파일을 직접 불러옵니다. ZIP 안의 images.js 및 images-캐릭터-번호.js 스크립트를 찾아 네이티브 이미지 목록에 등록합니다. 이미지 생성 설정이 off일 때 사용하세요.'));
 
           root.append(h('strong', { style: 'margin-top:2px' }, '등록된 이미지팩'));
           packListEl = h('div', { style: 'max-height:150px;overflow:auto;padding:8px 10px;border:1px solid var(--wml-border,#7778);border-radius:7px' });
@@ -563,21 +563,6 @@ WML.define({
           renderPackList();
 
           const row = h('div', { style: 'display:flex;gap:8px;flex-wrap:wrap' });
-          const nativeButton = h('button', { type: 'button', style: 'font:inherit;padding:8px 10px;max-width:100%' }, 'image-packs 폴더 선택 (단계 처리)');
-          nativeButton.addEventListener('click', chooseDirectory);
-
-          fallbackInput = document.createElement('input');
-          fallbackInput.type = 'file';
-          fallbackInput.multiple = true;
-          fallbackInput.setAttribute('webkitdirectory', '');
-          fallbackInput.setAttribute('directory', '');
-          fallbackInput.setAttribute('aria-label', '호환용 image-packs 폴더 선택');
-          fallbackInput.style.display = 'none';
-          fallbackInput.addEventListener('change', onFallbackChange);
-
-          const fallbackButton = h('button', { type: 'button', style: 'font:inherit;padding:8px 10px;max-width:100%' }, '호환용 폴더 선택');
-          fallbackButton.addEventListener('click', () => fallbackInput.click());
-
           zipInput = document.createElement('input');
           zipInput.type = 'file';
           zipInput.accept = '.zip,application/zip,application/x-zip-compressed';
@@ -586,7 +571,7 @@ WML.define({
           zipInput.addEventListener('change', onZipChange);
           const zipButton = h('button', { type: 'button', style: 'font:inherit;padding:8px 10px;max-width:100%' }, 'ZIP에서 이미지 직접 불러오기');
           zipButton.addEventListener('click', () => zipInput.click());
-          row.append(nativeButton, fallbackButton, zipButton);
+          row.append(zipButton);
 
           statusEl = h('div', {
             role: 'status',
@@ -595,7 +580,7 @@ WML.define({
             ? 'ZIP에서 images.js 또는 images-<캐릭터>-<번호>.js를 직접 불러올 수 있습니다.'
             : '원본 등록 함수를 찾지 못했습니다. 현재 게임에서 등록할 수 없습니다.');
 
-          root.append(row, fallbackInput, zipInput, statusEl);
+          root.append(row, zipInput, statusEl);
           body.append(root);
         },
       });
