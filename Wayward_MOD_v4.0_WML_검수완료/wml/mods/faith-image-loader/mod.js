@@ -355,8 +355,9 @@ WML.define({
         const entry = byRelativePath.get(ref.toLowerCase());
         if (!entry) throw new Error('pack.js가 참조하는 이미지가 ZIP에 없습니다: ' + ref);
         if (entry.uncompressedSize > 20 * 1024 * 1024) throw new Error('개별 이미지가 20MB를 초과합니다: ' + ref);
+        // 전체 참조 용량 제한은 두지 않습니다. ZIP 이미지 데이터는 등록 시 일괄 압축 해제하지 않고
+        // 화면에 실제 표시되는 항목만 개별적으로 압축 해제하므로, 총량 제한은 대형 팩을 불필요하게 막습니다.
         totalBytes += entry.uncompressedSize;
-        if (totalBytes > 600 * 1024 * 1024) throw new Error('참조 이미지 총량이 600MB를 초과합니다. 안전을 위해 중단했습니다.');
         const virtualPath = normalizeZipPath('wfil-zip/' + parsed.pack.packId + '/' + ref).toLowerCase();
         entriesByVirtualPath.set(virtualPath, entry);
         for (const value of Object.values(parsed.pack.entries)) {
