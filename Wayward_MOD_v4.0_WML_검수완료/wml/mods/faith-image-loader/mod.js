@@ -258,7 +258,7 @@ WML.define({
     }
 
     function parseFaithPackScript(scriptText) {
-      const match = /window\.__WF_OUTFIT_PACKS__\s*\[\s*(['"])(.*?)\1\s*\]\s*=\s*/s.exec(scriptText);
+      const match = /(?:window\.__WF_OUTFIT_PACKS__\s*\[\s*(['"])(.*?)\1\s*\]|\(\s*window\.__WF_OUTFIT_PACKS__\s*=\s*window\.__WF_OUTFIT_PACKS__\s*\|\|\s*Object\.create\(\s*null\s*\)\s*\)\s*\[\s*(['"])(.*?)\3\s*\])\s*=\s*/s.exec(scriptText);
       if (!match) throw new Error('pack.js에서 window.__WF_OUTFIT_PACKS__[키] 등록문을 찾지 못했습니다.');
       const objectStart = match.index + match[0].length;
       let depth = 0, inString = '', escaped = false, objectEnd = -1;
@@ -284,7 +284,7 @@ WML.define({
       if (!pack || pack.packFormat !== 1 || !pack.packId || !pack.entries || typeof pack.entries !== 'object') {
         throw new Error('지원하지 않는 Faith 이미지팩 형식입니다(packFormat 1 필요).');
       }
-      return { key: match[2], pack };
+      return { key: match[2] ?? match[4], pack };
     }
 
     async function collectFromZip(file) {
