@@ -4,7 +4,7 @@
 WML.define({
   id: 'faith-image-loader',
   name: 'Faith 이미지팩 로더',
-  version: '1.0.0',
+  version: '1.1.0',
   game: 'faith',
   description: '기존 이미지팩 로딩과 Faith outfit ZIP(pack.js + WebP)을 지원하며 생성형 모드와 분리합니다.',
   async setup(api) {
@@ -654,11 +654,73 @@ WML.define({
       });
     }
 
-    loaderButton = api.ui.addButton({
-      label: 'Faith 이미지팩 로더',
-      title: '폴더 방식은 원본 등록기, ZIP 방식은 Faith outfit 팩 레지스트리를 사용합니다.',
-      onClick: openWindow,
-    }) || null;
+    // 일반 설정의 기존 이미지팩 설정 항목을 이 모드의 창으로 연결합니다.
+    // WML 버튼을 추가하지 않으므로 중복된 WML2 메뉴가 생기지 않습니다.
+    const nativeImagePackLabels = new Set([
+      '이미지팩 설정', '이미지 팩 설정', 'Image Pack Settings', 'Image Packs',
+      'Image pack settings', 'Image pack'
+    ]);
+    function normalizedLabel(value) {
+      return String(value || '').replace(/\\s+/g, ' ').trim().toLowerCase();
+    }
+    function getNativeImagePackItem(target) {
+      const clickable = target?.closest?.('button,[role="button"],a,label,[tabindex]');
+      if (!clickable) return null;
+      const label = normalizedLabel(clickable.getAttribute('aria-label') || clickable.getAttribute('title') || clickable.innerText || clickable.textContent);
+      if ([...nativeImagePackLabels].some(value => normalizedLabel(value) === label)) return clickable;
+      // Some settings rows contain a separate text span and a larger clickable parent.
+      const leaf = target?.nodeType === 1 ? target : target?.parentElement;
+      const textNode = leaf?.closest?.('button,[role="button"],a,label,[tabindex]') || leaf;
+      const text = normalizedLabel(textNode?.textContent);
+      return [...nativeImagePackLabels].some(value => normalizedLabel(value) === text) ? textNode : null;
+    }
+    function renameNativeImagePackItem(item) {
+      if (!item || item.dataset?.wmlFaithImagePackMenu === '1') return;
+      const walker = document.createTreeWalker(item, NodeFilter.SHOW_TEXT);
+      let node;
+      while ((node = walker.nextNode())) {
+        const text = normalizedLabel(node.nodeValue);
+        if ([...nativeImagePackLabels].some(value => normalizedLabel(value) === text)) {
+          node.nodeValue = 'Faith 이미지팩 로더';
+          item.dataset.wmlFaithImagePackMenu = '1';
+          item.setAttribute('aria-label', 'Faith 이미지팩 로더');
+          item.setAttribute('title', 'Faith 이미지팩 로더');
+          return;
+        }
+      }
+      // If the whole row is a plain text node, preserve the click target and replace its label.
+      if ([...nativeImagePackLabels].some(value => normalizedLabel(value) === normalizedLabel(item.textContent))) {
+        item.textContent = 'Faith 이미지팩 로더';
+        item.dataset.wmlFaithImagePackMenu = '1';
+        item.setAttribute('aria-label', 'Faith 이미지팩 로더');
+        item.setAttribute('title', 'Faith 이미지팩 로더');
+      }
+    }
+    function scanNativeImagePackMenu() {
+      const candidates = document.querySelectorAll('button,[role="button"],a,label,[tabindex]');
+      for (const item of candidates) {
+        const label = normalizedLabel(item.getAttribute('aria-label') || item.getAttribute('title') || item.innerText || item.textContent);
+        if ([...nativeImagePackLabels].some(value => normalizedLabel(value) === label) ||
+            [...nativeImagePackLabels].some(value => normalizedLabel(value) === normalizedLabel(item.textContent))) {
+          renameNativeImagePackItem(item);
+        }
+      }
+    }
+    document.addEventListener('click', event => {
+      const item = getNativeImagePackItem(event.target);
+      if (!item) return;
+      event.preventDefault();
+      event.stopPropagation();
+      event.stopImmediatePropagation();
+      if (syncGenerationMode()) {
+        setStatus('이미지 생성(auto/custom) 모드에서는 이미지팩 로더가 비활성화됩니다.', true);
+        return;
+      }
+      openWindow();
+    }, true);
+    const settingsMenuObserver = new MutationObserver(scanNativeImagePackMenu);
+    settingsMenuObserver.observe(document.documentElement, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ['aria-label', 'title'] });
+    scanNativeImagePackMenu();
 
     window.addEventListener('storage', syncGenerationMode);
     document.addEventListener('change', event => {
