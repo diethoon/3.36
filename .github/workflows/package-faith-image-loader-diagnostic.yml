@@ -1,0 +1,45 @@
+name: Package Faith image loader diagnostic ZIP
+on:
+  push:
+    branches:
+      - faith-image-loader-diagnostic-20261030
+    paths:
+      - "Wayward_MOD_v4.0_WML_검수완료/wml/mods/faith-image-loader/mod.js"
+      - "Wayward_MOD_v4.0_WML_검수완료/wml/mods/faith-image-loader/README_ko.txt"
+      - ".github/workflows/package-faith-image-loader-diagnostic.yml"
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: faith-image-loader-diagnostic-20261030
+      - name: Check JavaScript syntax
+        run: node --check "Wayward_MOD_v4.0_WML_검수완료/wml/mods/faith-image-loader/mod.js"
+      - name: Build diagnostic mod ZIP
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/faith-mod-package
+          mkdir -p /tmp/faith-mod-package/faith-image-loader downloads
+          cp "Wayward_MOD_v4.0_WML_검수완료/wml/mods/faith-image-loader/mod.js" /tmp/faith-mod-package/faith-image-loader/
+          cp "Wayward_MOD_v4.0_WML_검수완료/wml/mods/faith-image-loader/README_ko.txt" /tmp/faith-mod-package/faith-image-loader/
+          rm -f downloads/Faith_Image_Loader_WML_Diagnostic_2026-10-30.zip
+          (cd /tmp/faith-mod-package && zip -qr "$GITHUB_WORKSPACE/downloads/Faith_Image_Loader_WML_Diagnostic_2026-10-30.zip" faith-image-loader)
+          unzip -l downloads/Faith_Image_Loader_WML_Diagnostic_2026-10-30.zip
+      - name: Commit diagnostic ZIP
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add downloads/Faith_Image_Loader_WML_Diagnostic_2026-10-30.zip
+          if git diff --cached --quiet; then
+            echo "Diagnostic ZIP is already up to date."
+          else
+            git commit -m "Build Faith image loader diagnostic ZIP [skip ci]"
+            git push
+          fi
