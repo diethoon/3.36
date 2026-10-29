@@ -32,7 +32,7 @@ WML.define({
       const candidates = document.querySelectorAll('button, a, [role="button"], [role="menuitem"], li');
       for (const node of candidates) {
         if (!node || !node.isConnected) continue;
-        const label = String(node.innerText || node.textContent || '').replace(/\\s+/g, ' ').trim().toLowerCase();
+        const label = String(node.innerText || node.textContent || '').replace(/\s+/g, ' ').trim().toLowerCase();
         if (!labels.has(label)) continue;
         // 리스트 항목이면 해당 항목을, 그 외에는 실제 클릭 대상만 숨깁니다.
         const target = node.matches('li') ? node : node;
