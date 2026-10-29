@@ -5,13 +5,14 @@ on:
       - faith-image-rootcause-forensics-20261029
     paths:
       - 'scripts/faith-pack-forensics.cjs'
+      - 'scripts/faith-pack-context-report.cjs'
       - 'scripts/faith-pack-browser-smoke.cjs'
       - '.github/workflows/faith-pack-rootcause-forensics.yml'
 permissions:
   contents: read
 jobs:
   exact-source-forensics:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
@@ -20,6 +21,8 @@ jobs:
           node-version: 22
       - name: Verify exact HTML fingerprint and inspect in 4096-byte chunks
         run: node scripts/faith-pack-forensics.cjs
+      - name: Extract native pack loading and image resolution contexts
+        run: node scripts/faith-pack-context-report.cjs
       - name: Install isolated browser test dependency
         run: |
           npm install --no-save playwright@1.56.1
