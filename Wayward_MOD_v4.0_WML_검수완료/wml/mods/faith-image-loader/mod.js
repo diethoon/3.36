@@ -1,9 +1,9 @@
-// Faith 원본 이미지팩 로더 — 원본 wfPackScanFolder를 호출하고 pack.js만 읽습니다.
+// Faith 이미지팩 로더 — 원본 wfPackScanFolder를 호출하고 pack.js만 읽습니다.
 // 이미지 파일을 직접 색인하거나 <img>/CSS를 가로채지 않습니다.
 // 이미지팩 등록은 게임의 기존 wfPackScanFolder -> wfPackValidate -> wfImagePacks 저장 흐름에 맡깁니다.
 WML.define({
   id: 'faith-image-loader',
-  name: 'Faith 원본 이미지팩 로더',
+  name: 'Faith 이미지팩 로더',
   version: '1.0.0',
   game: 'faith',
   description: '원본 이미지팩 등록기를 재사용합니다. 이미지 파일을 직접 색인하지 않고 가능한 경우 images 하위 폴더를 건너뛰며 pack.js만 읽습니다.',
@@ -14,7 +14,6 @@ WML.define({
     let busy = false;
     let fallbackInput = null;
     let nativeScan = null;
-    let lastSuccessfulNames = [];
 
     function findNativeScanner() {
       const engine = api.engine || {};
@@ -27,104 +26,6 @@ WML.define({
     }
 
     nativeScan = findNativeScanner();
-
-    // 원본 게임이 보유한 이미지팩 카탈로그를 읽기 전용으로 확인합니다.
-    function readNativePacks() {
-      const roots = [api.engine, window];
-      const candidates = [];
-      for (const root of roots) {
-        if (!root) continue;
-        for (const key of ['wfImagePacks', '__WAYWARD_IMAGE_PACKS__', 'imagePacks', 'image_packs']) {
-          try { if (root[key]) candidates.push(root[key]); } catch (_) {}
-        }
-        try {
-          for (const [key, value] of Object.entries(root)) {
-            if (/wfImagePacks|WAYWARD_IMAGE_PACKS/i.test(key) && value) candidates.push(value);
-          }
-        } catch (_) {}
-      }
-      const seen = new Set();
-      const packs = [];
-      function add(value, keyHint = '') {
-        if (!value || typeof value !== 'object' || seen.has(value)) return;
-        seen.add(value);
-        if (Array.isArray(value)) {
-          for (const item of value) add(item, keyHint);
-          return;
-        }
-        const name = value.name || value.title || value.id || value.packName || value.folderName ||
-          (typeof value.key === 'string' ? value.key : '');
-        const path = value.webkitRelativePath || value.path || value.baseUrl || value.baseURL || value.url || '';
-        const entries = value.entries || value.images || value.files;
-        if (name && (path || entries || /pack/i.test(keyHint))) {
-          const count = Array.isArray(entries) ? entries.length :
-            (entries && typeof entries === 'object' ? Object.keys(entries).length : 0);
-          packs.push({ name: String(name), path: String(path), count });
-        } else {
-          for (const [key, child] of Object.entries(value)) {
-            if (child && typeof child === 'object') add(child, key);
-          }
-        }
-      }
-      for (const candidate of candidates) add(candidate);
-      const unique = new Map();
-      for (const pack of packs) unique.set(pack.name + '|' + pack.path, pack);
-      return [...unique.values()];
-    }
-
-    function folderNames(files) {
-      return files.map(file => {
-        const parts = String(file.webkitRelativePath || '').split('/');
-        if (parts.length < 3) return '';
-        const parent = parts[parts.length - 2];
-        return parent.toLowerCase() === 'base' ? (parts[parts.length - 3] || '') : parent;
-      }).filter(Boolean);
-    }
-
-    function installStartScreenNotice() {
-      function refreshNotice() {
-        const packs = readNativePacks();
-        const catalogNames = packs.map(p => p.name).filter(Boolean);
-        const names = lastSuccessfulNames.length ? lastSuccessfulNames : catalogNames;
-        const bodyText = document.body?.innerText || '';
-        // 표시할 이미지팩 정보가 생기기 전에는 시작화면에 빈 안내창을 만들지 않습니다.
-        if (!names.length && !bodyText.includes('그림이 준비되지 않았습니다')) return;
-        let box = document.getElementById('wfil-start-notice');
-        if (!box) {
-          box = document.createElement('section');
-          box.id = 'wfil-start-notice';
-          box.style.cssText = 'margin:8px 0;padding:10px;border:1px solid #6b9f77;border-radius:8px;background:rgba(20,70,35,.18);font:inherit;line-height:1.45;overflow-wrap:anywhere';
-          const target = [...document.querySelectorAll('body *')].find(el =>
-            el.children.length === 0 && (el.textContent || '').includes('그림이 준비되지 않았습니다'));
-          (target?.parentElement || document.body).prepend(box);
-        }
-        box.replaceChildren();
-        const heading = document.createElement('strong');
-        heading.textContent = lastSuccessfulNames.length ? 'Faith 이미지팩 등록 성공' : 'Faith 이미지팩 등록 목록';
-        box.append(heading);
-        const line = document.createElement('div');
-        line.textContent = names.length
-          ? '등록 확인된 팩: ' + [...new Set(names)].join(', ')
-          : '원본 이미지팩 설정에 등록된 팩 이름을 읽지 못했습니다. 원본 이미지팩 설정에서 등록 목록을 확인하세요.';
-        box.append(line);
-        const loaded = [];
-        for (const pack of packs) {
-          const tokens = [pack.name, pack.path].filter(Boolean);
-          const imgs = [...document.images].filter(img => img.complete && img.naturalWidth > 0 &&
-            tokens.some(token => token && (img.currentSrc || img.src).includes(token)));
-          if (imgs.length) loaded.push(pack.name);
-        }
-        const actual = document.createElement('div');
-        actual.textContent = loaded.length
-          ? '현재 화면에서 이미지 출력이 확인된 팩: ' + [...new Set(loaded)].join(', ')
-          : '현재 화면의 이미지 URL에서 팩별 출력을 자동 확인하지 못했습니다. 실제 초상화/장면이 표시되는지도 확인하세요.';
-        box.append(actual);
-      }
-      const observer = new MutationObserver(refreshNotice);
-      observer.observe(document.documentElement, { childList: true, subtree: true, characterData: true });
-      setTimeout(refreshNotice, 500);
-      setTimeout(refreshNotice, 2000);
-    }
 
     function setStatus(message, error = false) {
       if (statusEl && statusEl.isConnected) {
@@ -202,16 +103,7 @@ WML.define({
       }
       setStatus(`이미지 파일은 건드리지 않고 pack.js ${files.length.toLocaleString()}개만 원본 등록기에 전달합니다…`);
       const count = await nativeScan(files);
-      const nativePacks = readNativePacks();
-      const selectedNames = [...new Set(folderNames(files))];
-      const nativeNames = [...new Set(nativePacks.map(pack => pack.name).filter(Boolean))];
-      const matchingNames = nativeNames.filter(name => selectedNames.some(selected => selected.toLowerCase() === name.toLowerCase()));
-      const successNames = matchingNames.length ? matchingNames : (Number(count) > 0 ? selectedNames : []);
-      lastSuccessfulNames = [...new Set(successNames)];
-      const nameLine = successNames.length
-        ? '\\n등록 확인된 팩 이름: ' + successNames.join(', ')
-        : '\\n원본 등록 함수는 실행됐지만 성공한 팩 이름을 카탈로그에서 확인하지 못했습니다.';
-      setStatus(`원본 등록 완료: ${Number(count).toLocaleString()}개 이미지팩.${nameLine}\\n시작화면 안내에도 등록 목록과 현재 화면에서 이미지 출력이 확인된 팩을 표시합니다. 이미지 파일 자체는 다시 색인하거나 복사하지 않았습니다.`);
+      setStatus(`원본 등록 완료: ${Number(count).toLocaleString()}개 이미지팩. 이미지 파일 자체는 다시 색인하거나 복사하지 않았습니다.`);
     }
 
     async function chooseDirectory() {
@@ -266,7 +158,7 @@ WML.define({
     function openWindow() {
       win = api.ui.window({
         id: 'faith-native-image-packs',
-        title: 'Faith 원본 이미지팩 로더',
+        title: 'Faith 이미지팩 로더',
         width: 460,
         height: 390,
         render(body) {
@@ -306,8 +198,8 @@ WML.define({
     }
 
     api.ui.addButton({
-      label: 'Faith 원본 이미지팩',
-      title: '원본 이미지팩 등록기를 사용해 pack.js만 등록합니다.',
+      label: 'Faith 이미지팩 로더',
+      title: 'Faith 이미지팩을 등록합니다. pack.js만 원본 등록기에 전달합니다.',
       onClick: openWindow,
     });
   },
