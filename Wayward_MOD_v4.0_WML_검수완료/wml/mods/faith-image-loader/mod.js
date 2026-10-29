@@ -2,7 +2,7 @@
 WML.define({
   id: 'faith-image-loader',
   name: 'Faith 이미지팩 로더',
-  version: '1.0.0',
+  version: '1.0.0-diagnostic',
   game: 'faith',
   description: '단계별 폴더 로딩과 Faith outfit ZIP 이미지팩 등록을 지원하며, 시작 화면과 햄버거 메뉴에서 엽니다.',
   async setup(api) {
@@ -122,6 +122,156 @@ WML.define({
     }
 
     const yieldToBrowser = () => new Promise(resolve => setTimeout(resolve, 0));
+
+    let diagnosticInput = null;
+    let diagnosticOutputEl = null;
+    let diagnosticForceFallback = false;
+    let diagnosticBusy = false;
+
+    function diagnosticCapabilities() {
+      const input = document.createElement('input');
+      const itemProto = typeof DataTransferItem === 'function' ? DataTransferItem.prototype : {};
+      const dirProto = window.FileSystemDirectoryHandle && window.FileSystemDirectoryHandle.prototype;
+      return [
+        'User agent: ' + (navigator.userAgent || 'unknown'),
+        'Secure context: ' + String(Boolean(window.isSecureContext)),
+        'showDirectoryPicker: ' + String(typeof window.showDirectoryPicker === 'function'),
+        'DirectoryHandle.entries: ' + String(Boolean(dirProto && typeof dirProto.entries === 'function')),
+        'input.webkitdirectory: ' + String('webkitdirectory' in input),
+        'input.webkitEntries: ' + String('webkitEntries' in input),
+        'DataTransferItem.webkitGetAsEntry: ' + String(typeof itemProto.webkitGetAsEntry === 'function'),
+        'Native wfPackScanFolder: ' + String(typeof nativeScan === 'function')
+      ];
+    }
+
+    async function inspectHandleTree(root) {
+      if (!root || root.kind !== 'directory') throw new Error('No directory handle returned.');
+      const stats = { directories: 0, files: 0, packs: [], skippedImages: 0, visited: 0 };
+      async function walk(dir, relative) {
+        stats.directories++;
+        for await (const [name, handle] of dir.entries()) {
+          stats.visited++;
+          if (stats.visited % 64 === 0) await yieldToBrowser();
+          if (handle.kind === 'directory') {
+            if (name.toLowerCase() === 'images') { stats.skippedImages++; continue; }
+            await walk(handle, relative ? relative + '/' + name : name);
+          } else if (handle.kind === 'file') {
+            stats.files++;
+            if (name.toLowerCase() === 'pack.js') stats.packs.push((relative ? relative + '/' : '') + name);
+          }
+        }
+      }
+      await walk(root, '');
+      return stats;
+    }
+
+    function readLegacyEntries(reader) {
+      return new Promise((resolve, reject) => {
+        try { reader.readEntries(resolve, reject); } catch (error) { reject(error); }
+      });
+    }
+
+    async function inspectLegacyEntries(entries) {
+      const stats = { directories: 0, files: 0, packs: [], skippedImages: 0, visited: 0 };
+      async function walk(entry, relative) {
+        stats.visited++;
+        if (stats.visited % 64 === 0) await yieldToBrowser();
+        if (entry.isDirectory) {
+          if (String(entry.name).toLowerCase() === 'images') { stats.skippedImages++; return; }
+          stats.directories++;
+          const reader = entry.createReader();
+          const children = [];
+          while (true) {
+            const batch = await readLegacyEntries(reader);
+            if (!batch || !batch.length) break;
+            children.push(...batch);
+            if (children.length % 64 === 0) await yieldToBrowser();
+          }
+          for (const child of children) await walk(child, relative ? relative + '/' + child.name : child.name);
+        } else if (entry.isFile) {
+          stats.files++;
+          if (String(entry.name).toLowerCase() === 'pack.js') stats.packs.push(relative || entry.name);
+        }
+      }
+      for (const entry of entries || []) await walk(entry, entry.name || '');
+      return stats;
+    }
+
+    function statsLines(stats) {
+      return ['Directory traversal: success', 'Visited entries: ' + stats.visited,
+        'Directories: ' + stats.directories, 'Files: ' + stats.files,
+        'pack.js found: ' + stats.packs.length, 'Skipped images folders: ' + stats.skippedImages,
+        'pack.js samples: ' + (stats.packs.slice(0, 8).join(', ') || 'none')];
+    }
+
+    function showDiagnostic(lines, error = false) {
+      if (diagnosticOutputEl && diagnosticOutputEl.isConnected) {
+        diagnosticOutputEl.textContent = lines.join('\n');
+        diagnosticOutputEl.style.color = error ? '#fca5a5' : 'inherit';
+      }
+      console.info('[faith-image-loader diagnostic]', lines.join(' | '));
+    }
+
+    async function runLegacyInputDiagnostic() {
+      const fileCount = Number(diagnosticInput && diagnosticInput.files && diagnosticInput.files.length) || 0;
+      const entries = diagnosticInput && diagnosticInput.webkitEntries ? Array.from(diagnosticInput.webkitEntries) : [];
+      const lines = ['Folder input diagnostic', ...diagnosticCapabilities(),
+        'input.files item count after selection: ' + fileCount, 'input.webkitEntries count: ' + entries.length];
+      if (!fileCount && !entries.length) { showDiagnostic([...lines, 'No folder entries selected.'], true); return; }
+      if (!entries.length) {
+        showDiagnostic([...lines, 'No directory entries exposed by the input.',
+          'This route may pre-enumerate the complete FileList. Do not use it with the full image-packs folder.',
+          'Use only a small test folder to check compatibility.'], true);
+        return;
+      }
+      try {
+        const stats = await inspectLegacyEntries(entries);
+        const hasDirectory = entries.some(entry => entry && entry.isDirectory);
+        showDiagnostic([...lines, ...statsLines(stats), hasDirectory
+          ? 'Result: Directory Entry API traversal succeeded; the input may still prebuild FileList.'
+          : 'Result: entries were returned but top-level directory traversal was not proven.'], !hasDirectory);
+      } catch (error) {
+        showDiagnostic([...lines, 'Directory Entry API traversal failed: ' + String(error && error.message || error),
+          'Do not retry with the full image-packs folder.'], true);
+      }
+    }
+
+    async function runFolderDiagnostic() {
+      if (diagnosticBusy) return;
+      diagnosticBusy = true;
+      const base = ['Folder access diagnostic (does not register packs or change game data)', ...diagnosticCapabilities()];
+      try {
+        if (!diagnosticForceFallback && typeof window.showDirectoryPicker === 'function') {
+          showDiagnostic([...base, 'Opening showDirectoryPicker.']);
+          try {
+            const root = await window.showDirectoryPicker({ mode: 'read' });
+            showDiagnostic([...base, 'Selected folder: ' + String(root.name || '(unnamed)'), 'Traversing entries incrementally…']);
+            const stats = await inspectHandleTree(root);
+            showDiagnostic([...base, 'Selected folder: ' + String(root.name || '(unnamed)'), ...statsLines(stats),
+              String(root.name).toLowerCase() === 'image-packs' ? 'Result: image-packs incremental traversal succeeded.'
+                : 'Warning: selected folder is not named image-packs. API traversal only; no packs were registered.']);
+            return;
+          } catch (error) {
+            if (error && error.name === 'AbortError') {
+              diagnosticForceFallback = true;
+              showDiagnostic([...base, 'showDirectoryPicker returned AbortError.',
+                'Press the diagnostic button again to test the compatibility input.',
+                'For that test select a small folder only; do not select the full image-packs directory.'], true);
+              return;
+            }
+            diagnosticForceFallback = true;
+            showDiagnostic([...base, 'showDirectoryPicker failed: ' + String(error && error.name || 'Error') + ': ' + String(error && error.message || error),
+              'Press the diagnostic button again to test the compatibility input.'], true);
+            return;
+          }
+        }
+        if (!diagnosticInput || !diagnosticInput.isConnected) { showDiagnostic([...base, 'Diagnostic input is unavailable; reopen the mod window.'], true); return; }
+        showDiagnostic([...base, 'Opening compatibility folder input.',
+          'IMPORTANT: select a small test folder containing only a few files, not the full image-packs directory.',
+          'This input can make the browser enumerate all selected files before JavaScript runs.']);
+        diagnosticInput.click();
+      } finally { diagnosticBusy = false; }
+    }
 
     async function collectFromDirectory(root) {
       if (!root || root.kind !== 'directory') throw new Error('폴더를 선택하지 않았습니다.');
@@ -571,6 +721,21 @@ WML.define({
           root.append(packListEl);
           renderPackList();
 
+          const diagnosticRow = h('div', { style: 'display:flex;gap:8px;flex-wrap:wrap' });
+          const diagnosticButton = h('button', { type: 'button', style: 'font:inherit;padding:8px 10px;max-width:100%' }, '폴더 접근 방식 진단');
+          diagnosticButton.addEventListener('click', runFolderDiagnostic);
+          diagnosticInput = document.createElement('input');
+          diagnosticInput.type = 'file';
+          diagnosticInput.multiple = true;
+          diagnosticInput.setAttribute('webkitdirectory', '');
+          diagnosticInput.setAttribute('directory', '');
+          diagnosticInput.setAttribute('aria-label', '진단용 작은 테스트 폴더 선택');
+          diagnosticInput.style.display = 'none';
+          diagnosticInput.addEventListener('change', runLegacyInputDiagnostic);
+          diagnosticOutputEl = h('pre', { style: 'max-height:190px;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;padding:8px;border:1px solid var(--wml-border,#7778);border-radius:7px;font:12px/1.5 monospace;margin:0' },
+            '진단 결과가 여기에 표시됩니다. 실제 이미지팩 등록은 수행하지 않습니다.');
+          diagnosticRow.append(diagnosticButton);
+
           const row = h('div', { style: 'display:flex;gap:8px;flex-wrap:wrap' });
           const nativeButton = h('button', { type: 'button', style: 'font:inherit;padding:8px 10px;max-width:100%' }, 'image-packs 폴더 선택 (단계 처리)');
           nativeButton.addEventListener('click', chooseDirectory);
@@ -604,7 +769,7 @@ WML.define({
             ? '폴더 등록 또는 Faith outfit ZIP 등록을 기다리는 중입니다.'
             : '폴더 등록은 원본 함수가 필요하지만, Faith outfit ZIP 등록은 별도 레지스트리 경로를 사용합니다.');
 
-          root.append(row, fallbackInput, zipInput, statusEl);
+          root.append(diagnosticRow, diagnosticInput, diagnosticOutputEl, row, fallbackInput, zipInput, statusEl);
           body.append(root);
         },
       });
