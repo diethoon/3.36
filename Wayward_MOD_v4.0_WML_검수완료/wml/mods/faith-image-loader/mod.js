@@ -56,7 +56,7 @@ WML.define({
       };
       wrapped.__wfilFaithZipBridge = true;
 
-      // WML exports the game's module bindings through api.engine accessors; window.WOe is not defined.
+      // WML exposes the game's module bindings through api.engine accessors; window.WOe is not defined.
       if (typeof engine.WOe === 'function') {
         engine.WOe = wrapped;
         if (engine.WOe !== wrapped) return false;
