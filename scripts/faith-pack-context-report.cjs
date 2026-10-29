@@ -8,7 +8,7 @@ if (b.length !== 6742653 || sha !== '44874ecddaa7fad0e7b1b6d9b4450e17ca3f7f279c9
   throw new Error('The source fingerprint changed; refusing forensic extraction.');
 }
 const terms = [
-  'function WOe', 'WOe(', 'function YOe', 'YOe(', 'function ak(e)',
+  'function WOe', 'WOe(', 'function YOe', 'YOe(', 'function ak(e)', 'ak(',
   'function qD()', 'm312ImageChanged', '__WAYWARD_IMAGE_PACKS__',
   '__WF_OUTFIT_PACKS__', 'imageBackendMode', 'baseUrl', 'imagePath',
   'source:"server"', 'new Set(o.map'
@@ -38,6 +38,7 @@ const probes = [
   ['YOE_DEFINITION', 'function YOe', 1],
   ['YOE_CALL', 'YOe(', 5],
   ['RESOLVER', 'function ak(e)', 2],
+  ['AK_CALL_SITES', 'ak(', 20],
   ['Q_RESET', 'function qD()', 2],
   ['IMAGE_CHANGED', 'm312ImageChanged', 6],
   ['NATIVE_PACK_REGISTRY', '__WAYWARD_IMAGE_PACKS__', 2],
