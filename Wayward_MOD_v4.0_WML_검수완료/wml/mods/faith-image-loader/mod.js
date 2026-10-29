@@ -497,11 +497,6 @@ WML.define({
         if (typeof resetImagePackCache === 'function') resetImagePackCache();
       } catch (_) {}
       try { api.engine.m312ImageChanged?.(); } catch (_) {}
-      try {
-        const loadImagePacks = typeof api.engine.WOe === 'function' ? api.engine.WOe : window.WOe;
-        const pending = loadImagePacks?.();
-        if (pending && typeof pending.catch === 'function') pending.catch(() => {});
-      } catch (_) {}
       try { window.dispatchEvent(new CustomEvent('wf-outfit-packs-changed', { detail: { packIds: registered.map(p => p.packId) } })); } catch (_) {}
       installZipImageObserver();
       return imported;
