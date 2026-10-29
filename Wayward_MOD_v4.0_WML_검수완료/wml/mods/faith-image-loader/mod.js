@@ -36,11 +36,15 @@ WML.define({
     // 원본 결과를 보존하면서 ZIP 팩을 합쳐 반환하도록 연결합니다.
     function installZipPackSelectorBridge() {
       const originalKey = '__WML_FAITH_ZIP_ORIGINAL_WOE__';
-      if (typeof window.WOe !== 'function') return false;
-      if (typeof window[originalKey] === 'function') return true;
-      const original = window.WOe;
-      window[originalKey] = original;
-      window.WOe = async function (...args) {
+      const engine = api.engine || {};
+      const active = typeof engine.WOe === 'function' ? engine.WOe :
+        (typeof window.WOe === 'function' ? window.WOe : null);
+      if (typeof active !== 'function') return false;
+      if (active.__wfilFaithZipBridge === true) return true;
+
+      const original = typeof window[originalKey] === 'function' ? window[originalKey] : active;
+      if (typeof window[originalKey] !== 'function') window[originalKey] = original;
+      const wrapped = async function (...args) {
         const nativePacks = await original.apply(this, args);
         const merged = new Map();
         for (const pack of [...(Array.isArray(nativePacks) ? nativePacks : []), ...zipPacks]) {
@@ -50,6 +54,15 @@ WML.define({
         }
         return [...merged.values()];
       };
+      wrapped.__wfilFaithZipBridge = true;
+
+      // WML exposes the game's module bindings through api.engine accessors; window.WOe is not defined.
+      if (typeof engine.WOe === 'function') {
+        engine.WOe = wrapped;
+        if (engine.WOe !== wrapped) return false;
+      } else {
+        window.WOe = wrapped;
+      }
       return true;
     }
     installZipPackSelectorBridge();
@@ -478,9 +491,12 @@ WML.define({
         registered.push(item.pack);
       }
       installZipPackSelectorBridge();
-      try { window.qD?.(); } catch (_) {}
-      try { window.m312ImageChanged?.(); } catch (_) {}
-      try { window.WOe?.(); } catch (_) {}
+      // WML exposes these game bindings through api.engine, not window globals.
+      try {
+        const resetImagePackCache = api.fn('imagePackReset');
+        if (typeof resetImagePackCache === 'function') resetImagePackCache();
+      } catch (_) {}
+      try { api.engine.m312ImageChanged?.(); } catch (_) {}
       try { window.dispatchEvent(new CustomEvent('wf-outfit-packs-changed', { detail: { packIds: registered.map(p => p.packId) } })); } catch (_) {}
       installZipImageObserver();
       return imported;
