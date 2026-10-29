@@ -15,43 +15,27 @@ jobs:
   inspect:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout clean loader branch
-        uses: actions/checkout@v4
-      - name: Checkout branch containing Faith source ZIP
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
           ref: faith-imagepack-registration-fix
           path: faith-source
-      - name: Extract precise native UI call sites
+      - name: Extract settings entry points and component scope
         shell: bash
         run: |
           python3 - <<'PY'
           import re, zipfile
           from pathlib import Path
-          archive = Path("faith-source/Wayward_Faith_NoSound_v3.0.0.zip")
-          with zipfile.ZipFile(archive) as z:
-              name = next(n for n in z.namelist() if n.lower().endswith("wayward_faith_v3.0.0.html"))
-              text = z.read(name).decode("utf-8", errors="replace")
-          print(f"SOURCE={name} SIZE={len(text)}")
-          pats = [
-            r"function wfPackSettingsDialog\(",
-            r"wfPackSettingsDialog",
-            r"function wfPackLibraryDialog\(",
-            r"wfPackLibraryDialog",
-            r"이미지팩 설정",
-            r"이미지팩 관리",
-            r"wfPackFolderButton",
-            r"wfPackScanFolder",
-            r"addButton|hamburger|menuItems|settingsItems",
-          ]
-          seen = set()
-          for pat in pats:
-              ms = list(re.finditer(pat, text, re.I))
-              print(f"\n### {pat} ({len(ms)} hits)")
-              for m in ms[:20]:
-                  start, end = max(0, m.start()-450), min(len(text), m.end()+650)
-                  key = (start,end)
-                  if key in seen: continue
-                  seen.add(key)
-                  print(f"OFFSET={m.start()}\n{text[start:end].replace(chr(10),' ').replace(chr(13),' ')[:1150]}")
+          with zipfile.ZipFile("faith-source/Wayward_Faith_NoSound_v3.0.0.zip") as z:
+              name=next(n for n in z.namelist() if n.lower().endswith("wayward_faith_v3.0.0.html"))
+              t=z.read(name).decode("utf-8",errors="replace")
+          print(f"SOURCE={name} SIZE={len(t)}")
+          for term in ["wf_imagepacks","wfPackSettingsDialog","wfPackScanFolder","title:\"이미지팩 설정\""]:
+              hits=[m.start() for m in re.finditer(re.escape(term),t,re.I)]
+              print(f"\n### {term}: {len(hits)}")
+              for p in hits[:16]:
+                  before=t[max(0,p-2600):p]
+                  decl=list(re.finditer(r"(?:function\s+[\w$]+\s*\(|(?:const|let|var)\s+[\w$]+\s*=\s*(?:\([^)]*\)|[\w$]+)\s*=>)",before))
+                  parent=decl[-1].group(0) if decl else "(parent declaration not found)"
+                  print(f"OFFSET={p} PARENT={parent}\n{t[max(0,p-1000):min(len(t),p+1500)].replace(chr(10),' ').replace(chr(13),' ')}")
           PY
