@@ -28,7 +28,7 @@ jobs:
         run: |
           node --check 'Wayward_MOD_v4.0_WML_검수완료/wml/mods/faith-image-loader/mod.js'
           git fetch --no-tags origin faith-image-loader-persistence-fix-20261029
-          git diff --check FETCH_HEAD...HEAD -- 'Wayward_MOD_v4.0_WML_검수완료/wml/mods/faith-image-loader/mod.js'
+          git diff --check FETCH_HEAD -- 'Wayward_MOD_v4.0_WML_검수완료/wml/mods/faith-image-loader/mod.js'
       - name: Extract native pack loading and image resolution contexts
         run: node scripts/faith-pack-context-report.cjs
       - name: Install isolated browser test dependency
