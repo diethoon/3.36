@@ -1,16 +1,11 @@
 name: Inspect Faith v3.0.0 native image-pack UI
-
 on:
   push:
-    branches:
-      - faith-image-loader-clean-1.0.0-20261030
-    paths:
-      - ".github/workflows/inspect-faith-native-ui.yml"
+    branches: [faith-image-loader-clean-1.0.0-20261030]
+    paths: [".github/workflows/inspect-faith-native-ui.yml"]
   workflow_dispatch:
-
 permissions:
   contents: read
-
 jobs:
   inspect:
     runs-on: ubuntu-latest
@@ -20,22 +15,18 @@ jobs:
         with:
           ref: faith-imagepack-registration-fix
           path: faith-source
-      - name: Extract settings entry points and component scope
+      - name: Find native menu toggle labels
         shell: bash
         run: |
           python3 - <<'PY'
           import re, zipfile
-          from pathlib import Path
           with zipfile.ZipFile("faith-source/Wayward_Faith_NoSound_v3.0.0.zip") as z:
-              name=next(n for n in z.namelist() if n.lower().endswith("wayward_faith_v3.0.0.html"))
-              t=z.read(name).decode("utf-8",errors="replace")
-          print(f"SOURCE={name} SIZE={len(t)}")
-          for term in ["wf_imagepacks","wfPackSettingsDialog","wfPackScanFolder","title:\"이미지팩 설정\""]:
-              hits=[m.start() for m in re.finditer(re.escape(term),t,re.I)]
-              print(f"\n### {term}: {len(hits)}")
-              for p in hits[:16]:
-                  before=t[max(0,p-2600):p]
-                  decl=list(re.finditer(r"(?:function\s+[\w$]+\s*\(|(?:const|let|var)\s+[\w$]+\s*=\s*(?:\([^)]*\)|[\w$]+)\s*=>)",before))
-                  parent=decl[-1].group(0) if decl else "(parent declaration not found)"
-                  print(f"OFFSET={p} PARENT={parent}\n{t[max(0,p-1000):min(len(t),p+1500)].replace(chr(10),' ').replace(chr(13),' ')}")
+              n=next(n for n in z.namelist() if n.lower().endswith("wayward_faith_v3.0.0.html"))
+              t=z.read(n).decode("utf-8",errors="replace")
+          pats=[r'aria-label:"[^"]*(?:메뉴|menu)[^"]*"',r'title:"[^"]*(?:메뉴|menu)[^"]*"',r'children:"(?:☰|≡|三|메뉴)"',r'children:"이미지팩 설정"',r'children:"시작 화면으로"']
+          for p in pats:
+              ms=list(re.finditer(p,t,re.I))
+              print(f"\n## {p} ({len(ms)})")
+              for m in ms[:20]:
+                  print(t[max(0,m.start()-600):min(len(t),m.end()+600)].replace(chr(10)," ").replace(chr(13)," ")[:1200])
           PY
