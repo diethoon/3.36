@@ -7,6 +7,9 @@ on:
       - 'scripts/faith-pack-forensics.cjs'
       - 'scripts/faith-pack-context-report.cjs'
       - 'scripts/faith-pack-browser-smoke.cjs'
+      - 'wml/mods/faith-image-loader/mod.js'
+      - 'wml/mods/mods.js'
+      - 'wml/mods/faith-pack-forensic-probe/mod.js'
       - '.github/workflows/faith-pack-rootcause-forensics.yml'
 permissions:
   contents: read
@@ -27,9 +30,47 @@ jobs:
         run: |
           npm install --no-save playwright@1.56.1
           npx playwright install --with-deps chromium
-      - name: Inspect original game runtime globals in Chromium
+      - name: Create small ZIP with one test pack and one 1x1 WebP image
+        run: |
+          python3 - <<'PY'
+          import base64, json, zipfile
+          from pathlib import Path
+          out = Path('forensic-output')
+          out.mkdir(exist_ok=True)
+          talent = 'faith_forensic_probe__test'
+          pack = {
+              'packFormat': 1,
+              'packId': 'wfil-probe-pack-20261029',
+              'name': 'WFIL browser test pack',
+              'folderName': 'wfil-probe-pack',
+              'generatedAt': '2026-10-29T01:00:00.000Z',
+              'characters': ['elena'],
+              'entries': {
+                  talent: {
+                      'imagePath': 'images/probe.webp',
+                      'talentName': talent,
+                      'imageType': 'portrait',
+                      'promptHash': 'probe'
+                  }
+              }
+          }
+          code = '/* WAYWARD_FAITH_IMAGE_PACK */\n'
+          code += '(window.__WF_OUTFIT_PACKS__=window.__WF_OUTFIT_PACKS__||Object.create(null))'
+          code += '["wfil-probe-pack-20261029"]='
+          code += json.dumps(pack, separators=(',', ':')) + ';\n'
+          # A tiny valid 1x1 WebP used only to verify the ZIP-to-Blob image path.
+          webp = base64.b64decode('UklGRiIAAABXRUJQVlA4IBYAAAAwAQCdASoBAAEAAUAmJaQAA3AA/v89WAAAAA==')
+          with zipfile.ZipFile(out / 'wfil-test-pack.zip', 'w', zipfile.ZIP_DEFLATED) as z:
+              z.writestr('pack.js', code)
+              z.writestr('images/probe.webp', webp)
+          print('TEST_ZIP_BYTES', (out / 'wfil-test-pack.zip').stat().st_size)
+          print('TEST_PACK_TALENT', talent)
+          print('TEST_WEBP_BYTES', len(webp))
+          PY
+      - name: Import ZIP and verify image manifest plus rendered image
         run: node scripts/faith-pack-browser-smoke.cjs
       - name: Upload bounded forensic evidence
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: faith-pack-rootcause-forensics
