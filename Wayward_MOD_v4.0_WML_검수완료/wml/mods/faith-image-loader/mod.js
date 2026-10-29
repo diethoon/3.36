@@ -18,6 +18,30 @@ WML.define({
     let nativeScan = null;
     let lastSuccessfulNames = [];
     let generationModeActive = false;
+    let loaderButton = null;
+
+    // 이미지팩 진입점은 WML 모드 메뉴 하나로 통일합니다.
+    // 기존 WML 원본 이미지팩 버튼과 Faith 메뉴/시작 화면의 중복 진입점만 숨깁니다.
+    function hideDuplicateImagePackMenus() {
+      const labels = new Set([
+        'wml원본 이미지팩',
+        'wml 원본 이미지팩',
+        '원본 이미지팩',
+        '이미지팩 설정',
+      ]);
+      const candidates = document.querySelectorAll('button, a, [role="button"], [role="menuitem"], li');
+      for (const node of candidates) {
+        if (!node || !node.isConnected) continue;
+        const label = String(node.innerText || node.textContent || '').replace(/\\s+/g, ' ').trim().toLowerCase();
+        if (!labels.has(label)) continue;
+        // 리스트 항목이면 해당 항목을, 그 외에는 실제 클릭 대상만 숨깁니다.
+        const target = node.matches('li') ? node : node;
+        if (target.dataset.wfilReplaced === '1') continue;
+        target.dataset.wfilReplaced = '1';
+        target.style.setProperty('display', 'none', 'important');
+        target.setAttribute('aria-hidden', 'true');
+      }
+    }
 
     // 원본 Faith 상태 저장소의 실제 설정 imageBackendMode를 사용합니다.
     // auto/custom은 생성형 백엔드 경로, off는 기존 그림만 사용하는 모드입니다.
@@ -531,9 +555,16 @@ WML.define({
     document.addEventListener('change', event => {
       if (event.target?.name === 'imageBackendMode') syncGenerationMode();
     }, true);
-    const modeObserver = new MutationObserver(syncGenerationMode);
+    const modeObserver = new MutationObserver(() => {
+      syncGenerationMode();
+      hideDuplicateImagePackMenus();
+    });
     modeObserver.observe(document.documentElement, { childList: true, subtree: true });
-    setInterval(syncGenerationMode, 1000);
+    setInterval(() => {
+      syncGenerationMode();
+      hideDuplicateImagePackMenus();
+    }, 1000);
+    hideDuplicateImagePackMenus();
     syncGenerationMode();
     watchNoImageWarning();
   },
