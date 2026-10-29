@@ -7,9 +7,9 @@ on:
       - 'scripts/faith-pack-forensics.cjs'
       - 'scripts/faith-pack-context-report.cjs'
       - 'scripts/faith-pack-browser-smoke.cjs'
-      - 'wml/mods/faith-image-loader/mod.js'
-      - 'wml/mods/mods.js'
-      - 'wml/mods/faith-pack-forensic-probe/mod.js'
+      - 'Wayward_MOD_v4.0_WML_검수완료/wml/mods/faith-image-loader/mod.js'
+      - 'Wayward_MOD_v4.0_WML_검수완료/wml/mods/mods.js'
+      - 'Wayward_MOD_v4.0_WML_검수완료/wml/mods/faith-pack-forensic-probe/mod.js'
       - '.github/workflows/faith-pack-rootcause-forensics.yml'
 permissions:
   contents: read
@@ -24,6 +24,11 @@ jobs:
           node-version: 22
       - name: Verify exact HTML fingerprint and inspect in 4096-byte chunks
         run: node scripts/faith-pack-forensics.cjs
+      - name: Check patch syntax and whitespace
+        run: |
+          node --check 'Wayward_MOD_v4.0_WML_검수완료/wml/mods/faith-image-loader/mod.js'
+          git fetch --no-tags origin faith-image-loader-persistence-fix-20261029
+          git diff --check FETCH_HEAD...HEAD -- 'Wayward_MOD_v4.0_WML_검수완료/wml/mods/faith-image-loader/mod.js'
       - name: Extract native pack loading and image resolution contexts
         run: node scripts/faith-pack-context-report.cjs
       - name: Install isolated browser test dependency
