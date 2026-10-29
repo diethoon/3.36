@@ -133,14 +133,14 @@ WML.define({
       const itemProto = typeof DataTransferItem === 'function' ? DataTransferItem.prototype : {};
       const dirProto = window.FileSystemDirectoryHandle && window.FileSystemDirectoryHandle.prototype;
       return [
-        'User agent: ' + (navigator.userAgent || 'unknown'),
-        'Secure context: ' + String(Boolean(window.isSecureContext)),
-        'showDirectoryPicker: ' + String(typeof window.showDirectoryPicker === 'function'),
-        'DirectoryHandle.entries: ' + String(Boolean(dirProto && typeof dirProto.entries === 'function')),
-        'input.webkitdirectory: ' + String('webkitdirectory' in input),
-        'input.webkitEntries: ' + String('webkitEntries' in input),
-        'DataTransferItem.webkitGetAsEntry: ' + String(typeof itemProto.webkitGetAsEntry === 'function'),
-        'Native wfPackScanFolder: ' + String(typeof nativeScan === 'function')
+        '브라우저 정보: ' + (navigator.userAgent || 'unknown'),
+        '보안 컨텍스트: ' + String(Boolean(window.isSecureContext)),
+        '폴더 선택 API(showDirectoryPicker): ' + String(typeof window.showDirectoryPicker === 'function'),
+        '디렉터리 순회 API: ' + String(Boolean(dirProto && typeof dirProto.entries === 'function')),
+        '폴더 선택 입력 지원: ' + String('webkitdirectory' in input),
+        '디렉터리 엔트리 목록 API: ' + String('webkitEntries' in input),
+        '드래그 항목 엔트리 API: ' + String(typeof itemProto.webkitGetAsEntry === 'function'),
+        '원본 게임 등록 함수: ' + String(typeof nativeScan === 'function')
       ];
     }
 
@@ -198,10 +198,10 @@ WML.define({
     }
 
     function statsLines(stats) {
-      return ['Directory traversal: success', 'Visited entries: ' + stats.visited,
-        'Directories: ' + stats.directories, 'Files: ' + stats.files,
-        'pack.js found: ' + stats.packs.length, 'Skipped images folders: ' + stats.skippedImages,
-        'pack.js samples: ' + (stats.packs.slice(0, 8).join(', ') || 'none')];
+      return ['디렉터리 순회: 성공', '방문한 항목 수: ' + stats.visited,
+        '디렉터리 수: ' + stats.directories, '파일 엔트리 수: ' + stats.files,
+        '발견한 pack.js 수: ' + stats.packs.length, '건너뛴 images 폴더 수: ' + stats.skippedImages,
+        'pack.js 경로 예시: ' + (stats.packs.slice(0, 8).join(', ') || 'none')];
     }
 
     function showDiagnostic(lines, error = false) {
@@ -215,60 +215,60 @@ WML.define({
     async function runLegacyInputDiagnostic() {
       const fileCount = Number(diagnosticInput && diagnosticInput.files && diagnosticInput.files.length) || 0;
       const entries = diagnosticInput && diagnosticInput.webkitEntries ? Array.from(diagnosticInput.webkitEntries) : [];
-      const lines = ['Folder input diagnostic', ...diagnosticCapabilities(),
-        'input.files item count after selection: ' + fileCount, 'input.webkitEntries count: ' + entries.length];
+      const lines = ['호환용 폴더 입력 진단', ...diagnosticCapabilities(),
+        '선택 후 input.files 항목 수: ' + fileCount, '선택 후 디렉터리 엔트리 수: ' + entries.length];
       if (!fileCount && !entries.length) { showDiagnostic([...lines, 'No folder entries selected.'], true); return; }
       if (!entries.length) {
-        showDiagnostic([...lines, 'No directory entries exposed by the input.',
-          'This route may pre-enumerate the complete FileList. Do not use it with the full image-packs folder.',
-          'Use only a small test folder to check compatibility.'], true);
+        showDiagnostic([...lines, '입력 요소에서 디렉터리 엔트리를 제공하지 않습니다.',
+          '이 방식은 전체 파일 목록을 먼저 열거할 수 있습니다. image-packs 전체 폴더에 사용하지 마세요.',
+          '호환성 확인에는 파일이 적은 테스트 폴더만 사용하세요.'], true);
         return;
       }
       try {
         const stats = await inspectLegacyEntries(entries);
         const hasDirectory = entries.some(entry => entry && entry.isDirectory);
         showDiagnostic([...lines, ...statsLines(stats), hasDirectory
-          ? 'Result: Directory Entry API traversal succeeded; the input may still prebuild FileList.'
-          : 'Result: entries were returned but top-level directory traversal was not proven.'], !hasDirectory);
+          ? '결과: Directory Entry API 순회 성공. 다만 입력 요소가 먼저 전체 파일 목록을 구성했을 가능성은 남아 있습니다.'
+          : '결과: 엔트리는 반환됐지만 최상위 디렉터리 단위 순회는 확인되지 않았습니다.'], !hasDirectory);
       } catch (error) {
-        showDiagnostic([...lines, 'Directory Entry API traversal failed: ' + String(error && error.message || error),
-          'Do not retry with the full image-packs folder.'], true);
+        showDiagnostic([...lines, 'Directory Entry API 순회 실패: ' + String(error && error.message || error),
+          'image-packs 전체 폴더로 재시도하지 마세요.'], true);
       }
     }
 
     async function runFolderDiagnostic() {
       if (diagnosticBusy) return;
       diagnosticBusy = true;
-      const base = ['Folder access diagnostic (does not register packs or change game data)', ...diagnosticCapabilities()];
+      const base = ['폴더 접근 진단 (팩 등록 및 게임 데이터 변경 없음)', ...diagnosticCapabilities()];
       try {
         if (!diagnosticForceFallback && typeof window.showDirectoryPicker === 'function') {
-          showDiagnostic([...base, 'Opening showDirectoryPicker.']);
+          showDiagnostic([...base, 'showDirectoryPicker 폴더 선택 창을 엽니다.']);
           try {
             const root = await window.showDirectoryPicker({ mode: 'read' });
-            showDiagnostic([...base, 'Selected folder: ' + String(root.name || '(unnamed)'), 'Traversing entries incrementally…']);
+            showDiagnostic([...base, '선택한 폴더: ' + String(root.name || '(unnamed)'), '항목을 단계별로 탐색하는 중…']);
             const stats = await inspectHandleTree(root);
             showDiagnostic([...base, 'Selected folder: ' + String(root.name || '(unnamed)'), ...statsLines(stats),
-              String(root.name).toLowerCase() === 'image-packs' ? 'Result: image-packs incremental traversal succeeded.'
-                : 'Warning: selected folder is not named image-packs. API traversal only; no packs were registered.']);
+              String(root.name).toLowerCase() === 'image-packs' ? '결과: image-packs 단계별 탐색 성공.'
+                : '주의: 선택 폴더 이름이 image-packs가 아닙니다. API 탐색만 검사했으며 팩은 등록하지 않았습니다.']);
             return;
           } catch (error) {
             if (error && error.name === 'AbortError') {
               diagnosticForceFallback = true;
-              showDiagnostic([...base, 'showDirectoryPicker returned AbortError.',
-                'Press the diagnostic button again to test the compatibility input.',
-                'For that test select a small folder only; do not select the full image-packs directory.'], true);
+              showDiagnostic([...base, 'showDirectoryPicker가 AbortError를 반환했습니다.',
+                '진단 버튼을 다시 눌러 호환용 입력 방식을 검사하세요.',
+                '이때 작은 테스트 폴더만 선택하세요. image-packs 전체 폴더는 선택하지 마세요.'], true);
               return;
             }
             diagnosticForceFallback = true;
-            showDiagnostic([...base, 'showDirectoryPicker failed: ' + String(error && error.name || 'Error') + ': ' + String(error && error.message || error),
+            showDiagnostic([...base, 'showDirectoryPicker 실패: ' + String(error && error.name || 'Error') + ': ' + String(error && error.message || error),
               'Press the diagnostic button again to test the compatibility input.'], true);
             return;
           }
         }
-        if (!diagnosticInput || !diagnosticInput.isConnected) { showDiagnostic([...base, 'Diagnostic input is unavailable; reopen the mod window.'], true); return; }
-        showDiagnostic([...base, 'Opening compatibility folder input.',
-          'IMPORTANT: select a small test folder containing only a few files, not the full image-packs directory.',
-          'This input can make the browser enumerate all selected files before JavaScript runs.']);
+        if (!diagnosticInput || !diagnosticInput.isConnected) { showDiagnostic([...base, '진단용 입력을 사용할 수 없습니다. 모드 창을 다시 여세요.'], true); return; }
+        showDiagnostic([...base, '호환용 폴더 입력 창을 엽니다.',
+          '중요: image-packs 전체가 아니라 파일이 몇 개뿐인 작은 테스트 폴더를 선택하세요.',
+          '이 입력 방식은 자바스크립트 실행 전에 브라우저가 선택 파일 전체를 열거할 수 있습니다.']);
         diagnosticInput.click();
       } finally { diagnosticBusy = false; }
     }
