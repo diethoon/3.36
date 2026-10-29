@@ -617,7 +617,7 @@ WML.define({
       'Image pack settings', 'Image pack'
     ]);
     function normalizedLabel(value) {
-      return String(value || '').replace(/\\s+/g, ' ').trim().toLowerCase();
+      return String(value || '').replace(/\s+/g, ' ').trim().toLowerCase();
     }
     function getNativeImagePackItem(target) {
       const clickable = target?.closest?.('button,[role="button"],a,label,[tabindex]');
