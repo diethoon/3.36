@@ -1,0 +1,72 @@
+name: Inspect Faith v3.0.0 native image-pack UI
+
+on:
+  push:
+    branches:
+      - faith-image-loader-clean-1.0.0-20261030
+    paths:
+      - ".github/workflows/inspect-faith-native-ui.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout clean loader branch
+        uses: actions/checkout@v4
+      - name: Checkout branch containing Faith source ZIP
+        uses: actions/checkout@v4
+        with:
+          ref: faith-imagepack-registration-fix
+          path: faith-source
+      - name: Inspect source archive and print native UI snippets
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import re, zipfile
+          from pathlib import Path
+
+          archive = Path("faith-source/Wayward_Faith_NoSound_v3.0.0.zip")
+          if not archive.exists():
+              raise SystemExit(f"Missing source archive: {archive}")
+          print(f"SOURCE_ARCHIVE={archive} SIZE={archive.stat().st_size}")
+          with zipfile.ZipFile(archive) as z:
+              htmls = [n for n in z.namelist() if n.lower().endswith((".html", ".htm"))]
+              print("HTML_FILES:")
+              for n in htmls:
+                  info = z.getinfo(n)
+                  print(f"  {n} ({info.file_size} bytes)")
+              if not htmls:
+                  raise SystemExit("No HTML file found in Faith ZIP")
+              candidates = []
+              for n in htmls:
+                  raw = z.read(n)
+                  text = raw.decode("utf-8", errors="replace")
+                  candidates.append((len(text), n, text))
+              _, name, text = max(candidates)
+              print(f"INSPECTING={name} LENGTH={len(text)}")
+              patterns = [
+                  r"wfPackScanFolder",
+                  r"이미지팩\s*설정",
+                  r"이미지팩 폴더 갱신",
+                  r"image.?pack",
+                  r"wfPackValidate",
+                  r"wfImagePacks",
+              ]
+              seen = set()
+              for pat in patterns:
+                  matches = list(re.finditer(pat, text, re.I))
+                  print(f"\n=== PATTERN {pat!r}: {len(matches)} matches ===")
+                  for m in matches[:12]:
+                      start, end = max(0, m.start()-700), min(len(text), m.end()+1100)
+                      key = (start, end)
+                      if key in seen:
+                          continue
+                      seen.add(key)
+                      snippet = text[start:end]
+                      print(f"--- offset {m.start()} ---")
+                      print(snippet.replace("\r", " ").replace("\n", " ")[:2000])
+          PY
