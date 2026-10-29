@@ -1,31 +1,45 @@
-name: Package Faith Image Loader Mod
+name: Package Faith image loader ZIP
 on:
   push:
     branches:
-      - faith-image-loader-fix-20261028
+      - faith-image-loader-clean-1.0.0-20261030
     paths:
-      - 'Wayward_MOD_v4.0_WML_검수완료/wml/mods/faith-image-loader/**'
-      - '.github/workflows/package-faith-image-loader.yml'
+      - "Wayward_MOD_v4.0_WML_검수완료/wml/mods/faith-image-loader/mod.js"
+      - "Wayward_MOD_v4.0_WML_검수완료/wml/mods/faith-image-loader/README_ko.txt"
+      - ".github/workflows/package-faith-image-loader.yml"
   workflow_dispatch:
 permissions:
-  contents: read
-  actions: read
+  contents: write
 jobs:
   package:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: faith-image-loader-fix-20261028
-      - name: Package mod only
+          ref: faith-image-loader-clean-1.0.0-20261030
+      - name: Check JavaScript syntax
+        run: node --check "Wayward_MOD_v4.0_WML_검수완료/wml/mods/faith-image-loader/mod.js"
+      - name: Build mod-only ZIP
+        shell: bash
         run: |
-          mkdir -p dist
-          cd Wayward_MOD_v4.0_WML_검수완료/wml/mods
-          zip -r "$GITHUB_WORKSPACE/dist/Faith_Image_Loader_WML_v0.5.0.zip" faith-image-loader
-          unzip -l "$GITHUB_WORKSPACE/dist/Faith_Image_Loader_WML_v0.5.0.zip"
-      - uses: actions/upload-artifact@v4
-        with:
-          name: Faith_Image_Loader_WML_v0.5.0
-          path: dist/Faith_Image_Loader_WML_v0.5.0.zip
-          if-no-files-found: error
-          retention-days: 30
+          set -euo pipefail
+          rm -rf /tmp/faith-mod-package
+          mkdir -p /tmp/faith-mod-package/faith-image-loader downloads
+          cp "Wayward_MOD_v4.0_WML_검수완료/wml/mods/faith-image-loader/mod.js" /tmp/faith-mod-package/faith-image-loader/
+          cp "Wayward_MOD_v4.0_WML_검수완료/wml/mods/faith-image-loader/README_ko.txt" /tmp/faith-mod-package/faith-image-loader/
+          rm -f downloads/Faith_Image_Loader_WML_v1.0.0.zip
+          (cd /tmp/faith-mod-package && zip -qr "$GITHUB_WORKSPACE/downloads/Faith_Image_Loader_WML_v1.0.0.zip" faith-image-loader)
+          unzip -l downloads/Faith_Image_Loader_WML_v1.0.0.zip
+      - name: Commit ZIP for direct download
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add downloads/Faith_Image_Loader_WML_v1.0.0.zip
+          if git diff --cached --quiet; then
+            echo "ZIP is already up to date."
+          else
+            git commit -m "Build Faith image loader v1.0.0 ZIP [skip ci]"
+            git push
+          fi
