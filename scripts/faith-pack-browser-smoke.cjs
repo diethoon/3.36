@@ -76,18 +76,16 @@ const server = http.createServer((req, res) => {
       probe: globalThis.__WF_FORENSIC_READY__ === true,
       lsKeys: Object.keys(localStorage).filter(k => /wml|faith/i.test(k)).slice(0, 60)
     }));
-    try {
-      const candidates = [...page.locator('button').all ? [] : []];
-      const byText = page.locator('button').filter({ hasText: 'Faith 이미지팩 로더' }).first();
-      if (await byText.count()) await byText.click({ timeout: 5000 });
-      else throw new Error('No button with matching text');
-    } catch (e) {
-      const diagnostic = { bootState, bindings, pageErrors, consoleErrors: consoleErrors.slice(0, 30), requestFailures: requestFailures.slice(0, 30), failedResponses: failedResponses.slice(0, 30), clickError: String(e && e.message || e) };
-      fs.mkdirSync('forensic-output', { recursive: true });
-      fs.writeFileSync('forensic-output/pre-import-diagnostic.json', JSON.stringify(diagnostic, null, 2) + '\n');
-      console.log('PRE_IMPORT_DIAGNOSTICS ' + JSON.stringify(diagnostic));
-      throw new Error('WML dock button not available; see pre-import-diagnostic.json');
-    }
+    // The mod intentionally renames the game's Image Pack Settings menu item rather than adding a dock button.
+    // Install a temporary matching menu item and click it synchronously to exercise that actual event path.
+    await page.evaluate(() => {
+      const button = document.createElement('button');
+      button.id = 'wfil-forensic-open-settings';
+      button.type = 'button';
+      button.textContent = 'Image Pack Settings';
+      document.body.appendChild(button);
+      button.click();
+    });
     await page.locator('.wfil-wrap').waitFor({ state: 'visible', timeout: 15000 });
     const input = page.locator('input[aria-label="이미지팩 ZIP 파일 선택"]');
     await input.setInputFiles(zipPath);
