@@ -1,0 +1,35 @@
+name: Faith image pack root-cause forensics
+on:
+  push:
+    branches:
+      - faith-image-rootcause-forensics-20261029
+    paths:
+      - 'scripts/faith-pack-forensics.cjs'
+      - 'scripts/faith-pack-browser-smoke.cjs'
+      - '.github/workflows/faith-pack-rootcause-forensics.yml'
+permissions:
+  contents: read
+jobs:
+  exact-source-forensics:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Verify exact HTML fingerprint and inspect in 4096-byte chunks
+        run: node scripts/faith-pack-forensics.cjs
+      - name: Install isolated browser test dependency
+        run: |
+          npm install --no-save playwright@1.56.1
+          npx playwright install --with-deps chromium
+      - name: Inspect original game runtime globals in Chromium
+        run: node scripts/faith-pack-browser-smoke.cjs
+      - name: Upload bounded forensic evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: faith-pack-rootcause-forensics
+          path: forensic-output/
+          if-no-files-found: error
+          retention-days: 7
