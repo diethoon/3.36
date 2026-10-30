@@ -27,6 +27,8 @@ Faith 이미지팩 로더 v2.0.0 — 로컬 경로 방식
 - image-packs/ssff-roxy/base/pack.js
 - image-packs/ssff-viper/base/pack.js
 
+각 팩은 base/pack.js를 먼저 찾고, 없으면 해당 팩 폴더 바로 아래의 pack.js도 확인합니다. faith-extra는 루트 pack.js를 먼저 확인합니다.
+
 예시
 게임 폴더/
   Wayward_WML_ko.html
