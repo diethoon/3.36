@@ -13,7 +13,7 @@ Faith 이미지팩 로더 v2.0.0 — 로컬 경로 방식
 3. WML에서 faith-image-loader 모드를 활성화합니다.
 4. 게임 HTML과 같은 폴더에 image-packs 폴더를 둡니다.
 5. 이미지팩 ZIP은 image-packs 안에서 아래 구조가 되도록 압축 해제합니다.
-6. 게임을 새로고침합니다. 모드가 알려진 pack.js 경로를 자동으로 확인합니다.
+6. 게임을 새로고침합니다. 모드가 알려진 pack.js 경로를 자동으로 확인합니다. 새 팩을 추가한 뒤에는 모드 창의 ‘image-packs 경로 새로고침’을 누르세요.
 
 기본 지원 경로
 - image-packs/faith-elena/base/pack.js
