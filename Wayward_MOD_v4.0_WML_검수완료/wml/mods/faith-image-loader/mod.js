@@ -170,17 +170,17 @@ WML.define({
 
     // The local-path loader does not enumerate image files. It loads only known pack.js
     // scripts, then lets the browser request each referenced image directly when rendered.
-    const DEFAULT_LOCAL_PACK_PATHS = [
-      'faith-elena/base/pack.js',
-      'faith-mara/base/pack.js',
-      'faith-pippa/base/pack.js',
-      'faith-extra/pack.js',
-      'ssff-denia/base/pack.js',
-      'ssff-hitori/base/pack.js',
-      'ssff-kaguya/base/pack.js',
-      'ssff-phoebe/base/pack.js',
-      'ssff-roxy/base/pack.js',
-      'ssff-viper/base/pack.js',
+    const DEFAULT_LOCAL_PACK_PATH_GROUPS = [
+      ['faith-elena/base/pack.js', 'faith-elena/pack.js'],
+      ['faith-mara/base/pack.js', 'faith-mara/pack.js'],
+      ['faith-pippa/base/pack.js', 'faith-pippa/pack.js'],
+      ['faith-extra/pack.js', 'faith-extra/base/pack.js'],
+      ['ssff-denia/base/pack.js', 'ssff-denia/pack.js'],
+      ['ssff-hitori/base/pack.js', 'ssff-hitori/pack.js'],
+      ['ssff-kaguya/base/pack.js', 'ssff-kaguya/pack.js'],
+      ['ssff-phoebe/base/pack.js', 'ssff-phoebe/pack.js'],
+      ['ssff-roxy/base/pack.js', 'ssff-roxy/pack.js'],
+      ['ssff-viper/base/pack.js', 'ssff-viper/pack.js'],
     ];
 
     function loadScriptUrl(url) {
@@ -276,7 +276,7 @@ WML.define({
       return { packs: changed.length, entries: entryCount, alreadyLoaded: false };
     }
 
-    async function getLocalPackPaths() {
+    async function getLocalPackPathGroups() {
       // Optional index.js supports additional/future packs without a browser folder picker.
       const indexUrl = new URL('image-packs/index.js', document.baseURI).href;
       if (!loadedLocalScripts.has(indexUrl)) {
@@ -289,24 +289,31 @@ WML.define({
       }
       const configured = window.__WF_IMAGE_PACK_PATHS__;
       if (Array.isArray(configured) && configured.length) {
-        return [...new Set(configured.map(value => normalizeZipPath(value)).filter(Boolean))];
+        return [...new Set(configured.map(value => normalizeZipPath(value)).filter(Boolean))].map(path => [path]);
       }
-      return DEFAULT_LOCAL_PACK_PATHS;
+      return DEFAULT_LOCAL_PACK_PATH_GROUPS;
     }
 
     async function loadLocalFolderPacks() {
-      const paths = await getLocalPackPaths();
+      const groups = await getLocalPackPathGroups();
+      const paths = groups.flat();
       let loadedPackCount = 0;
       let loadedEntryCount = 0;
       const missing = [];
-      for (const path of paths) {
-        try {
-          const result = await loadLocalPackScript(path);
-          loadedPackCount += result.packs;
-          loadedEntryCount += result.entries;
-        } catch (error) {
-          missing.push(path);
+      for (const candidates of groups) {
+        let loadedThisGroup = false;
+        for (const path of candidates) {
+          try {
+            const result = await loadLocalPackScript(path);
+            loadedPackCount += result.packs;
+            loadedEntryCount += result.entries;
+            loadedThisGroup = true;
+            break;
+          } catch (error) {
+            missing.push(path);
+          }
         }
+        if (!loadedThisGroup) continue;
       }
       if (!localImageUrls.size) {
         throw new Error('image-packs 폴더에서 사용할 수 있는 로컬 pack.js를 찾지 못했습니다. HTML 옆 image-packs 폴더와 pack.js 경로를 확인하세요. 시도한 경로: ' + paths.join(', '));
@@ -324,7 +331,7 @@ WML.define({
         '로컬 이미지팩 연결 완료: 팩 ' + registeredPacks.size.toLocaleString() +
         '개 · 이미지 항목 ' + [...registeredPacks.values()].reduce((sum, pack) => sum + Object.keys(pack.entries || {}).length, 0).toLocaleString() +
         '개. 이미지 파일은 화면에 필요할 때 해당 폴더에서 직접 읽습니다.' +
-        (missing.length ? '\\n찾지 못한 경로: ' + missing.join(', ') : '')
+        (missing.length ? '\\n찾지 못한 경로: ' + missing.slice(0, 6).join(', ') + (missing.length > 6 ? ' …' : '') : '')
       );
       return { packs: loadedPackCount, entries: loadedEntryCount, missing };
     }
