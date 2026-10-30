@@ -44,7 +44,7 @@ WML.define({
 
     function getLoadedNames() {
       const registeredNames = [...registeredPacks.values()]
-        .map(pack => pack.name || pack.folderName || pack.packId)
+        .map(pack => pack.folderName || pack.name || pack.packId)
         .filter(Boolean);
       const names = lastSuccessfulNames.length ? lastSuccessfulNames : registeredNames;
       return [...new Set(names.map(name => String(name).trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b));
@@ -279,7 +279,7 @@ WML.define({
         throw new Error('image-packs 폴더에서 사용할 수 있는 로컬 pack.js를 찾지 못했습니다. HTML 옆 image-packs 폴더와 pack.js 경로를 확인하세요. 시도한 경로: ' + paths.join(', '));
       }
       lastSuccessfulNames = [...registeredPacks.values()]
-        .map(pack => String(pack.name || pack.folderName || pack.packId))
+        .map(pack => String(pack.folderName || pack.name || pack.packId))
         .sort((a, b) => a.localeCompare(b));
       try { localStorage.setItem('wfil-successful-pack-names', JSON.stringify(lastSuccessfulNames)); } catch (_) {}
       resetNativeImageManifest();
@@ -485,7 +485,7 @@ WML.define({
         setStatus('ZIP의 pack.js와 이미지 경로를 확인하는 중입니다…');
         imported = await collectFromZip(file);
         registerZipPack(imported);
-        lastSuccessfulNames = [String(imported.pack.name || imported.pack.folderName || imported.pack.packId)];
+        lastSuccessfulNames = [String(imported.pack.folderName || imported.pack.name || imported.pack.packId)];
         try { localStorage.setItem('wfil-successful-pack-names', JSON.stringify(lastSuccessfulNames)); } catch (_) {}
         renderPackList();
         hideFalseNoImageWarning();
