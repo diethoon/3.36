@@ -222,6 +222,39 @@ WML.define({
       return count;
     }
 
+    function resolveFolderImageUrl(value) {
+      let pathname = String(value || '');
+      try {
+        pathname = new URL(pathname, document.baseURI).pathname;
+        try { pathname = decodeURIComponent(pathname); } catch (_) {}
+      } catch (_) {}
+      const at = pathname.toLowerCase().lastIndexOf('/wfil-folder/');
+      if (at < 0) return null;
+      const key = normalizeZipPath(pathname.slice(at + 1)).toLowerCase();
+      return localImageUrls.get(key) || null;
+    }
+
+    let folderImageSrcBridgeInstalled = false;
+    function installFolderImageSrcBridge() {
+      if (folderImageSrcBridgeInstalled || typeof HTMLImageElement !== 'function') return;
+      const descriptor = Object.getOwnPropertyDescriptor(HTMLImageElement.prototype, 'src');
+      if (!descriptor || typeof descriptor.set !== 'function' || typeof descriptor.get !== 'function') return;
+      try {
+        Object.defineProperty(HTMLImageElement.prototype, 'src', {
+          configurable: descriptor.configurable,
+          enumerable: descriptor.enumerable,
+          get: descriptor.get,
+          set(value) {
+            const directUrl = resolveFolderImageUrl(value);
+            return descriptor.set.call(this, directUrl || value);
+          }
+        });
+        folderImageSrcBridgeInstalled = true;
+      } catch (error) {
+        console.warn('[faith-image-loader] image src bridge could not be installed:', error);
+      }
+    }
+
     async function loadLocalPackScript(relativePath) {
       const cleanPath = normalizeZipPath(relativePath);
       if (!cleanPath || cleanPath.startsWith('/') || cleanPath.split('/').some(part => part === '..')) {
@@ -412,11 +445,8 @@ WML.define({
         // URL.pathname is percent-encoded; ZIP entry names are decoded UTF-8 paths.
         try { pathname = decodeURIComponent(pathname); } catch (_) {}
       } catch (_) {}
-      const folderAt = pathname.toLowerCase().lastIndexOf('/wfil-folder/');
-      if (folderAt >= 0) {
-        const folderKey = normalizeZipPath(pathname.slice(folderAt + 1)).toLowerCase();
-        const directUrl = localImageUrls.get(folderKey);
-        if (!directUrl) return;
+      const directUrl = resolveFolderImageUrl(current);
+      if (directUrl) {
         if (img.isConnected && img.getAttribute('src') === current) {
           zipImageOriginal.set(img, current);
           zipImageActiveBlob.set(img, directUrl);
@@ -629,6 +659,7 @@ WML.define({
     scanNativeImagePackMenu();
 
     installZipImageObserver();
+    installFolderImageSrcBridge();
     watchNoImageWarning();
     try {
       await loadLocalFolderPacks();
