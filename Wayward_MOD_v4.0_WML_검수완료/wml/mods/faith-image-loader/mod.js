@@ -2,9 +2,9 @@
 WML.define({
   id: 'faith-image-loader',
   name: 'Faith 이미지팩 로더',
-  version: '1.0.0',
+  version: '2.0.0',
   game: 'faith',
-  description: '단계별 폴더 로딩과 Faith outfit ZIP 이미지팩 등록을 지원하며, 시작 화면과 햄버거 메뉴에서 엽니다.',
+  description: '지정된 image-packs 경로의 pack.js를 자동 연결하고, 이미지 파일은 화면에 필요할 때만 직접 읽습니다. ZIP 가져오기도 지원합니다.',
   async setup(api) {
     const h = api.ui.h;
     let win = null;
@@ -13,8 +13,36 @@ WML.define({
     let busy = false;
     let fallbackInput = null;
     let zipInput = null;
-    let nativeScan = null;
+    let nativeScan = null; // Legacy folder scanner; the current game build does not expose it.
     let lastSuccessfulNames = [];
+    let currentStatus = 'image-packs 폴더에서 로컬 이미지팩을 확인하는 중입니다…';
+    const registeredPacks = new Map();
+    const localImageUrls = new Map();
+    const loadedLocalScripts = new Set();
+
+    // Current game build exposes imageManifest (Wb), not wfPackScanFolder or __WF_OUTFIT_PACKS__.
+    // Merge Faith pack entries at the game's real lookup boundary without changing game state.
+    const unhookImageManifest = api.hook('imageManifest', {
+      after(result) {
+        if (!registeredPacks.size) return result;
+        const entries = { ...(result && result.entries || {}) };
+        const packs = [...registeredPacks.values()].sort((a, b) =>
+          (a.priority || 0) - (b.priority || 0) ||
+          String(a.generatedAt || '').localeCompare(String(b.generatedAt || ''))
+        );
+        for (const pack of packs) Object.assign(entries, pack.entries || {});
+        return { ...(result || {}), version: result && result.version || 1, entries };
+      }
+    });
+
+    function resetNativeImageManifest() {
+      try {
+        const reset = api.fn('imagePackReset');
+        if (typeof reset === 'function') reset();
+      } catch (error) {
+        console.warn('[faith-image-loader] image manifest reset failed:', error);
+      }
+    }
 
     function findNativeScanner() {
       const engine = api.engine || {};
@@ -88,8 +116,12 @@ WML.define({
     }
 
     function getLoadedNames() {
-      const nativeNames = readNativePacks().map(pack => pack.name).filter(Boolean);
-      const names = lastSuccessfulNames.length ? lastSuccessfulNames : (nativeNames.length ? nativeNames : savedNames());
+      const registeredNames = [...registeredPacks.values()]
+        .map(pack => pack.name || pack.folderName || pack.packId)
+        .filter(Boolean);
+      const names = lastSuccessfulNames.length
+        ? lastSuccessfulNames
+        : (registeredNames.length ? registeredNames : savedNames());
       return [...new Set(names.map(name => String(name).trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b));
     }
 
@@ -113,6 +145,7 @@ WML.define({
     }
 
     function setStatus(message, error = false) {
+      currentStatus = message;
       if (statusEl && statusEl.isConnected) {
         statusEl.textContent = message;
         statusEl.style.color = error ? '#fca5a5' : '#fcd34d';
@@ -287,6 +320,133 @@ WML.define({
       return { key: match[2] ?? match[4], pack };
     }
 
+    // The local-path loader does not enumerate image files. It loads only known pack.js
+    // scripts, then lets the browser request each referenced image directly when rendered.
+    const DEFAULT_LOCAL_PACK_PATHS = [
+      'faith-elena/base/pack.js',
+      'faith-mara/base/pack.js',
+      'faith-pippa/base/pack.js',
+      'faith-extra/pack.js',
+      'ssff-denia/base/pack.js',
+      'ssff-hitori/base/pack.js',
+      'ssff-kaguya/base/pack.js',
+      'ssff-phoebe/base/pack.js',
+      'ssff-roxy/base/pack.js',
+      'ssff-viper/base/pack.js',
+    ];
+
+    function loadScriptUrl(url) {
+      return new Promise((resolve, reject) => {
+        const script = document.createElement('script');
+        script.src = url;
+        script.async = false;
+        script.onload = () => resolve(script);
+        script.onerror = () => {
+          script.remove();
+          reject(new Error('스크립트를 열 수 없습니다: ' + url));
+        };
+        document.head.appendChild(script);
+      });
+    }
+
+    function registerLocalPack(pack, packRootUrl) {
+      if (!pack || pack.packFormat !== 1 || !pack.packId || !pack.entries || typeof pack.entries !== 'object') {
+        throw new Error('지원하지 않는 로컬 이미지팩 형식입니다(packFormat 1 필요).');
+      }
+      const entries = {};
+      let count = 0;
+      for (const [entryKey, value] of Object.entries(pack.entries)) {
+        if (!value || typeof value.imagePath !== 'string') continue;
+        const imagePath = normalizeZipPath(value.imagePath);
+        const segments = imagePath.split('/');
+        if (!imagePath || imagePath.startsWith('/') || /^[a-z]+:/i.test(imagePath) ||
+            segments.some(part => !part || part === '.' || part === '..')) {
+          throw new Error('팩 내부 이미지 경로가 안전하지 않습니다: ' + value.imagePath);
+        }
+        const virtualPath = normalizeZipPath('wfil-folder/' + pack.packId + '/' + imagePath);
+        const imageUrl = new URL(imagePath, packRootUrl).href;
+        localImageUrls.set(virtualPath.toLowerCase(), imageUrl);
+        entries[entryKey] = { ...value, imagePath: virtualPath };
+        count++;
+      }
+      if (!count) throw new Error('pack.js의 entries에서 imagePath를 찾지 못했습니다.');
+      registeredPacks.set(pack.packId, { ...pack, entries });
+      return count;
+    }
+
+    async function loadLocalPackScript(relativePath) {
+      const cleanPath = normalizeZipPath(relativePath);
+      if (!cleanPath || cleanPath.startsWith('/') || cleanPath.split('/').some(part => part === '..')) {
+        throw new Error('잘못된 pack.js 경로입니다: ' + relativePath);
+      }
+      const scriptUrl = new URL('image-packs/' + cleanPath, document.baseURI).href;
+      if (loadedLocalScripts.has(scriptUrl)) return { packs: 0, entries: 0, alreadyLoaded: true };
+
+      const registryBefore = new Map(Object.entries(window.__WF_OUTFIT_PACKS__ || {}));
+      await loadScriptUrl(scriptUrl);
+      const registry = window.__WF_OUTFIT_PACKS__ || {};
+      const changed = Object.entries(registry).filter(([key, pack]) => registryBefore.get(key) !== pack);
+      if (!changed.length) throw new Error('pack.js는 실행됐지만 새 Faith 팩 등록을 찾지 못했습니다: ' + cleanPath);
+
+      const packRootUrl = new URL('.', scriptUrl).href;
+      let entryCount = 0;
+      for (const [, pack] of changed) entryCount += registerLocalPack(pack, packRootUrl);
+      loadedLocalScripts.add(scriptUrl);
+      return { packs: changed.length, entries: entryCount, alreadyLoaded: false };
+    }
+
+    async function getLocalPackPaths() {
+      // Optional index.js supports additional/future packs without a browser folder picker.
+      const indexUrl = new URL('image-packs/index.js', document.baseURI).href;
+      if (!loadedLocalScripts.has(indexUrl)) {
+        try {
+          await loadScriptUrl(indexUrl);
+          loadedLocalScripts.add(indexUrl);
+        } catch (_) {
+          // No index file: use the built-in paths for the user's current Faith/SSFF packs.
+        }
+      }
+      const configured = window.__WF_IMAGE_PACK_PATHS__;
+      if (Array.isArray(configured) && configured.length) {
+        return [...new Set(configured.map(value => normalizeZipPath(value)).filter(Boolean))];
+      }
+      return DEFAULT_LOCAL_PACK_PATHS;
+    }
+
+    async function loadLocalFolderPacks() {
+      const paths = await getLocalPackPaths();
+      let loadedPackCount = 0;
+      let loadedEntryCount = 0;
+      const missing = [];
+      for (const path of paths) {
+        try {
+          const result = await loadLocalPackScript(path);
+          loadedPackCount += result.packs;
+          loadedEntryCount += result.entries;
+        } catch (error) {
+          missing.push(path);
+        }
+      }
+      if (!registeredPacks.size) {
+        throw new Error('image-packs 폴더에서 사용할 수 있는 pack.js를 찾지 못했습니다. HTML 옆 image-packs 폴더와 pack.js 경로를 확인하세요. 시도한 경로: ' + paths.join(', '));
+      }
+      lastSuccessfulNames = [...registeredPacks.values()]
+        .map(pack => String(pack.name || pack.folderName || pack.packId))
+        .sort((a, b) => a.localeCompare(b));
+      try { localStorage.setItem('wfil-successful-pack-names', JSON.stringify(lastSuccessfulNames)); } catch (_) {}
+      resetNativeImageManifest();
+      installZipImageObserver();
+      renderPackList();
+      hideFalseNoImageWarning();
+      setStatus(
+        '로컬 이미지팩 연결 완료: 팩 ' + registeredPacks.size.toLocaleString() +
+        '개 · 이미지 항목 ' + [...registeredPacks.values()].reduce((sum, pack) => sum + Object.keys(pack.entries || {}).length, 0).toLocaleString() +
+        '개. 이미지 파일은 화면에 필요할 때 해당 폴더에서 직접 읽습니다.' +
+        (missing.length ? '\\n찾지 못한 경로: ' + missing.join(', ') : '')
+      );
+      return { packs: loadedPackCount, entries: loadedEntryCount, missing };
+    }
+
     async function collectFromZip(file) {
       const size = Number(file.size) || 0;
       if (size < 22) throw new Error('ZIP 파일이 너무 작거나 올바르지 않습니다.');
@@ -379,15 +539,15 @@ WML.define({
         zipObjectUrls.delete(key);
       }
       registry[imported.key] = imported.pack;
+      registeredPacks.set(imported.pack.packId, imported.pack);
       const paths = [];
       for (const [key, entry] of imported.entriesByVirtualPath) {
         zipImageEntries.set(key, { file: imported.file, entry });
         paths.push(key);
       }
       zipPackPaths.set(imported.pack.packId, paths);
-      try { window.qD?.(); } catch (_) {}
+      resetNativeImageManifest();
       try { window.m312ImageChanged?.(); } catch (_) {}
-      try { window.dispatchEvent(new CustomEvent('wf-outfit-packs-changed', { detail: { packId: imported.pack.packId } })); } catch (_) {}
       installZipImageObserver();
       return imported;
     }
@@ -402,6 +562,18 @@ WML.define({
         // URL.pathname is percent-encoded; ZIP entry names are decoded UTF-8 paths.
         try { pathname = decodeURIComponent(pathname); } catch (_) {}
       } catch (_) {}
+      const folderAt = pathname.toLowerCase().lastIndexOf('/wfil-folder/');
+      if (folderAt >= 0) {
+        const folderKey = normalizeZipPath(pathname.slice(folderAt + 1)).toLowerCase();
+        const directUrl = localImageUrls.get(folderKey);
+        if (!directUrl) return;
+        if (img.isConnected && img.getAttribute('src') === current) {
+          zipImageOriginal.set(img, current);
+          zipImageActiveBlob.set(img, directUrl);
+          img.setAttribute('src', directUrl);
+        }
+        return;
+      }
       const at = pathname.toLowerCase().lastIndexOf('/wfil-zip/');
       if (at < 0) return;
       const key = normalizeZipPath(pathname.slice(at + 1)).toLowerCase();
@@ -564,7 +736,7 @@ WML.define({
           body.replaceChildren();
           const root = h('div', { class: 'wfil-wrap', style: 'display:flex;flex-direction:column;gap:10px;font:inherit;color:inherit' });
           root.append(h('p', { style: 'font-size:.9em;line-height:1.5;opacity:.9;margin:0' },
-            '폴더와 ZIP 이미지팩을 등록·관리합니다. ZIP 이미지는 실제 표시 시점에 연결합니다.'));
+            '게임 HTML 옆 image-packs 폴더의 pack.js를 자동으로 읽습니다. 이미지 파일 전체를 열거하거나 메모리에 올리지 않고, 화면에 필요한 파일만 직접 연결합니다.'));
 
           root.append(h('strong', { style: 'margin-top:2px' }, '등록된 이미지팩'));
           packListEl = h('div', { style: 'max-height:150px;overflow:auto;padding:8px 10px;border:1px solid var(--wml-border,#7778);border-radius:7px' });
@@ -572,20 +744,15 @@ WML.define({
           renderPackList();
 
           const row = h('div', { style: 'display:flex;gap:8px;flex-wrap:wrap' });
-          const nativeButton = h('button', { type: 'button', style: 'font:inherit;padding:8px 10px;max-width:100%' }, 'image-packs 폴더 선택 (단계 처리)');
-          nativeButton.addEventListener('click', chooseDirectory);
-
-          fallbackInput = document.createElement('input');
-          fallbackInput.type = 'file';
-          fallbackInput.multiple = true;
-          fallbackInput.setAttribute('webkitdirectory', '');
-          fallbackInput.setAttribute('directory', '');
-          fallbackInput.setAttribute('aria-label', '호환용 image-packs 폴더 선택');
-          fallbackInput.style.display = 'none';
-          fallbackInput.addEventListener('change', onFallbackChange);
-
-          const fallbackButton = h('button', { type: 'button', style: 'font:inherit;padding:8px 10px;max-width:100%' }, '호환용 폴더 선택');
-          fallbackButton.addEventListener('click', () => fallbackInput.click());
+          const localButton = h('button', { type: 'button', style: 'font:inherit;padding:8px 10px;max-width:100%' }, 'image-packs 경로 새로고침');
+          localButton.addEventListener('click', async () => {
+            if (busy) return;
+            busy = true;
+            localButton.disabled = true;
+            try { await loadLocalFolderPacks(); }
+            catch (error) { setStatus('로컬 이미지팩 연결 실패: ' + String(error && error.message || error), true); }
+            finally { busy = false; localButton.disabled = false; }
+          });
 
           zipInput = document.createElement('input');
           zipInput.type = 'file';
@@ -595,16 +762,14 @@ WML.define({
           zipInput.addEventListener('change', onZipChange);
           const zipButton = h('button', { type: 'button', style: 'font:inherit;padding:8px 10px;max-width:100%' }, 'ZIP 이미지팩 불러오기');
           zipButton.addEventListener('click', () => zipInput.click());
-          row.append(nativeButton, fallbackButton, zipButton);
+          row.append(localButton, zipButton);
 
           statusEl = h('div', {
             role: 'status',
             style: 'padding:8px;border:1px solid var(--wml-border,#7778);border-radius:7px;white-space:pre-wrap;overflow-wrap:anywhere;color:#fcd34d'
-          }, nativeScan
-            ? '폴더 등록 또는 Faith outfit ZIP 등록을 기다리는 중입니다.'
-            : '폴더 등록은 원본 함수가 필요하지만, Faith outfit ZIP 등록은 별도 레지스트리 경로를 사용합니다.');
+          }, currentStatus);
 
-          root.append(row, fallbackInput, zipInput, statusEl);
+          root.append(row, zipInput, statusEl);
           body.append(root);
         },
       });
@@ -678,5 +843,10 @@ WML.define({
 
     installZipImageObserver();
     watchNoImageWarning();
+    try {
+      await loadLocalFolderPacks();
+    } catch (error) {
+      setStatus('로컬 image-packs 자동 연결을 건너뛰었습니다: ' + String(error && error.message || error), true);
+    }
   },
 });
