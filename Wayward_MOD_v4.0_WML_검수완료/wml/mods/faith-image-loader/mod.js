@@ -18,7 +18,7 @@ WML.define({
     const localImageUrls = new Map();
     const loadedLocalScripts = new Set();
 
-    // Current game build exposes imageManifest (Wb), not wfPackScanFolder or __WF_OUTFIT_PACKS__.
+    // Current game build exposes imageManifest (Wb); the older folder-scanner integration is not used.
     // Merge Faith pack entries at the game's real lookup boundary without changing game state.
     const unhookImageManifest = api.hook('imageManifest', {
       after(result) {
