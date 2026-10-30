@@ -17,6 +17,8 @@ WML.define({
     const registeredPacks = new Map();
     const localImageUrls = new Map();
     const loadedLocalScripts = new Set();
+    const trackedImageUrls = new WeakMap();
+    let successfulImageLoads = 0;
 
     // Current game build exposes imageManifest (Wb); the older folder-scanner integration is not used.
     // Merge Faith pack entries at the game's real lookup boundary without changing game state.
@@ -51,7 +53,7 @@ WML.define({
     }
 
     function hideFalseNoImageWarning() {
-      if (!getLoadedNames().length) return;
+      if (!getLoadedNames().length || successfulImageLoads === 0) return;
       const leaf = [...document.querySelectorAll('body *')].find(el =>
         el.children.length === 0 && (el.textContent || '').trim() === '그림이 준비되지 않았습니다');
       if (!leaf) return;
@@ -67,6 +69,19 @@ WML.define({
       // which could starve click handling on large/mobile game sessions.
       setTimeout(hideFalseNoImageWarning, 1200);
       setTimeout(hideFalseNoImageWarning, 3500);
+    }
+
+    function trackImageLoad(img, url) {
+      if (!img || !url || trackedImageUrls.get(img) === url) return;
+      trackedImageUrls.set(img, url);
+      img.addEventListener('load', () => {
+        if (trackedImageUrls.get(img) !== url) return;
+        successfulImageLoads++;
+        if (successfulImageLoads === 1) {
+          setStatus('로컬 이미지 파일 읽기 확인: 첫 이미지가 정상적으로 로드되었습니다.');
+        }
+        hideFalseNoImageWarning();
+      }, { once: true });
     }
 
     function setStatus(message, error = false) {
@@ -246,6 +261,7 @@ WML.define({
           get: descriptor.get,
           set(value) {
             const directUrl = resolveFolderImageUrl(value);
+            if (directUrl) trackImageLoad(this, directUrl);
             return descriptor.set.call(this, directUrl || value);
           }
         });
@@ -326,9 +342,9 @@ WML.define({
       renderPackList();
       hideFalseNoImageWarning();
       setStatus(
-        '로컬 이미지팩 연결 완료: 팩 ' + registeredPacks.size.toLocaleString() +
+        '로컬 이미지팩 등록 완료: 팩 ' + registeredPacks.size.toLocaleString() +
         '개 · 이미지 항목 ' + [...registeredPacks.values()].reduce((sum, pack) => sum + Object.keys(pack.entries || {}).length, 0).toLocaleString() +
-        '개. 이미지 파일은 화면에 필요할 때 해당 폴더에서 직접 읽습니다.' +
+        '개. 이미지 파일은 화면에 필요할 때 해당 폴더에서 직접 읽습니다. 첫 이미지 출력은 아직 확인 전입니다.' +
         (missing.length ? '\\n찾지 못한 경로: ' + missing.slice(0, 6).join(', ') + (missing.length > 6 ? ' …' : '') : '')
       );
       return { packs: loadedPackCount, entries: loadedEntryCount, missing };
@@ -455,6 +471,7 @@ WML.define({
         if (img.isConnected && img.getAttribute('src') === current) {
           zipImageOriginal.set(img, current);
           zipImageActiveBlob.set(img, directUrl);
+          trackImageLoad(img, directUrl);
           img.setAttribute('src', directUrl);
         }
         return;
@@ -480,6 +497,7 @@ WML.define({
       }
       if (img.isConnected && img.getAttribute('src') === current) {
         zipImageActiveBlob.set(img, url);
+        trackImageLoad(img, url);
         img.setAttribute('src', url);
       }
     }
