@@ -1,0 +1,111 @@
+name: Faith v3 forensic byte scan
+
+on:
+  push:
+    branches:
+      - forensic/faith-v3-original-upload-20261031
+    paths:
+      - .github/workflows/faith-forensic-scan.yml
+
+permissions:
+  contents: read
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout forensic branch
+        uses: actions/checkout@v4
+        with:
+          ref: forensic/faith-v3-original-upload-20261031
+
+      - name: Scan original HTML in 4096-byte chunks
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import hashlib, os
+          from pathlib import Path
+
+          src = Path("forensic-original/Wayward_Faith_v3.0.0.html")
+          expected_size = 23245163
+          expected_sha256 = "5e6c36b60bf01b674e3a0cf03b43d57e1ff0306e2e7e94817db10e8e18d5bd2e"
+          if not src.is_file():
+              raise SystemExit(f"Missing source: {src}")
+
+          patterns = [
+              b"__WF_OUTFIT_PACKS__", b"wfPackScanFolder", b"pack.js",
+              b"imagePath", b"image-packs", b"outfit", b"portrait",
+              b"createObjectURL", b"MutationObserver", b"new Image",
+              b"FileReader", b"webkitGetAsEntry", b"webkitdirectory",
+              b"addEventListener", b"fetch(", b"ImageData",
+              b"getElementById", b"querySelector", b"\.src",
+              b"\.onload", b"\.onerror"
+          ]
+          patterns = [(p, p.lower()) for p in patterns]
+          hits = {p: set() for p, _ in patterns}
+          outdir = Path("scan-output")
+          outdir.mkdir(exist_ok=True)
+          whole = hashlib.sha256()
+          total = 0
+          carry = b""
+          chunks = 0
+
+          with src.open("rb") as f, (outdir / "chunk-hashes.tsv").open("w") as mf:
+              mf.write("offset\tlength\tsha256\n")
+              while True:
+                  block = f.read(4096)
+                  if not block:
+                      break
+                  mf.write(f"{total}\t{len(block)}\t{hashlib.sha256(block).hexdigest()}\n")
+                  whole.update(block)
+                  combined = carry + block
+                  base = total - len(carry)
+                  lowered = combined.lower()
+                  for original, needle in patterns:
+                      pos = 0
+                      while True:
+                          at = lowered.find(needle, pos)
+                          if at < 0:
+                              break
+                          hits[original].add(base + at)
+                          pos = at + 1
+                  carry = combined[-(max(len(n) for _, n in patterns) - 1):]
+                  total += len(block)
+                  chunks += 1
+
+          digest = whole.hexdigest()
+          if total != expected_size:
+              raise SystemExit(f"SIZE MISMATCH: {total} != {expected_size}")
+          if digest != expected_sha256:
+              raise SystemExit(f"SHA256 MISMATCH: {digest}")
+
+          with src.open("rb") as f, (outdir / "match-contexts.txt").open("w") as out:
+              out.write(f"FILE={src}\nSIZE={total}\nSHA256={digest}\nCHUNK_SIZE=4096\nCHUNKS={chunks}\n")
+              for pattern, _ in patterns:
+                  offsets = sorted(hits[pattern])
+                  out.write(f"\n===== {pattern.decode(errors='replace')} : {len(offsets)} hits =====\n")
+                  for offset in offsets[:20]:
+                      start = max(0, offset - 600)
+                      f.seek(start)
+                      data = f.read(1600)
+                      out.write(f"\n--- offset={offset}, context_start={start} ---\n")
+                      out.write(data.decode("utf-8", "replace"))
+                      out.write("\n")
+
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as s:
+              s.write("## Faith v3.0.0 forensic scan\n")
+              s.write(f"- Bytes read: {total}\n- Chunks: {chunks} (4096 bytes, EOF reached)\n")
+              s.write(f"- SHA-256: `{digest}` (matches expected original)\n")
+              s.write("- Match counts:\n")
+              for pattern, _ in patterns:
+                  s.write(f"  - `{pattern.decode(errors='replace')}`: {len(hits[pattern])}\n")
+          print(f"Verified {total} bytes in {chunks} chunks; SHA-256 {digest}")
+          PY
+
+      - name: Upload compact forensic outputs
+        uses: actions/upload-artifact@v4
+        with:
+          name: faith-v3-forensic-scan
+          path: scan-output/
+          retention-days: 3
+          if-no-files-found: error
