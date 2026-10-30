@@ -1,0 +1,61 @@
+name: Package Faith image loader v2 (local folder runtime)
+
+on:
+  push:
+    branches:
+      - faith-image-loader-folder-runtime-20261031
+    paths:
+      - "Wayward_MOD_v4.0_WML_검수완료/wml/mods/faith-image-loader/mod.js"
+      - "Wayward_MOD_v4.0_WML_검수완료/wml/mods/faith-image-loader/README_ko.txt"
+      - ".github/workflows/package-faith-image-loader-folder-runtime.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  verify-and-package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref_name }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: JavaScript syntax check
+        run: node --check "Wayward_MOD_v4.0_WML_검수완료/wml/mods/faith-image-loader/mod.js"
+      - name: Whitespace and package checks
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --check 5a6b44aca95dd5204a834d2cfbaa0ab9211567e2..HEAD
+          rm -rf /tmp/faith-mod-package
+          mkdir -p /tmp/faith-mod-package/faith-image-loader downloads
+          cp "Wayward_MOD_v4.0_WML_검수완료/wml/mods/faith-image-loader/mod.js" /tmp/faith-mod-package/faith-image-loader/
+          cp "Wayward_MOD_v4.0_WML_검수완료/wml/mods/faith-image-loader/README_ko.txt" /tmp/faith-mod-package/faith-image-loader/
+          ZIP="downloads/Faith_Image_Loader_WML_v2.0.0.zip"
+          rm -f "$ZIP"
+          (cd /tmp/faith-mod-package && zip -qr "$GITHUB_WORKSPACE/$ZIP" faith-image-loader)
+          unzip -t "$ZIP"
+          unzip -Z1 "$ZIP" | sort > /tmp/actual-files.txt
+          printf '%s\\n' 'faith-image-loader/' 'faith-image-loader/README_ko.txt' 'faith-image-loader/mod.js' | sort > /tmp/expected-files.txt
+          diff -u /tmp/expected-files.txt /tmp/actual-files.txt
+          sha256sum "$ZIP" "Wayward_MOD_v4.0_WML_검수완료/wml/mods/faith-image-loader/mod.js"
+      - name: Commit direct-download ZIP
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add downloads/Faith_Image_Loader_WML_v2.0.0.zip
+          if git diff --cached --quiet; then
+            echo "ZIP is already up to date."
+          else
+            git commit -m "Build Faith image loader v2.0.0 ZIP [skip ci]"
+            git push origin "HEAD:${GITHUB_REF_NAME}"
+          fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Faith_Image_Loader_WML_v2.0.0
+          path: downloads/Faith_Image_Loader_WML_v2.0.0.zip
+          if-no-files-found: error
