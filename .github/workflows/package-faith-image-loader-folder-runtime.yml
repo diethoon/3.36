@@ -38,7 +38,7 @@ jobs:
           (cd /tmp/faith-mod-package && zip -qr "$GITHUB_WORKSPACE/$ZIP" faith-image-loader)
           unzip -t "$ZIP"
           unzip -Z1 "$ZIP" | sort > /tmp/actual-files.txt
-          printf '%s\\n' 'faith-image-loader/' 'faith-image-loader/README_ko.txt' 'faith-image-loader/mod.js' | sort > /tmp/expected-files.txt
+          printf '%s\n' 'faith-image-loader/' 'faith-image-loader/README_ko.txt' 'faith-image-loader/mod.js' | sort > /tmp/expected-files.txt
           diff -u /tmp/expected-files.txt /tmp/actual-files.txt
           sha256sum "$ZIP" "Wayward_MOD_v4.0_WML_검수완료/wml/mods/faith-image-loader/mod.js"
       - name: Commit direct-download ZIP
