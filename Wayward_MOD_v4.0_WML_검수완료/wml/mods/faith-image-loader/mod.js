@@ -309,11 +309,9 @@ WML.define({
             loadedEntryCount += result.entries;
             loadedThisGroup = true;
             break;
-          } catch (error) {
-            missing.push(path);
-          }
+          } catch (_) {}
         }
-        if (!loadedThisGroup) continue;
+        if (!loadedThisGroup) missing.push(candidates.join(' 또는 '));
       }
       if (!localImageUrls.size) {
         throw new Error('image-packs 폴더에서 사용할 수 있는 로컬 pack.js를 찾지 못했습니다. HTML 옆 image-packs 폴더와 pack.js 경로를 확인하세요. 시도한 경로: ' + paths.join(', '));
