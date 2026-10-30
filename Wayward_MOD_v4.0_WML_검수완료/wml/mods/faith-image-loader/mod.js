@@ -42,20 +42,11 @@ WML.define({
       }
     }
 
-    function savedNames() {
-      try {
-        const value = JSON.parse(localStorage.getItem('wfil-successful-pack-names') || '[]');
-        return Array.isArray(value) ? value.filter(name => typeof name === 'string' && name.trim()) : [];
-      } catch (_) { return []; }
-    }
-
     function getLoadedNames() {
       const registeredNames = [...registeredPacks.values()]
         .map(pack => pack.name || pack.folderName || pack.packId)
         .filter(Boolean);
-      const names = lastSuccessfulNames.length
-        ? lastSuccessfulNames
-        : (registeredNames.length ? registeredNames : savedNames());
+      const names = lastSuccessfulNames.length ? lastSuccessfulNames : registeredNames;
       return [...new Set(names.map(name => String(name).trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b));
     }
 
