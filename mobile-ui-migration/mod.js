@@ -365,24 +365,13 @@ WML.define({
       );
     }
 
-    function hasInnerThoughtToggle(node) {
-      if (!React.isValidElement(node)) return false;
-      if (node.type === "button" &&
-          plainTextFromNode(node).includes("그녀의 속마음")) return true;
-      let found = false;
-      React.Children.forEach(node.props?.children, (child) => {
-        if (!found && hasInnerThoughtToggle(child)) found = true;
-      });
-      return found;
-    }
-
     function transformInnerThoughtNode(node) {
       if (!React.isValidElement(node)) return node;
       const props = node.props || {};
       const className = typeof props.className === "string" ? props.className : "";
       if (node.type === "div" &&
           className.includes("bg-stone-900/50") &&
-          hasInnerThoughtToggle(node)) {
+          plainTextFromNode(node).includes("그녀의 속마음")) {
         return React.cloneElement(node, {
           className: (className + " m36-ui-migration-inner-thought").trim(),
           "data-m36-ui-inner-thought": "1"
