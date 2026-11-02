@@ -54,3 +54,5 @@ jobs:
           PY
 
 # trigger bounded source context re-read
+
+# rerun component boundary extraction
