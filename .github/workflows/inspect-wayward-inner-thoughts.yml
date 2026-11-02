@@ -38,10 +38,15 @@ jobs:
               overlap=d[-max(map(len,terms)):]; off+=len(c)
           print('SOURCE bytes=%d chunks=%d sha256=%s manifest=%s'%(off,chunks,h.hexdigest(),manifest.hexdigest()))
           for t,ps in hits.items(): print('HIT %r count=%d offsets=%s'%(t,len(ps),ps[:30]))
-          centers=[3692801,3788736,3649082,3689044,3688829,3809287]
+          with open(p,'rb') as f:
+            f.seek(3692801)
+            prefix=f.read(3692801)
+          fn=prefix.rfind(b'function ')
+          centers=[fn,3649082,3688829,3692801,3788736]
           windows=[]
           for pos in centers:
-            a=max(0,pos-2600); b=min(off,pos+3600)
+            if pos<0: continue
+            a=max(0,pos-400); b=min(off,pos+7400)
             if any(not (b<=x or a>=y) for x,y in windows): continue
             windows.append((a,b))
           for a,b in windows[:16]:
