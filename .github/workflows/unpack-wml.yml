@@ -1,0 +1,53 @@
+name: Unpack WML archive
+
+on:
+  push:
+    branches:
+      - wml
+    paths:
+      - ".github/workflows/unpack-wml.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  unpack:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout wml
+        uses: actions/checkout@v4
+      - name: Inspect and extract archive
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          from zipfile import ZipFile
+          import os
+
+          archive = Path("Wayward_MOD_v4.0_WML_검수완료.zip")
+          if not archive.is_file():
+              raise SystemExit(f"Archive not found: {archive}")
+          with ZipFile(archive) as z:
+              entries = z.infolist()
+              print(f"Archive entries: {len(entries)}")
+              for item in entries[:80]:
+                  print(f"{item.file_size:>12}  {item.filename}")
+              root = Path.cwd().resolve()
+              for item in entries:
+                  target = (root / item.filename).resolve()
+                  if target != root and root not in target.parents:
+                      raise SystemExit(f"Unsafe archive path: {item.filename}")
+              z.extractall(root)
+          PY
+      - name: Commit extracted files
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No extracted changes to commit."
+            exit 0
+          fi
+          git commit -m "chore(wml): extract v4.0 WML archive"
+          git push

@@ -1,0 +1,22 @@
+[
+  [
+    "    return `${scene ? 'scene:' + scene : task ? 'task:' + task : 'other'}|${field(key, 'room')}|${field(key, 'outfit')}|",
+    "    // 10-04: bedroom patron scenes have separate in-bed (abed-1) keys, so they are their own slot\n    return `${scene ? 'scene:' + scene : task ? 'task:' + task : 'other'}|${field(key, 'room')}|${field(key, 'abed') || '0'}|${field(key, 'outfit')}|"
+  ],
+  [
+    "room: group(k => field(k,'room') || '기타')",
+    "room: group(k => (field(k,'room') || '기타') + (field(k,'abed') ? ' (침대 위)' : ''))"
+  ],
+  [
+    "기본 표정과 감정별 이미지는 각각 별도 조건으로 셉니다.</p>",
+    "기본 표정과 감정별 이미지는 각각 별도 조건으로 셉니다. 침실 손님 장면은 침대 위 이미지와 그렇지 않은 이미지를 따로 셉니다.</p>"
+  ],
+  [
+    "<label class=\"wwis-mode\"><input id=\"wwis-offline-only\" type=\"checkbox\">게임 플레이 중 오프라인 이미지팩만 사용 (자동 이미지 생성 끔)</label>",
+    "<label class=\"wwis-mode\">게임 플레이 중 이미지 생성 <select id=\"wwis-offline-mode\"><option value=\"auto\">자동: 그림 서버가 연결돼 있고 그릴 수 있으면 생성</option><option value=\"true\">끔: 오프라인 이미지팩만</option><option value=\"false\">켬: 항상 그림 서버에 요청</option></select> <span id=\"wwis-server\" style=\"opacity:.75;font-size:12px\"></span></label>"
+  ],
+  [
+    "  let offlineOnly = true;\n  try { offlineOnly = localStorage.getItem(offlineKey) !== 'false'; } catch (_) {}\n  const offlineCheck = overlay.querySelector('#wwis-offline-only');\n  offlineCheck.checked = offlineOnly;\n  const applyOfflineOnly = () => { bridge()?.setOfflineOnly?.(offlineOnly); };\n  offlineCheck.onchange = () => {\n    offlineOnly = offlineCheck.checked;\n    try { localStorage.setItem(offlineKey, String(offlineOnly)); } catch (_) {}\n    applyOfflineOnly();\n  };\n  applyOfflineOnly();",
+    "  // 'auto' (default): generate only while an image server answers; true: never; false: always ask the server\n  // (a stored 'false' from the old checkbox keeps meaning \"generate\"; an untouched one becomes auto)\n  let offlineOnly = 'auto';\n  try { const v = localStorage.getItem(offlineKey); if (v === 'true' || v === 'false') offlineOnly = v === 'true'; } catch (_) {}\n  const offlineCheck = overlay.querySelector('#wwis-offline-mode');\n  const serverNote = overlay.querySelector('#wwis-server');\n  offlineCheck.value = String(offlineOnly);\n  const SERVER_NOTE = { ready: '· 그림 서버 연결됨', noengine: '· 그림 서버는 있는데 그림 엔진(ComfyUI 등)이 응답하지 않아요', none: '· 그림 서버 없음' };\n  const showServer = () => { if (serverNote) serverNote.textContent = SERVER_NOTE[bridge()?.serverState?.() || 'none'] || ''; };\n  const applyOfflineOnly = () => { bridge()?.setOfflineOnly?.(offlineOnly); showServer(); };\n  offlineCheck.onchange = () => {\n    offlineOnly = offlineCheck.value === 'auto' ? 'auto' : offlineCheck.value === 'true';\n    try { localStorage.setItem(offlineKey, String(offlineOnly)); } catch (_) {}\n    applyOfflineOnly();\n  };\n  applyOfflineOnly();\n  setInterval(() => { if (overlay.isConnected && overlay.offsetParent !== null) showServer(); }, 3000);   // the game finds the server a little after start"
+  ]
+]

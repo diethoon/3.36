@@ -1,0 +1,48 @@
+name: Faith image loader fix package
+on:
+  push:
+    branches:
+      - faith-image-loader-fix-20261028
+permissions:
+  contents: read
+jobs:
+  verify-and-package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: JavaScript syntax check
+        run: node --check 'Wayward_MOD_v4.0_WML_검수완료/wml/mods/faith-image-loader/mod.js'
+      - name: Package standalone mod
+        run: |
+          mkdir -p dist/faith-image-loader
+          cp 'Wayward_MOD_v4.0_WML_검수완료/wml/mods/faith-image-loader/mod.js' dist/faith-image-loader/
+          cat > dist/faith-image-loader/README_ko.txt <<'EOF'
+Faith 이미지팩 로더 v0.3.0 (실험판)
+
+설치:
+1. Faith 게임에서 WML 모드 로더가 설치되어 있어야 합니다.
+2. faith-image-loader 폴더를 WML mods 디렉터리에 넣고 faith-image-loader 모드를 활성화합니다.
+3. 게임의 "Faith 이미지 로더" 버튼을 누릅니다.
+4. "이미지 폴더 선택 (순차 읽기)"로 이미지팩 폴더를 선택합니다.
+5. 새로고침 후에는 저장된 폴더 핸들이 있으면 자동으로 재연결을 시도합니다. 권한이 필요하면 "이전 폴더 다시 연결"을 누릅니다.
+
+변경:
+- 선택 폴더의 상위 경로가 추가되는 경우를 대비해 경로 suffix 별칭 매칭을 추가했습니다.
+- 파일을 64개 단위로 병렬 읽어 대량 폴더 스캔 시간을 줄입니다.
+- 브라우저가 지원하면 선택한 폴더 핸들을 IndexedDB에 저장합니다.
+
+중요:
+- 이 모드는 Faith의 네이티브 이미지팩 등록 시스템을 직접 수정하지 않고, DOM의 img 요소 경로를 로컬 파일로 대체하는 방식입니다.
+- 따라서 실제 게임에서 이미지가 정상 출력되는지는 별도 확인이 필요하며, CSS background/canvas 등 img 이외의 렌더링 경로는 처리하지 못할 수 있습니다.
+- 폴더 핸들 저장/복원은 File System Access API 및 브라우저 권한 정책에 따라 달라집니다.
+EOF
+          cd dist
+          zip -r ../faith-image-loader-v0.3.0.zip faith-image-loader
+      - uses: actions/upload-artifact@v4
+        with:
+          name: faith-image-loader-v0.3.0
+          path: faith-image-loader-v0.3.0.zip
+          if-no-files-found: error

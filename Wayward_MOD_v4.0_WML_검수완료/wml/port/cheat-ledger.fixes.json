@@ -1,0 +1,30 @@
+[
+  [
+    "button.innerHTML='⚙ Cheats';button.title='Cheat Ledger 열기';",
+    "button.innerHTML='⚙ 치트';button.title='치트 장부 열기';"
+  ],
+  [
+    "<div class=\"wc-title\">Cheat Ledger</div>",
+    "<div class=\"wc-title\">치트 장부</div>"
+  ],
+  [
+    "sources[side]=['cheats'];",
+    "/* 10-04: a restriction tag other than the game's own reads as a line he drew himself, so restriction edits keep only the game's tags; encouragement edits stay explicit, appended the way the game does */sources[side]=side==='restriction'?(sources[side]||[]).filter(t=>t!=='cheats'):[...(sources[side]||[]).filter(t=>t!=='cheats'),'cheats'];"
+  ],
+  [
+    "  function setLatitudeValue(s,id,key,value){",
+    "  /* reset = the game's own starting boundaries (seeded categories keep their decay floor) */\n  function resetLatitude(s){const w=wifeOf(s);if(!w)return s;const latitude=w.latitude&&typeof w.latitude==='object'?w.latitude:{byCategory:{},byPatron:{}};let seed={};try{if(typeof G5e==='function')seed=G5e(s.day??1).byCategory||{}}catch(_){}if(!Object.keys(seed).length){let n=s;for(const id of limitIds())for(const k of ['restriction','restrictionClarity','encouragement','encouragementClarity'])n=setLatitudeValue(n,id,k,0);return n}const byCategory={...(latitude.byCategory||{})};for(const id of limitIds()){if(seed[id])byCategory[id]=seed[id];else delete byCategory[id]}return setPath(s,['characters',s.primaryCharacterId,'latitude'],{...latitude,byCategory,byPatron:latitude.byPatron||{}})}\n  function setLatitudeValue(s,id,key,value){"
+  ],
+  [
+    "case'reset-boundaries':commit('모든 경계 정보 초기화',x=>{let n=x;for(const id of limitIds())for(const k of ['restriction','restrictionClarity','encouragement','encouragementClarity'])n=setLatitudeValue(n,id,k,0);return n});break;",
+    "case'reset-boundaries':commit('모든 경계 정보 초기화',x=>resetLatitude(x));break;"
+  ],
+  [
+    "function migrateLedgerState(s){",
+    "/* Older ledger builds replaced restriction sources with ['cheats'], which 10-04 reads as a line the husband drew:\n   drop the tag and give seeded categories their 'seeded_default' tag back. No-op once repaired. */\nfunction repairLatitudeSources(s){\n  const chars=s?.characters;if(!chars)return s;\n  const seeded=typeof Vq==='object'&&Vq?Vq:{};\n  let nextChars=null;\n  for(const[cid,w]of Object.entries(chars)){\n    const cats=w?.latitude?.byCategory;if(!cats)continue;\n    let byCategory=null;\n    for(const[id,e]of Object.entries(cats)){\n      const src=e?.sources;if(!src||!(Array.isArray(src.restriction)&&src.restriction.includes('cheats')))continue;\n      const sources={...src};\n      sources.restriction=sources.restriction.filter(t=>t!=='cheats');\n      if(seeded[id]!=null&&!sources.restriction.includes('seeded_default'))sources.restriction=['seeded_default',...sources.restriction];\n      (byCategory??={...cats})[id]={...e,sources};\n    }\n    if(byCategory)(nextChars??={...chars})[cid]={...w,latitude:{...w.latitude,byCategory}};\n  }\n  return nextChars?{...s,characters:nextChars}:s\n}\nfunction migrateLedgerState(s){"
+  ],
+  [
+    "  if(!s||!s[LEGACY_LEDGER_STATE_KEY])return s;",
+    "  s=repairLatitudeSources(s);\n  if(!s||!s[LEGACY_LEDGER_STATE_KEY])return s;"
+  ]
+]

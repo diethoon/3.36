@@ -1,0 +1,165 @@
+name: Cloud save WML security and integration checks
+
+on:
+  push:
+    branches:
+      - feature/wml-cloud-save-20261020
+    paths:
+      - ".github/workflows/cloud-save-static-check.yml"
+      - "Wayward_MOD_v4.0_WML_검수완료/wml/mods/cloud-save/mod.js"
+      - "Wayward_MOD_v4.0_WML_검수완료/wml/mods/cloud-save/crypto.js"
+      - "Wayward_MOD_v4.0_WML_검수완료/wml/mods/cloud-save/opaque-client-entry.js"
+      - "Wayward_MOD_v4.0_WML_검수완료/wml/mods/cloud-save/README.md"
+      - "workers/wayward-save-share/index.src.js"
+      - "workers/wayward-save-share/schema.sql"
+      - "workers/wayward-save-share/test-worker.mjs"
+      - "workers/wayward-save-share/README.md"
+      - "workers/wayward-save-share/package.json"
+      - "workers/wayward-save-share/build.mjs"
+  pull_request:
+    branches:
+      - wml
+    paths:
+      - "Wayward_MOD_v4.0_WML_검수완료/wml/mods/cloud-save/mod.js"
+      - "Wayward_MOD_v4.0_WML_검수완료/wml/mods/cloud-save/crypto.js"
+      - "Wayward_MOD_v4.0_WML_검수완료/wml/mods/cloud-save/opaque-client-entry.js"
+      - "Wayward_MOD_v4.0_WML_검수완료/wml/mods/cloud-save/README.md"
+      - "workers/wayward-save-share/index.src.js"
+      - "workers/wayward-save-share/schema.sql"
+      - "workers/wayward-save-share/test-worker.mjs"
+      - "workers/wayward-save-share/README.md"
+      - "workers/wayward-save-share/package.json"
+      - "workers/wayward-save-share/build.mjs"
+
+permissions:
+  contents: write
+
+jobs:
+  security-and-integration:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install pinned OPAQUE library and bundler
+        working-directory: workers/wayward-save-share
+        run: npm install --no-audit --no-fund --no-package-lock
+      - name: Build standalone Worker and WML client
+        working-directory: workers/wayward-save-share
+        run: node build.mjs
+      - name: Check JavaScript syntax
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module --check < "Wayward_MOD_v4.0_WML_검수완료/wml/mods/cloud-save/mod.js"
+          node --input-type=module --check < "Wayward_MOD_v4.0_WML_검수완료/wml/mods/cloud-save/crypto.js"
+          node --input-type=module --check < "workers/wayward-save-share/index.src.js"
+          node --input-type=module --check < "workers/wayward-save-share/index.js"
+      - name: Verify cloud-save bindings against the shipped game
+        working-directory: Wayward_MOD_v4.0_WML_검수완료/wml
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install --no-audit --no-fund --no-package-lock
+          node tools/mod-symbols.mjs --mod cloud-save --add "nativeSaveJSON=VDe,pauseMenu=N6e"
+          node tools/mod-symbols.mjs --mod cloud-save --check
+          node --input-type=module <<'JS'
+          import assert from 'node:assert/strict';
+          import fs from 'node:fs';
+          import * as acorn from 'acorn';
+          import * as walk from 'acorn-walk';
+          import { readModSymbols } from './tools/symbols-lib.mjs';
+          const source = fs.readFileSync('mods/cloud-save/mod.js', 'utf8');
+          const symbols = readModSymbols(source);
+          for (const name of ['nativeSaveJSON', 'pauseMenu']) {
+            assert.ok(symbols[name]?.find, name + ' must have a verified recipe for later game builds');
+          }
+          assert.doesNotMatch(source, /importSaveFromJSON|prepareNativeLoad|restoreNativeModData|koPrepareLoadedState30|m31Load/,
+            'nonexistent/unchecked loader bindings must not return');
+          const ast = acorn.parse(source, { ecmaVersion: 'latest', sourceType: 'script' });
+          let applyNode = null;
+          walk.simple(ast, { FunctionDeclaration(node) {
+            if (node.id && node.id.name === 'applySnapshot') applyNode = node;
+          }});
+          assert.ok(applyNode, 'applySnapshot function must exist');
+          const makeApply = Function('api', `return (${source.slice(applyNode.start, applyNode.end)})`);
+          let restoredState = null;
+          const api = { game: '2026-10-04', store: { update(fn) { restoredState = fn(); } } };
+          const applySnapshot = makeApply(api);
+          const snapshot = {
+            schema: 'wayward-cloud-save', version: 1, nativeFormat: 1,
+            game: '2026-10-04', gameVersion: '2026-10-04', savedAt: Date.now(),
+            state: { day: 4, rng: { seed: 123 }, mods: { existing: { ok: true }, overlap: 'old' } },
+            modData: { 'cloud-save': { sample: 1 }, overlap: 'saved' },
+          };
+          applySnapshot(snapshot);
+          assert.deepEqual(restoredState, {
+            day: 4, rng: { seed: 123 },
+            mods: { existing: { ok: true }, overlap: 'saved', 'cloud-save': { sample: 1 } },
+          }, 'same-version game state, RNG, and WML mod data must be restored');
+          const accepted = restoredState;
+          assert.throws(() => applySnapshot({ ...snapshot, game: '2026-09-30' }), /다른 게임 버전/);
+          assert.strictEqual(restoredState, accepted, 'wrong-version save must not mutate game state');
+          assert.throws(() => applySnapshot({ ...snapshot, modData: [] }), /MOD 데이터/);
+          assert.strictEqual(restoredState, accepted, 'invalid mod data must not mutate game state');
+          console.log('Cloud-save state-restore checks passed.');
+          JS
+      - name: Exercise OPAQUE and encrypted Worker API
+        run: node --no-warnings workers/wayward-save-share/test-worker.mjs
+      - name: Validate additive D1 schema and slot limit
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import sqlite3
+          from pathlib import Path
+          db = sqlite3.connect(":memory:")
+          db.executescript(Path("workers/wayward-save-share/schema.sql").read_text(encoding="utf-8"))
+          expected = {"save_shares", "cloud_accounts", "cloud_sessions", "cloud_saves",
+                      "cloud_auth_limits", "cloud_opaque_credentials", "cloud_opaque_flows"}
+          actual = {r[0] for r in db.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+          missing = expected - actual
+          assert not missing, f"Missing tables: {sorted(missing)}"
+          db.execute(
+              "INSERT INTO cloud_accounts (id, username, username_norm, password_salt, password_hash, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+              ("account-test", "account_test", "account_test", "opaque-unused:a", "opaque-unused:b", 1))
+          db.execute(
+              "INSERT INTO cloud_saves (account_id, slot, object_key, title, saved_at, byte_length) VALUES (?, ?, ?, ?, ?, ?)",
+              ("account-test", 5, "accounts/account-test/5.json", "test", 1, 10))
+          try:
+              db.execute(
+                  "INSERT INTO cloud_saves (account_id, slot, object_key, title, saved_at, byte_length) VALUES (?, ?, ?, ?, ?, ?)",
+                  ("account-test", 6, "accounts/account-test/6.json", "bad", 1, 10))
+          except sqlite3.IntegrityError:
+              pass
+          else:
+              raise AssertionError("slot 6 was accepted by D1 CHECK constraint")
+          print("D1 schema and five-slot constraint passed.")
+          PY
+      - name: Verify OPAQUE and encrypted-save contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -q "'/api/opaque/register/start'" "Wayward_MOD_v4.0_WML_검수완료/wml/mods/cloud-save/mod.js"
+          grep -q "'/api/opaque/login/start'" "Wayward_MOD_v4.0_WML_검수완료/wml/mods/cloud-save/mod.js"
+          grep -q "/api/opaque/register/start" "workers/wayward-save-share/index.src.js"
+          grep -q "/api/opaque/login/start" "workers/wayward-save-share/index.src.js"
+          grep -q "wayward-cloud-save-encrypted" "workers/wayward-save-share/index.src.js"
+          grep -q "legacy_password_auth_disabled" "workers/wayward-save-share/index.src.js"
+          ! grep -q "derivePasswordHash\|PASSWORD_ITERATIONS\|PBKDF2" "workers/wayward-save-share/index.src.js"
+          echo "OPAQUE and encrypted-save contract passed."
+      - name: Commit generated self-contained bundles
+        if: github.event_name == 'push' && github.ref == 'refs/heads/feature/wml-cloud-save-20261020'
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "Wayward_MOD_v4.0_WML_검수완료/wml/mods/cloud-save/mod.js" "Wayward_MOD_v4.0_WML_검수완료/wml/mods/cloud-save/opaque-client.bundle.js" "workers/wayward-save-share/index.js"
+          if git diff --cached --quiet; then
+            echo "Generated bundles are already current."
+            exit 0
+          fi
+          git commit -m "build(security): refresh OPAQUE bundles and verified cloud-save symbols"
+          git push

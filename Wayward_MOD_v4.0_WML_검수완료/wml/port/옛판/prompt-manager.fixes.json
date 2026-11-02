@@ -1,0 +1,5 @@
+[
+  ["const COPY_LABELS = ['프롬프트 복사', 'Copy prompt'];", "const COPY_LABELS = ['프롬프트 복사', 'Copy prompt', '현재 적용 프롬프트 복사'];"],
+  ["if (source[index]?.label === '기본' && baseId && rules[baseId]) {", "if (['기본', 'Base'].includes(source[index]?.label) && baseId && rules[baseId]) {"],
+  ["return edit.label !== '기본' || !meta", "return !['기본', 'Base'].includes(edit.label) || !meta"]
+]

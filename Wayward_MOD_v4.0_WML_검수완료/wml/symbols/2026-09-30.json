@@ -1,0 +1,301 @@
+{
+ "game": "2026-09-30",
+ "note": "Hand-verified against wayward-2026-09-30 (Korean v1.4). Semantic name -> minified name. Ported to newer builds with tools/port-symbols.mjs.",
+ "symbols": {
+  "store": {
+   "name": "re",
+   "kind": "const",
+   "doc": "zustand game store hook: store.getState().state / .dispatch(action)",
+   "find": [
+    {
+     "re": "const e=([\\w$]+)\\([\\w$]+=>[\\w$]+\\.dispatch\\),t=\\1\\([\\w$]+=>[\\w$]+\\.state\\)"
+    }
+   ]
+  },
+  "settingsStore": {
+   "name": "Rt",
+   "kind": "const",
+   "doc": "zustand settings store hook (proximityMode, image backend, …)"
+  },
+  "React": {
+   "name": "Z",
+   "kind": "var",
+   "doc": "React namespace (useState, useEffect, Fragment…)",
+   "find": [
+    {
+     "mostUsed": "{X}.useState("
+    }
+   ]
+  },
+  "jsx": {
+   "name": "u",
+   "kind": "var",
+   "doc": "JSX runtime: jsx.jsx / jsx.jsxs / jsx.Fragment",
+   "find": [
+    {
+     "mostUsed": "{X}.jsx("
+    }
+   ]
+  },
+  "ActionButton": {
+   "name": "Xe",
+   "kind": "function",
+   "doc": "action list button component {label,time,description,onClick,primary,disabled}"
+  },
+  "ActionPanel": {
+   "name": "HD",
+   "kind": "function",
+   "doc": "main action panel component"
+  },
+  "wife": {
+   "name": "g",
+   "kind": "function",
+   "doc": "wife(state) -> primary wife character"
+  },
+  "updateWife": {
+   "name": "P",
+   "kind": "function",
+   "doc": "updateWife(state, char => char) -> state"
+  },
+  "updateCharacter": {
+   "name": "cn",
+   "kind": "function",
+   "doc": "updateCharacter(state, id, char => char) -> state"
+  },
+  "log": {
+   "name": "j",
+   "kind": "function",
+   "doc": "log(state, text) -> state with a story log line"
+  },
+  "tick": {
+   "name": "Jt",
+   "kind": "function",
+   "doc": "tick(state) -> state advanced by one minute"
+  },
+  "intoxLabel": {
+   "name": "Dn",
+   "kind": "function",
+   "doc": "intoxLabel(level) -> sober|tipsy|drunk|wasted|sloppy|blacked_out"
+  },
+  "playerId": {
+   "name": "pe",
+   "kind": "const",
+   "doc": "location occupant id of the player",
+   "find": [
+    {
+     "re": "const ([\\w$]+)=\"player\",[\\w$]+=\"wife\""
+    }
+   ]
+  },
+  "wifeId": {
+   "name": "Me",
+   "kind": "const",
+   "doc": "location occupant id of the wife",
+   "find": [
+    {
+     "re": "const [\\w$]+=\"player\",([\\w$]+)=\"wife\""
+    }
+   ]
+  },
+  "locationOf": {
+   "name": "Ce",
+   "kind": "function",
+   "doc": "locationOf(state, occupantId) -> room or null"
+  },
+  "wifeLocation": {
+   "name": "be",
+   "kind": "function",
+   "doc": "wifeLocation(state) -> room",
+   "find": [
+    {
+     "re": "function ([\\w$]+)\\(e\\)\\{return [\\w$]+\\(e,[\\w$]+\\)\\}function [\\w$]+\\(e\\)\\{return [\\w$]+\\(e,[\\w$]+\\)\\}function ht\\(e,t\\)"
+    }
+   ]
+  },
+  "playerLocation": {
+   "name": "vt",
+   "kind": "function",
+   "doc": "playerLocation(state) -> room",
+   "find": [
+    {
+     "re": "function [\\w$]+\\(e\\)\\{return [\\w$]+\\(e,[\\w$]+\\)\\}function ([\\w$]+)\\(e\\)\\{return [\\w$]+\\(e,[\\w$]+\\)\\}function ht\\(e,t\\)"
+    }
+   ]
+  },
+  "moveOccupant": {
+   "name": "Bt",
+   "kind": "function",
+   "doc": "moveOccupant(state, occupantId, room) -> state"
+  },
+  "patronScene": {
+   "name": "Y",
+   "kind": "function",
+   "doc": "patronScene(state) -> activeScene.patron"
+  },
+  "playerSexScene": {
+   "name": "Ye",
+   "kind": "function",
+   "doc": "playerSexScene(state) -> activeScene.sex"
+  },
+  "setScene": {
+   "name": "V9",
+   "kind": "function",
+   "doc": "setScene(state, slot('patron'|'sex'|…), value) -> state",
+   "find": [
+    {
+     "re": "function ([\\w$]+)\\(e,t,o\\)\\{const n=\\{\\.\\.\\.e\\.activeScene,\\[t\\]:o\\}"
+    }
+   ]
+  },
+  "patronSceneLocation": {
+   "name": "et",
+   "kind": "function",
+   "doc": "room where the patron scene happens"
+  },
+  "isSexualStage": {
+   "name": "lt",
+   "kind": "function",
+   "doc": "handjob/blowjob/rubbing/sex patron stages",
+   "find": [
+    {
+     "re": "function ([\\w$]+)\\(e\\)\\{return e===\"handjob_patron\"\\|\\|e===\"blowjob_patron\"\\|\\|e===\"rubbing_patron\"\\|\\|e===\"sex_patron\"\\}"
+    }
+   ]
+  },
+  "sceneDef": {
+   "name": "es",
+   "kind": "function",
+   "doc": "scene definition by id",
+   "find": [
+    {
+     "re": "function ([\\w$]+)\\(e\\)\\{return ([\\w$]+)\\.get\\(e\\)\\}function [\\w$]+\\(e,t\\)\\{const o=\\2\\.get\\(e\\);return o\\?o\\.canEscalateTo"
+    }
+   ]
+  },
+  "sceneOutfitState": {
+   "name": "Av",
+   "kind": "function",
+   "doc": "outfit state implied by a scene (nude/exposed/hiked/…)"
+  },
+  "garmentWorn": {
+   "name": "yr",
+   "kind": "function",
+   "doc": "garmentWorn(outfit, exposure, 'top'|'skirt'|'panties')"
+  },
+  "exposureSummary": {
+   "name": "Om",
+   "kind": "function",
+   "doc": "exposureSummary(char) -> {baredBelow, skirtOff, topBare}"
+  },
+  "patronWatchChoices": {
+   "name": "Hee",
+   "kind": "function",
+   "doc": "choices offered while the player watches a patron scene"
+  },
+  "patronChoice": {
+   "name": "n5e",
+   "kind": "function",
+   "doc": "patronChoice(state, choiceId) -> state",
+   "find": [
+    {
+     "re": "type===\"patron_interaction_choice\"\\)return ([\\w$]+)\\(e,t\\.choiceId\\)"
+    }
+   ]
+  },
+  "startPlayerSex": {
+   "name": "Bf",
+   "kind": "function",
+   "doc": "startPlayerSex(state, type, characterId) -> state"
+  },
+  "playerSexEvent": {
+   "name": "Rl",
+   "kind": "function",
+   "doc": "pending event (choices) for the player's sex scene"
+  },
+  "ensureHusbandLed": {
+   "name": "n6",
+   "kind": "function",
+   "doc": "creates the husband-led group record during a player sex scene"
+  },
+  "addJoinedPatron": {
+   "name": "ede",
+   "kind": "function",
+   "doc": "addJoinedPatron(state, record, customerId, slot) -> state"
+  },
+  "joinSlots": {
+   "name": "eH",
+   "kind": "function",
+   "doc": "free joiner slots for a husband-led stage"
+  },
+  "registerAlert": {
+   "name": "sa",
+   "kind": "function",
+   "doc": "registerAlert(kind, (state, choiceId) => state)",
+   "find": [
+    {
+     "re": "function ([\\w$]+)\\(e,t\\)\\{[\\w$]+\\.has\\(e\\),[\\w$]+\\.set\\(e,t\\)\\}"
+    }
+   ]
+  },
+  "queueAlert": {
+   "name": "ss",
+   "kind": "function",
+   "doc": "queueAlert(state, alert) -> state"
+  },
+  "drainAlerts": {
+   "name": "wd",
+   "kind": "function",
+   "doc": "show the next queued alert when nothing is pending"
+  },
+  "imagePrompt": {
+   "name": "bL",
+   "kind": "function",
+   "doc": "imagePrompt(char, room, mood, …) -> {key, prompt, negativePrompt, parts}"
+  },
+  "imageKey": {
+   "name": "yL",
+   "kind": "function",
+   "doc": "imageKey(char, room, mood, …) -> talentName"
+  },
+  "imageKeyOf": {
+   "name": "_L",
+   "kind": "function",
+   "doc": "imageKeyOf(descriptor) -> talentName"
+  },
+  "imageDescriptor": {
+   "name": "gL",
+   "kind": "function",
+   "doc": "imageDescriptor(char, room, …) -> descriptor"
+  },
+  "makeCustomer": {
+   "name": "Pm",
+   "kind": "function",
+   "doc": "makeCustomer(slot, names, records, reputation, state)"
+  },
+  "addCustomer": {
+   "name": "Ga",
+   "kind": "function",
+   "doc": "addCustomer(state, customer, room) -> state"
+  },
+  "carryToBed": {
+   "name": "RCe",
+   "kind": "function",
+   "doc": "carry_to_bed action",
+   "find": [
+    {
+     "re": "type===\"carry_to_bed\"\\)return ([\\w$]+)\\(e\\)"
+    }
+   ]
+  },
+  "talkToWife": {
+   "name": "BY",
+   "kind": "function",
+   "doc": "talk_to_wife action",
+   "find": [
+    {
+     "re": "type===\"talk_to_wife\"\\)return ([\\w$]+)\\(e\\)"
+    }
+   ]
+  }
+ }
+}

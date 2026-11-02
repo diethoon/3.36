@@ -1,0 +1,31 @@
+name: Package Faith Image Loader Mod
+on:
+  push:
+    branches:
+      - faith-image-loader-fix-20261028
+    paths:
+      - 'Wayward_MOD_v4.0_WML_검수완료/wml/mods/faith-image-loader/**'
+      - '.github/workflows/package-faith-image-loader.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: faith-image-loader-fix-20261028
+      - name: Package mod only
+        run: |
+          mkdir -p dist
+          cd Wayward_MOD_v4.0_WML_검수완료/wml/mods
+          zip -r "$GITHUB_WORKSPACE/dist/Faith_Image_Loader_WML_v0.5.0.zip" faith-image-loader
+          unzip -l "$GITHUB_WORKSPACE/dist/Faith_Image_Loader_WML_v0.5.0.zip"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Faith_Image_Loader_WML_v0.5.0
+          path: dist/Faith_Image_Loader_WML_v0.5.0.zip
+          if-no-files-found: error
+          retention-days: 30

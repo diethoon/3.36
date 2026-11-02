@@ -1,0 +1,3 @@
+[
+  ["worker.lastFullRestDay=state.day;", "worker.lastFullRestDay=state.day;runtime.wagesEarned=0;"]
+]

@@ -1,0 +1,1488 @@
+{
+ "from": "2026-09-30",
+ "to": "2026-10-04",
+ "rows": [
+  {
+   "old": "$T",
+   "name": "S$",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function $T(e,t){return Qs(e,kO(t))}",
+   "newHead": "function S$(e,t){return Fn(e,qP(t))}"
+  },
+  {
+   "old": "$s",
+   "name": "Rs",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function $s(e,t,o){var p;if(e.phase===\"bedroom\"||e.phase===\"prep\"||e.phase===\"closed\"||eW(",
+   "newHead": "function Rs(e,t,o){var p;if(e.phase===\"bedroom\"||e.phase===\"prep\"||e.phase===\"closed\"||qY("
+  },
+  {
+   "old": "An",
+   "name": "Dn",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function An(e,t,o,n){var i;const s=(n==null?void 0:n.by)??(n!=null&&n.bySelf?\"self\":\"ladde",
+   "newHead": "function Dn(e,t,o,n){var i;const s=(n==null?void 0:n.by)??(n!=null&&n.bySelf?\"self\":\"ladde"
+  },
+  {
+   "old": "BW",
+   "name": "R7",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function BW(e){var qo,Ns,Xs,js,oi,ni,si,As;const t=Y(e);if(!t||t.playerEngaged)return e;if",
+   "newHead": "function R7(e){var Vn,Zo,Ms,Er,zn,hi,ci,di;const t=Y(e);if(!t||t.playerEngaged)return e;if"
+  },
+  {
+   "old": "Bae",
+   "name": "Qre",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function Bae(e,t,o,n){if(ne.indexOf(e.stage)<ne.indexOf(\"flirting\"))return 0;const r=gH(e.",
+   "newHead": "function Qre(e,t,o,n){if(te.indexOf(e.stage)<te.indexOf(\"flirting\"))return 0;const r=PH(e."
+  },
+  {
+   "old": "Bt",
+   "name": "Pt",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function Bt(e,t,o){var i,l;const n=e.locations??mh();let s=null;for(const h of Xi)if((i=n[",
+   "newHead": "function Pt(e,t,o){var i,l;const n=e.locations??jh();let s=null;for(const h of hl)if((i=n["
+  },
+  {
+   "old": "C3",
+   "name": "XO",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function C3(e,t){var o,n,s,r;return((n=(o=e.activeScene)==null?void 0:o.patron)==null?void",
+   "newHead": "function XO(e,t){var o,n,s,r;return((n=(o=e.activeScene)==null?void 0:o.patron)==null?void"
+  },
+  {
+   "old": "C9",
+   "name": "wV",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function C9(e,t){const o=j3(e,t);return(o==null?void 0:o.shortname)??\"elena\"}",
+   "newHead": "function wV(e,t){const o=zO(e,t);return(o==null?void 0:o.shortname)??\"elena\"}"
+  },
+  {
+   "old": "CC",
+   "name": "QM",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "CC=[{id:\"how_was_night\",category:\"chat\",label:\"기분이 어때?\",description:\"그녀의 기분 살피기\",available",
+   "newHead": "QM=[{id:\"how_was_night\",category:\"chat\",label:\"How are you feeling?\",description:\"Check in"
+  },
+  {
+   "old": "CTe",
+   "name": "E2e",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "CTe=[{minStage:\"flirting\",minBoldness:25,category:\"kiss_chaste\",needs:[\"seating\",\"bar\"],re",
+   "newHead": "E2e=[{minStage:\"flirting\",minBoldness:25,category:\"kiss_chaste\",needs:[\"seating\",\"bar\"],re"
+  },
+  {
+   "old": "Ce",
+   "name": "$e",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function Ce(e,t){var o,n;for(const s of Xi)if((n=(o=e.locations)==null?void 0:o[s])!=null&",
+   "newHead": "function $e(e,t){var o,n;for(const s of hl)if((n=(o=e.locations)==null?void 0:o[s])!=null&"
+  },
+  {
+   "old": "Cn",
+   "name": "Pn",
+   "how": "fuzzy (next 0.14)",
+   "score": 0.6,
+   "oldHead": "function Cn(e,t){const o=(Array.isArray(t)?t:[t]).map(koStageId29);if(o.length===0)return ",
+   "newHead": "function Pn(e,t){const o=Array.isArray(t)?t:[t];if(o.length===0)return e;const n=e.slot,r="
+  },
+  {
+   "old": "Co",
+   "name": "bo",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "Co={visual_modest:{difficulty:12,willingnessType:\"touch\",hardBoundary:!1},visual_thigh:{di",
+   "newHead": "bo={visual_modest:{difficulty:12,willingnessType:\"touch\",hardBoundary:!1},visual_thigh:{di"
+  },
+  {
+   "old": "Cx",
+   "name": "kS",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function Cx(e,t,o){const n=Wo({stage:t,primarySlot:o});if(!n)return!0;const s=z1(e),r=Wo(e",
+   "newHead": "function kS(e,t,o){const n=Fo({stage:t,primarySlot:o});if(!n)return!0;const s=YT(e),r=Fo(e"
+  },
+  {
+   "old": "Dae",
+   "name": "Vre",
+   "how": "fuzzy (next 0.17)",
+   "score": 0.88,
+   "oldHead": "function Dae(e,t,o,n){const s=ne.indexOf(e.stage),r=s+1;if(r>=ne.length)return null;const ",
+   "newHead": "function Vre(e,t,o,n){const s=te.indexOf(e.stage),r=s+1;if(r>=te.length)return null;const "
+  },
+  {
+   "old": "E$e",
+   "name": "jIe",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function E$e(e,t,o,n){var T;const s=vd(t,o.id);if(s.pushInTried)return null;const r=dw(\"ru",
+   "newHead": "function jIe(e,t,o,n){var T;const s=qd(t,o.id);if(s.pushInTried)return null;const r=Pw(\"ru"
+  },
+  {
+   "old": "E1e",
+   "name": "$5e",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function E1e(e,t){var l;if(t.lastSpecificAskSlot!=null&&e.slot-t.lastSpecificAskSlot<4)ret",
+   "newHead": "function $5e(e,t){var l;if(t.lastSpecificAskSlot!=null&&e.slot-t.lastSpecificAskSlot<4)ret"
+  },
+  {
+   "old": "EH",
+   "name": "p6",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function EH(e,t,o,n){const s=AH(e,t,o,n);switch(n.joiner,o.name,s){case\"eager\":return\"eage",
+   "newHead": "function p6(e,t,o,n){const s=f6(e,t,o,n);switch(n.joiner,o.name,s){case\"eager\":return\"eage"
+  },
+  {
+   "old": "Ea",
+   "name": "Oa",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function Ea(e,t){return sp(e).has(t.id)}",
+   "newHead": "function Oa(e,t){return Cp(e).has(t.id)}"
+  },
+  {
+   "old": "Ef",
+   "name": "tp",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function Ef(e,t){return z(1-tse(e,t),0,1)}",
+   "newHead": "function tp(e,t){return K(1-wse(e,t),0,1)}"
+  },
+  {
+   "old": "Eue",
+   "name": "wpe",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function Eue(e){var T,I;const t=Tw(e);if(!t)return e;if(!Tt(e,Me,\"back_room\"))return jue(e",
+   "newHead": "function wpe(e){var T,$;const t=a0(e);if(!t)return e;if(!St(e,Re,\"back_room\"))return ype(e"
+  },
+  {
+   "old": "Fo",
+   "name": "Go",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function Fo(e,t,o,n,s){if(Y(e))return e;const r=e.customers.find(k=>k.id===t);if(!r||r.for",
+   "newHead": "function Go(e,t,o,n,s){if(Y(e))return e;const r=e.customers.find(x=>x.id===t);if(!r||r.for"
+  },
+  {
+   "old": "Ft",
+   "name": "Yt",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function Ft(e,t,o){return e.customers.some(n=>n.id===t)?Bt(e,t,o):e}",
+   "newHead": "function Yt(e,t,o){return e.customers.some(n=>n.id===t)?Pt(e,t,o):e}"
+  },
+  {
+   "old": "GH",
+   "name": "A6",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function GH(e,t){var l,h,d;const o=[],n=(m,p)=>(p!==0&&o.push({label:m,value:p}),p);let s=",
+   "newHead": "function A6(e,t){var l,h,d;const o=[],n=(f,p)=>(p!==0&&o.push({label:f,value:p}),p);let s="
+  },
+  {
+   "old": "GM",
+   "name": "lD",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function GM(e,t,o,n){const s=e.name;if(t){const i=Ib(t);if(t.turnedOut){const l=go(n)-t.tu",
+   "newHead": "function lD(e,t,o,n){const s=e.name;if(t){const i=sw(t);if(t.turnedOut){const l=co(n)-t.tu"
+  },
+  {
+   "old": "Ga",
+   "name": "Ka",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function Ga(e,t,o){const n={...e,customers:[...e.customers,t]};return Bt(n,t.id,o)}",
+   "newHead": "function Ka(e,t,o){const n={...e,customers:[...e.customers,t]};return Pt(n,t.id,o)}"
+  },
+  {
+   "old": "Gs",
+   "name": "Ks",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function Gs(e,t){var l,h;const o=Y(e),n=t??(o==null?void 0:o.customerId),s=new Set(o?gh(e)",
+   "newHead": "function Ks(e,t){var l,h;const o=Y(e),n=t??(o==null?void 0:o.customerId),s=new Set(o?Rh(e)"
+  },
+  {
+   "old": "H8",
+   "name": "AW",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function H8(e,t,o){if(!O8(e,t))return null;const n=C8(e,t);if(!n)return null;const s=Ow(n,",
+   "newHead": "function AW(e,t,o){if(!NW(e,t))return null;const n=xW(e,t);if(!n)return null;const s=y0(n,"
+  },
+  {
+   "old": "Hm",
+   "name": "af",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function Hm(e,t){var n,s;const o=[];if(e.elenaComfort>=65&&o.push(\"comfort\"),((t==null?voi",
+   "newHead": "function af(e,t){var n,s;const o=[];if(e.elenaComfort>=65&&o.push(\"comfort\"),((t==null?voi"
+  },
+  {
+   "old": "I$",
+   "name": "O5",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function I$(e){const t=!!(e!=null&&e.skirtUp||e!=null&&e.skirtRemoved),o=!!(e!=null&&e.pan",
+   "newHead": "function O5(e){const t=!!(e!=null&&e.skirtUp||e!=null&&e.skirtRemoved),o=!!(e!=null&&e.pan"
+  },
+  {
+   "old": "I6",
+   "name": "pB",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function I6(e,t,o,n,s){return Math.random()<Jue(e,t,o,n,s)}",
+   "newHead": "function pB(e,t,o,n,s){return Math.random()<Lpe(e,t,o,n,s)}"
+  },
+  {
+   "old": "JSe",
+   "name": "G$e",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function JSe(e,t,o,n){const s=n.finalScore,r=Co[t],a=o.characterId??e.primaryCharacterId,i",
+   "newHead": "function G$e(e,t,o,n){const s=n.finalScore,r=bo[t],a=o.characterId??e.primaryCharacterId,i"
+  },
+  {
+   "old": "Ja",
+   "name": "Za",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function Ja(e,t,o={}){const n=e-t,s=o.spread??E4;return{attackerWins:n+(Math.random()-.5)*",
+   "newHead": "function Za(e,t,o={}){const n=e-t,s=o.spread??oP;return{attackerWins:n+(Math.random()-.5)*"
+  },
+  {
+   "old": "Jie",
+   "name": "Gce",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function Jie(e,t,o,n){if(!o||vd(t,o.id).lineUpTried||t.stage!==\"groping\"&&t.stage!==\"intim",
+   "newHead": "function Gce(e,t,o,n){if(!o||qd(t,o.id).lineUpTried||t.stage!==\"groping\"&&t.stage!==\"intim"
+  },
+  {
+   "old": "Jre",
+   "name": "Jle",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function Jre(){const e=pE.reduce((o,n)=>o+n,0);let t=Math.random()*e;for(let o=0;o<Tv.leng",
+   "newHead": "function Jle(){const e=CR.reduce((o,n)=>o+n,0);let t=Math.random()*e;for(let o=0;o<mx.leng"
+  },
+  {
+   "old": "KV",
+   "name": "DK",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function KV(e){var m,p;const t=new Set(e.customers.map(y=>y.name)),o=go(e.slot);let n=e;co",
+   "newHead": "function DK(e){var f,p;const t=new Set(e.customers.map(g=>g.name)),o=co(e.slot);let n=e;co"
+  },
+  {
+   "old": "Kge",
+   "name": "Kbe",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function Kge(e){var l,h;if(e.phase!==\"service\"&&e.phase!==\"last_call\")return e;const t=be(",
+   "newHead": "function Kbe(e){var l,h;if(e.phase!==\"service\"&&e.phase!==\"last_call\")return e;const t=_e("
+  },
+  {
+   "old": "Ks",
+   "name": "er",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function Ks(e){return ta(e)>=n1}",
+   "newHead": "function er(e){return aa(e)>=X1}"
+  },
+  {
+   "old": "L6",
+   "name": "IB",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function L6(e,t){return Math.min(.95,.35+t/190)}",
+   "newHead": "function IB(e,t){return Math.min(.95,.35+t/190)}"
+  },
+  {
+   "old": "LT",
+   "name": "n5",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function LT(e,t){if(!t||t.length===0)return!0;const o=_P(e);return t.every(n=>o.has(n))}",
+   "newHead": "function n5(e,t){if(!t||t.length===0)return!0;const o=_L(e);return t.every(n=>o.has(n))}"
+  },
+  {
+   "old": "Lf",
+   "name": "gp",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function Lf(e){var o;let t={...e,slot:e.slot+1};{const n=g(t);if((o=n.aftermathTags)!=null",
+   "newHead": "function gp(e){var o;let t={...e,slot:e.slot+1};{const n=_(t);if((o=n.aftermathTags)!=null"
+  },
+  {
+   "old": "Lt",
+   "name": "Tt",
+   "how": "override",
+   "score": 1,
+   "oldHead": "function Lt(e){const t=Ce(e,pe);return t!=null&&p2e.has(t)}",
+   "newHead": "function Tt(e){const t=$e(e,fe);return t!=null&&wb.has(t)}"
+  },
+  {
+   "old": "Lve",
+   "name": "P1e",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function Lve(e,t,o){const n=L(g(e)),s=g(e).name,r=g(e).annoyance,a=e0(e);if((Pve.has(t)||Q",
+   "newHead": "function P1e(e,t,o){const n=B(_(e)),s=_(e).name,r=_(e).annoyance,a=O0(e);if((D1e.has(t)||F"
+  },
+  {
+   "old": "MTe",
+   "name": "R2e",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function MTe(e,t,o){if(Math.random()>.15)return null;const n=t.stage===\"flirting\"||t.stage",
+   "newHead": "function R2e(e,t,o){if(Math.random()>.15)return null;const n=t.stage===\"flirting\"||t.stage"
+  },
+  {
+   "old": "Mae",
+   "name": "qre",
+   "how": "override",
+   "score": 1,
+   "oldHead": "Mae={drink_only:\"chatting\",talk_only:\"chatting\",flirt_curious:\"light_touch\",interested:\"in",
+   "newHead": "qre={drink_only:\"chatting\",talk_only:\"chatting\",flirt_curious:\"light_touch\",interested:\"in"
+  },
+  {
+   "old": "Me",
+   "name": "Re",
+   "how": "literal×3",
+   "score": 0.85,
+   "oldHead": "Me=\"wife\"",
+   "newHead": "Re=\"wife\""
+  },
+  {
+   "old": "N5e",
+   "name": "$Ne",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function N5e(e,t,o,n){const s={state:n},r=j5e(e,t,o,s);return{state:s.state,event:r}}",
+   "newHead": "function $Ne(e,t,o,n){const s={state:n},r=INe(e,t,o,s);return{state:s.state,event:r}}"
+  },
+  {
+   "old": "N6",
+   "name": "gB",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function N6(e,t,o,n,s,r){const a=n.name,i=t.customerName,l=et(e)??void 0;if(!o)return{stat",
+   "newHead": "function gB(e,t,o,n,s,r){const a=n.name,i=t.customerName,l=tt(e)??void 0;if(!o)return{stat"
+  },
+  {
+   "old": "Nl",
+   "name": "Hl",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function Nl(e){return Co[e].difficulty}",
+   "newHead": "function Hl(e){return bo[e].difficulty}"
+  },
+  {
+   "old": "Ob",
+   "name": "gw",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function Ob(e){var n;const t=e.tavern;if(!t)return 20;let o=20;return(((n=t.qualityUpgrade",
+   "newHead": "function gw(e){var n;const t=e.tavern;if(!t)return 20;let o=20;return(((n=t.qualityUpgrade"
+  },
+  {
+   "old": "Om",
+   "name": "nf",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function Om(e){const t=e.exposure,o=Ba(e.outfit,t);return{baredBelow:o.bottom,skirtOff:!!(",
+   "newHead": "function nf(e){const t=e.exposure,o=xr(e.outfit,t);return{baredBelow:o.bottom,skirtOff:!!("
+  },
+  {
+   "old": "P",
+   "name": "O",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function P(e,t){return cn(e,e.primaryCharacterId,t)}",
+   "newHead": "function O(e,t){return nn(e,e.primaryCharacterId,t)}"
+  },
+  {
+   "old": "Pae",
+   "name": "BH",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function Pae(e){const t=hm.indexOf(e??\"interested\");return t<0||t>=hm.length-1?e??\"interes",
+   "newHead": "function BH(e){const t=rh.indexOf(e??\"interested\");return t<0||t>=rh.length-1?e??\"interest"
+  },
+  {
+   "old": "Pb",
+   "name": "_w",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function Pb(e,t){const o=pf[t];return{...e,readyFood:e.readyFood-(o.food??0),supplies:{...",
+   "newHead": "function _w(e,t){const o=Uf[t];return{...e,readyFood:e.readyFood-(o.food??0),supplies:{..."
+  },
+  {
+   "old": "Pve",
+   "name": "D1e",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "Pve=new Set([\"kiss\",\"grope_ass\",\"grope_tits\",\"finger_her\",\"make_her_touch\",\"ask_fuck\",\"ask",
+   "newHead": "D1e=new Set([\"kiss\",\"grope_ass\",\"grope_tits\",\"finger_her\",\"make_her_touch\",\"ask_fuck\",\"ask"
+  },
+  {
+   "old": "Qhe",
+   "name": "eme",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function Qhe(e,t=Math.random){const o=ML(e),n=DL(e,t()*10);return n.length===0?\"modest\":n.",
+   "newHead": "function eme(e,t=Math.random){const o=w8(e),n=k8(e,t()*10);return n.length===0?\"modest\":n."
+  },
+  {
+   "old": "Qie",
+   "name": "qce",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function Qie(e,t,o,n){if(!o||vd(t,o.id).pushInTried||t.stage!==\"rubbing_patron\"||t.ticksAt",
+   "newHead": "function qce(e,t,o,n){if(!o||qd(t,o.id).pushInTried||t.stage!==\"rubbing_patron\"||t.ticksAt"
+  },
+  {
+   "old": "Qs",
+   "name": "Fn",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function Qs(e,t){const o=Ba(e,t);return o.top&&o.bottom?3:o.top||o.bottom?2:o.hint?1:0}",
+   "newHead": "function Fn(e,t){const o=xr(e,t);return o.top&&o.bottom?3:o.top||o.bottom?2:o.hint?1:0}"
+  },
+  {
+   "old": "Qt",
+   "name": "Qt",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function Qt(e,t,o){if(o<=0)return e;const n=e.incomeBreakdownToday??{};return{...e,economy",
+   "newHead": "function Qt(e,t,o){if(o<=0)return e;const n=e.incomeBreakdownToday??{};return{...e,economy"
+  },
+  {
+   "old": "Que",
+   "name": "Bpe",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function Que(e,t,o,n){const s=L(e),r=nl(o);let a=.5;return a+=r/100*.4,n&&(a+=.15),a+=t*.0",
+   "newHead": "function Bpe(e,t,o,n){const s=B(e),r=fl(o);let a=.5;return a+=r/100*.4,n&&(a+=.15),a+=t*.0"
+  },
+  {
+   "old": "R$e",
+   "name": "AIe",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function R$e(e,t){var x;const o=ne.indexOf(t.stage);if(o<3)return{};const n=(o-2)*.015+t.p",
+   "newHead": "function AIe(e,t){var x;const o=te.indexOf(t.stage);if(o<3)return{};const n=(o-2)*.015+t.p"
+  },
+  {
+   "old": "RP",
+   "name": "pH",
+   "how": "literal×17",
+   "score": 0.85,
+   "oldHead": "RP=.3",
+   "newHead": "pH=.3"
+  },
+  {
+   "old": "RTe",
+   "name": "A2e",
+   "how": "literal×17",
+   "score": 0.85,
+   "oldHead": "RTe=1",
+   "newHead": "A2e=1"
+  },
+  {
+   "old": "Rt",
+   "name": "At",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "Rt=gb()(_b(e=>({...wD,set:t=>e(t)}),{name:\"tavern-settings\",version:3,migrate:e=>({...wD,.",
+   "newHead": "At=Wf()(Vb(e=>({...PD,set:t=>e(t)}),{name:\"tavern-settings\",version:3,migrate:e=>({...PD,."
+  },
+  {
+   "old": "St",
+   "name": "kt",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function St(e){return uY(e,pe,Me)}",
+   "newHead": "function kt(e){return sF(e,fe,Re)}"
+  },
+  {
+   "old": "T5e",
+   "name": "xNe",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function T5e(e,t,o){var h;const n=Y(e),s=d=>{var m;return Ws()&&mt(e,\"crowd-gate-reject\",{",
+   "newHead": "function xNe(e,t,o){var h;const n=Y(e),s=d=>{var f;return Gs()&&dt(e,\"crowd-gate-reject\",{"
+  },
+  {
+   "old": "Tw",
+   "name": "a0",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function Tw(e){var t,o,n;return(n=(o=(t=e.locations)==null?void 0:t.back_room)==null?void ",
+   "newHead": "function a0(e){var t,o,n;return(n=(o=(t=e.locations)==null?void 0:t.back_room)==null?void "
+  },
+  {
+   "old": "UC",
+   "name": "h3",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "UC=[{id:\"flash_cleavage\",desc:\"가슴골을 잠깐 보여주는 일\",spoken:\"가슴골을 잠깐 보여주기\",wearing:[\"top\"],stage",
+   "newHead": "h3=[{id:\"flash_cleavage\",desc:\"a flash of cleavage\",spoken:\"a flash of cleavage\",wearing:["
+  },
+  {
+   "old": "VH",
+   "name": "R6",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function VH(e,t){var h;const o=L(e),n=e.stats.arousal??0,s=((h=e.intoxication)==null?void ",
+   "newHead": "function R6(e,t){var h;const o=B(e),n=e.stats.arousal??0,s=((h=e.intoxication)==null?void "
+  },
+  {
+   "old": "Va",
+   "name": "hs",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function Va(e,t){const o=e.logSeq??0,n=[...e.log,{...t,slot:t.slot??e.slot,seq:o}];return{",
+   "newHead": "function hs(e,t){const o=e.logSeq??0,n=[...e.log,{...t,slot:t.slot??e.slot,seq:o}];return{"
+  },
+  {
+   "old": "Vae",
+   "name": "Yhe",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function Vae(e,t,o,n){const s=Yae(e,t,o,n),r=NH(s);if(!r)return mt(e,\"next-move\",{outcome:",
+   "newHead": "function Yhe(e,t,o,n){const s=Phe(e,t,o,n),r=u6(s);if(!r)return dt(e,\"next-move\",{outcome:"
+  },
+  {
+   "old": "Vc",
+   "name": "wh",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function Vc(e,t){const o=e.patronRecords.find(h=>h.name===t.name),n=o?tn(o):0,s=o?Math.min",
+   "newHead": "function wh(e,t){const o=e.patronRecords.find(h=>h.name===t.name),n=o?mn(o):0,s=o?Math.min"
+  },
+  {
+   "old": "Vr",
+   "name": "Xr",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function Vr(e){var t;return(t=e.activeScene)==null?void 0:t.bathhouse}",
+   "newHead": "function Xr(e){var t;return(t=e.activeScene)==null?void 0:t.bathhouse}"
+  },
+  {
+   "old": "WW",
+   "name": "C7",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function WW(e,t){const o=Y(e);if(!o||o.customerId===t||(o.crowdPatronIds??[]).includes(t)|",
+   "newHead": "function C7(e,t){const o=Y(e);if(!o||o.customerId===t||(o.crowdPatronIds??[]).includes(t)|"
+  },
+  {
+   "old": "Xa",
+   "name": "ni",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function Xa(e){return e.tavern??{hasRoom:!1,roomListing:\"closed\"}}",
+   "newHead": "function ni(e){return e.tavern??{hasRoom:!1,roomListing:\"closed\"}}"
+  },
+  {
+   "old": "Xi",
+   "name": "hl",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "Xi=[\"taproom\",\"back_room\",\"bedroom\",\"elena_room\",\"upstairs_hall\",\"upstairs_room_2\",\"bathho",
+   "newHead": "hl=[\"taproom\",\"back_room\",\"bedroom\",\"elena_room\",\"upstairs_hall\",\"upstairs_room_2\",\"bathho"
+  },
+  {
+   "old": "Xne",
+   "name": "qne",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function Xne(e,t){const o=Jne(e,t),n=ow(1-o*o*1.25);return{joinOddsMult:n,hardBlock:n<=0,p",
+   "newHead": "function qne(e,t){const o=Une(e,t),n=jw(1-o*o*1.25);return{joinOddsMult:n,hardBlock:n<=0,p"
+  },
+  {
+   "old": "Y",
+   "name": "Y",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function Y(e){var t;return(t=e.activeScene)==null?void 0:t.patron}",
+   "newHead": "function Y(e){var t;return(t=e.activeScene)==null?void 0:t.patron}"
+  },
+  {
+   "old": "Yae",
+   "name": "Phe",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function Yae(e,t,o,n){var N,E;const s=ne.indexOf(t.stage);if(s<xH){const R=yf(t.stage);ret",
+   "newHead": "function Phe(e,t,o,n){var j,E;const s=te.indexOf(t.stage);if(s<Em){const R=qf(t.stage);ret"
+  },
+  {
+   "old": "Yb",
+   "name": "vw",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function Yb(e,t,o){return $O(e,t,o?IT(o):1)}",
+   "newHead": "function vw(e,t,o){return KP(e,t,o?$$(o):1)}"
+  },
+  {
+   "old": "Ye",
+   "name": "Le",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function Ye(e){var t;return(t=e.activeScene)==null?void 0:t.sex}",
+   "newHead": "function Le(e){var t;return(t=e.activeScene)==null?void 0:t.sex}"
+  },
+  {
+   "old": "ZB",
+   "name": "GY",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function ZB(e,t,o){const n=g(e),s=Y1(e,\"conversation_topic\",t),r=L(n),i=30+(r.openness+r.c",
+   "newHead": "function GY(e,t,o){const n=_(e),s=DT(e,\"conversation_topic\",t),r=B(n),i=30+(r.openness+r.c"
+  },
+  {
+   "old": "ZP",
+   "name": "IH",
+   "how": "override",
+   "score": 1,
+   "oldHead": "ZP={groping:\"touch_skin\",intimate:\"touch_skin\",handjob_patron:\"manual_giving\",blowjob_patr",
+   "newHead": "IH={groping:\"touch_skin\",intimate:\"touch_skin\",handjob_patron:\"manual_giving\",blowjob_patr"
+  },
+  {
+   "old": "Za",
+   "name": "si",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function Za(e){const{arousal:t,mood:o,energy:n}=g(e).stats,{confidence:s}=L(g(e)),{trust:r",
+   "newHead": "function si(e){const{arousal:t,mood:o,energy:n}=_(e).stats,{confidence:s}=B(_(e)),{trust:r"
+  },
+  {
+   "old": "Zb",
+   "name": "Rw",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function Zb(e,t){const o=xs(t,e.slot),n=L(t).composure,s=e.patronRecords.find(a=>a.name===",
+   "newHead": "function Rw(e,t){const o=js(t,e.slot),n=B(t).composure,s=e.patronRecords.find(a=>a.name==="
+  },
+  {
+   "old": "Zl",
+   "name": "mh",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "Zl=[{id:\"elena_farmgirl\",name:\"엘레나\",shortname:\"elena\",tagline:\"농가 출신 여성. 19세. 결혼한 지 3주 됨.\"",
+   "newHead": "mh=[{id:\"elena_farmgirl\",name:\"Elena\",shortname:\"elena\",tagline:\"A farm girl. Nineteen. Ma"
+  },
+  {
+   "old": "Zme",
+   "name": "Yge",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "Zme={respectable:[10,22],discreet:[10,22]}",
+   "newHead": "Yge={respectable:[10,22],discreet:[10,22]}"
+  },
+  {
+   "old": "_L",
+   "name": "n8",
+   "how": "fuzzy (next 0.08)",
+   "score": 0.71,
+   "oldHead": "function _L(e){const t=[e.character];return e.characterId&&e.characterId!==\"wife\"&&t.push(",
+   "newHead": "function n8(e){const t=[e.character];return e.characterId&&e.characterId!==\"wife\"&&t.push("
+  },
+  {
+   "old": "_d",
+   "name": "Bd",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function _d(e,t){const o=pf[t];return!(o.food&&e.readyFood<(o.food??0)||o.beer&&e.supplies",
+   "newHead": "function Bd(e,t){const o=Uf[t];return!(o.food&&e.readyFood<(o.food??0)||o.beer&&e.supplies"
+  },
+  {
+   "old": "_he",
+   "name": "gue",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function _he(e){const t=e.imageBase,o=e.imageNegative?`, ${e.imageNegative}`:\"\",n=[{label:",
+   "newHead": "function gue(e){const t=e.imageBase,o=e.imageNegative?`, ${e.imageNegative}`:\"\",n=[{label:"
+  },
+  {
+   "old": "_ue",
+   "name": "ape",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function _ue(e){if(e.pendingEvent)return{state:e};if(!wr(e))return{state:e};const t=Y(e);i",
+   "newHead": "function ape(e){if(e.pendingEvent)return{state:e};if(!Tr(e))return{state:e};const t=Y(e);i"
+  },
+  {
+   "old": "aH",
+   "name": "VL",
+   "how": "literal×12",
+   "score": 0.85,
+   "oldHead": "aH=8",
+   "newHead": "VL=8"
+  },
+  {
+   "old": "at",
+   "name": "st",
+   "how": "fuzzy (next 0.12)",
+   "score": 0.87,
+   "oldHead": "function at(e,t){var i;let o=e;const n=t.targetCharacterId??e.primaryCharacterId,s=l=>vn(l",
+   "newHead": "function st(e,t){var i;let o=e;const n=t.targetCharacterId??e.primaryCharacterId,s=l=>pn(l"
+  },
+  {
+   "old": "b$",
+   "name": "K$",
+   "how": "fuzzy (next 0.20)",
+   "score": 0.81,
+   "oldHead": "function b$(e,t,o,n){var w;const s=ne.indexOf(e.stage),r=L(o),a=ne[Math.min(s+1,ne.length-",
+   "newHead": "function K$(e,t,o,n){var T,$;const s=te.indexOf(e.stage),r=B(o),a=te[Math.min(s+1,te.lengt"
+  },
+  {
+   "old": "b$e",
+   "name": "_Ie",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function b$e(e){var d;const t=Y(e);if(!t||e.pendingEvent)return{state:e,handled:!1};const ",
+   "newHead": "function _Ie(e){var d;const t=Y(e);if(!t||e.pendingEvent)return{state:e,handled:!1};const "
+  },
+  {
+   "old": "b5e",
+   "name": "_Ne",
+   "how": "exact×11/position",
+   "score": 0.8,
+   "oldHead": "b5e=[\"compliment\",\"generous_tip\",\"rude\",\"returning_patron_reference\",\"drink_offer\"]",
+   "newHead": "_Ne=[\"compliment\",\"generous_tip\",\"rude\",\"returning_patron_reference\",\"drink_offer\"]"
+  },
+  {
+   "old": "bL",
+   "name": "r8",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function bL(e,t,o,n,s,r){var U,K,oe,F,de,ye,ve,Be;const a=vb(e.stats.mood),i=[],l=e.sceneO",
+   "newHead": "function r8(e,t,o,n,s,r){var z,se,U,pe,ye,Ce,Be,We;const a=Zb(e.stats.mood),i=[],l=e.scene"
+  },
+  {
+   "old": "be",
+   "name": "_e",
+   "how": "exact×4/position",
+   "score": 0.8,
+   "oldHead": "function be(e){return Hn(e,Me)}",
+   "newHead": "function _e(e){return Yn(e,Re)}"
+  },
+  {
+   "old": "bh",
+   "name": "Oh",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function bh(e,t,o){const n=[];let s=0;if(e.lastOrgasmSlot!=null){const m=t-e.lastOrgasmSlo",
+   "newHead": "function Oh(e,t,o){const n=[];let s=0;if(e.lastOrgasmSlot!=null){const f=t-e.lastOrgasmSlo"
+  },
+  {
+   "old": "bre",
+   "name": "_re",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "bre={chatting:[],flirting:[],light_touch:[],bold_touch:[],groping:[\"hand\",\"breasts\",\"behin",
+   "newHead": "_re={chatting:[],flirting:[],light_touch:[],bold_touch:[],groping:[\"hand\",\"breasts\",\"behin"
+  },
+  {
+   "old": "bt",
+   "name": "pt",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function bt(e,t,o,n){const s=Ce(e,Me);let r=Bt(e,Me,t);if(t===\"bathhouse\"&&s!==\"bathhouse\"",
+   "newHead": "function pt(e,t,o,n){const s=$e(e,Re);let r=Pt(e,Re,t);if(t===\"bathhouse\"&&s!==\"bathhouse\""
+  },
+  {
+   "old": "c$e",
+   "name": "lIe",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "c$e=[...DTe,...OTe,...PTe,...i$e,...l$e]",
+   "newHead": "lIe=[...C2e,...M2e,...D2e,...rIe,...aIe]"
+  },
+  {
+   "old": "c_e",
+   "name": "gwe",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "c_e=$d.let_him_grope.rank",
+   "newHead": "gwe=Jh.let_him_grope.rank"
+  },
+  {
+   "old": "co",
+   "name": "no",
+   "how": "override",
+   "score": 1,
+   "oldHead": "function co(e){return e===\"upstairs_hall\"||e===\"upstairs_room_2\"}",
+   "newHead": "function no(e){return e===\"upstairs_hall\"||e===\"upstairs_room_2\"}"
+  },
+  {
+   "old": "d5e",
+   "name": "hNe",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function d5e(e,t,o,n){const s=g(n).name,r=L(g(n));let a;switch(e){case\"compliment\":a=h5e(o",
+   "newHead": "function hNe(e,t,o,n){const s=_(n).name,r=B(_(n));let a;switch(e){case\"compliment\":a=iNe(o"
+  },
+  {
+   "old": "dT",
+   "name": "l$",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function dT(e){return e.soreness?Math.max(im(e,\"sex_vaginal\"),im(e,\"oral_giving\"),im(e,\"se",
+   "newHead": "function l$(e){return e.soreness?Math.max(Wc(e,\"sex_vaginal\"),Wc(e,\"oral_giving\"),Wc(e,\"se"
+  },
+  {
+   "old": "dp",
+   "name": "Hp",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "async function dp(e,t={}){var a,i;const o=await cb();if(!o)return null;(!Pa||!Us)&&J2(o);c",
+   "newHead": "async function Hp(e,t={}){var a,i;const o=await Wb();if(!o)return null;(!Ya||!zs)&&aN(o);c"
+  },
+  {
+   "old": "eH",
+   "name": "NH",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function eH(e,t,o,n=!1){const s=z1({...e,stage:t,joinedPatronSlots:o}),r=bre[t].filter(a=>",
+   "newHead": "function NH(e,t,o,n=!1){const s=YT({...e,stage:t,joinedPatronSlots:o}),r=_re[t].filter(a=>"
+  },
+  {
+   "old": "efe",
+   "name": "Fge",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "efe={respectable:[\"traveling_merchant\",\"young_bachelor\",\"journeyman_artisan\",\"traveling_ba",
+   "newHead": "Fge={respectable:[\"traveling_merchant\",\"young_bachelor\",\"journeyman_artisan\",\"traveling_ba"
+  },
+  {
+   "old": "eh",
+   "name": "fh",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "eh=[{id:\"modest\",name:\"수수한 작업복\",description:\"두꺼운 린넨, 높은 옷깃\",price:0,imageTags:\"plain brown",
+   "newHead": "fh=[{id:\"modest\",name:\"Plain Work Dress\",description:\"Heavy linen, high collar\",price:0,im"
+  },
+  {
+   "old": "et",
+   "name": "tt",
+   "how": "fuzzy (next 0.34)",
+   "score": 0.65,
+   "oldHead": "function et(e){const t=Y(e);return t?ht(e,t.customerId):\"taproom\"}",
+   "newHead": "function tt(e){const t=Y(e);return t?nF(e,t):\"taproom\"}"
+  },
+  {
+   "old": "f2e",
+   "name": "mje",
+   "how": "exact×2/position",
+   "score": 0.8,
+   "oldHead": "f2e=new Set([\"taproom\",\"back_room\",\"upstairs_hall\",\"upstairs_room_2\",\"bedroom\",\"elena_room",
+   "newHead": "mje=new Set([\"taproom\",\"back_room\",\"upstairs_hall\",\"upstairs_room_2\",\"bedroom\",\"elena_room"
+  },
+  {
+   "old": "fo",
+   "name": "fo",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function fo(e,t){const o=t.seq??e.logSeq??0,n=[...e.awayEvents,{...t,seq:o}];return{...e,l",
+   "newHead": "function fo(e,t){const o=t.seq??e.logSeq??0,n=[...e.awayEvents,{...t,seq:o}];return{...e,l"
+  },
+  {
+   "old": "fs",
+   "name": "ks",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function fs(e,t){return!e||e.coercedSinceSlot==null?!1:t-e.coercedSinceSlot<=gV}",
+   "newHead": "function ks(e,t){return!e||e.coercedSinceSlot==null?!1:t-e.coercedSinceSlot<=oK}"
+  },
+  {
+   "old": "fy",
+   "name": "Gy",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function fy(e,t){const o=e.patronRecords.find(s=>s.name===t.name);return{...o?rH(o,e.slot,",
+   "newHead": "function Gy(e,t){const o=e.patronRecords.find(s=>s.name===t.name);return{...o?qL(o,e.slot,"
+  },
+  {
+   "old": "g",
+   "name": "_",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function g(e){const t=e.characters[e.primaryCharacterId];if(!t)throw new Error(`[character",
+   "newHead": "function _(e){const t=e.characters[e.primaryCharacterId];if(!t)throw new Error(`[character"
+  },
+  {
+   "old": "gH",
+   "name": "PH",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function gH(e,t){const o=Rae[e];return lt(e)||!t?o:Math.max(1,Math.round(o*Cae[$T(t.outfit",
+   "newHead": "function PH(e,t){const o=Ure[e];return it(e)||!t?o:Math.max(1,Math.round(o*Gre[S$(t.outfit"
+  },
+  {
+   "old": "gL",
+   "name": "o8",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function gL(e,t,o,n,s,r){var k;const a=eL(e.sceneVariant),i=C9(e.archetypeId,e.generatedAr",
+   "newHead": "function o8(e,t,o,n,s,r){var k;const a=H6(e.sceneVariant),i=wV(e.archetypeId,e.generatedAr"
+  },
+  {
+   "old": "gT",
+   "name": "u$",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function gT(e,t){for(const o of JQ[t])if(_d(e,o))return o;return null}",
+   "newHead": "function u$(e,t){for(const o of see[t])if(Bd(e,o))return o;return null}"
+  },
+  {
+   "old": "ge",
+   "name": "ge",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function ge(e){var o,n;const t=((n=(o=e.activeScene)==null?void 0:o.patron)==null?void 0:n",
+   "newHead": "function ge(e){var o,n;const t=((n=(o=e.activeScene)==null?void 0:o.patron)==null?void 0:n"
+  },
+  {
+   "old": "gh",
+   "name": "Rh",
+   "how": "override",
+   "score": 1,
+   "oldHead": "function gh(e){var o;const t=(o=e.activeScene)==null?void 0:o.patron;return t?new Set([t.c",
+   "newHead": "function Rh(e){var n,s;const t=(n=e.activeScene)==null?void 0:n.patron,o=(s=e.activeScene)"
+  },
+  {
+   "old": "go",
+   "name": "co",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function go(e){return Gt(e)}",
+   "newHead": "function co(e){return Mt(e)}"
+  },
+  {
+   "old": "hhe",
+   "name": "lue",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function hhe(e){return e===\"upstairs_hall\"||e===\"upstairs_room_2\"?\"bedroom\":e===\"bathroom\"",
+   "newHead": "function lue(e){return e===\"upstairs_hall\"||e===\"upstairs_room_2\"?\"bedroom\":e===\"bathroom\""
+  },
+  {
+   "old": "hm",
+   "name": "rh",
+   "how": "override",
+   "score": 1,
+   "oldHead": "hm=[\"drink_only\",\"talk_only\",\"flirt_curious\",\"interested\",\"predatory\"]",
+   "newHead": "rh=[\"drink_only\",\"talk_only\",\"flirt_curious\",\"interested\",\"predatory\"]"
+  },
+  {
+   "old": "ht",
+   "name": "ht",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function ht(e,t){return Hn(e,t)}",
+   "newHead": "function ht(e,t){return Yn(e,t)}"
+  },
+  {
+   "old": "iO",
+   "name": "CP",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function iO(e,t){const o=pf[t],n=[];return o.food&&e.readyFood<o.food&&n.push(\"food\"),o.be",
+   "newHead": "function CP(e,t){const o=Uf[t],n=[];return o.food&&e.readyFood<o.food&&n.push(\"food\"),o.be"
+  },
+  {
+   "old": "j",
+   "name": "N",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function j(e,t,o){return Va(e,{text:t,coLocated:St(e),...o?{eventCategory:o}:{}})}",
+   "newHead": "function N(e,t,o){return hs(e,{text:t,coLocated:kt(e),...o?{eventCategory:o}:{}})}"
+  },
+  {
+   "old": "jt",
+   "name": "Dt",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function jt(e,t,o){return Va(e,{text:t,coLocated:St(e),important:!0,...o?{eventCategory:o}",
+   "newHead": "function Dt(e,t,o){return hs(e,{text:t,coLocated:kt(e),important:!0,...o?{eventCategory:o}"
+  },
+  {
+   "old": "k5e",
+   "name": "bNe",
+   "how": "literal×6",
+   "score": 0.85,
+   "oldHead": "k5e=1.5",
+   "newHead": "bNe=1.5"
+  },
+  {
+   "old": "kF",
+   "name": "hG",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function kF(e,t){const o=t??\"그녀\";switch(e){case\"chatting\":return t?`${t}과(와) 대화 중`:\"대화 중\";",
+   "newHead": "function hG(e,t){const o=t??\"her\";switch(e){case\"chatting\":return t?`Chatting with ${t}`:\""
+  },
+  {
+   "old": "kT",
+   "name": "b$",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function kT(e,t,o={}){if(wh(t)<.55)return{gap:0,mortifying:!1};if(xn(e,o).otherWitnesses==",
+   "newHead": "function b$(e,t,o={}){if(Ph(t)<.55)return{gap:0,mortifying:!1};if(_n(e,o).otherWitnesses=="
+  },
+  {
+   "old": "ko14Contribution",
+   "status": "unmatched",
+   "oldHead": "function ko14Contribution(value) { // Replace only recognized display phrases; keep all ",
+   "newHead": ""
+  },
+  {
+   "old": "koCollector170",
+   "status": "unmatched",
+   "oldHead": "function koCollector170(record) { return !!record && (record.isCollector === true || rec",
+   "newHead": ""
+  },
+  {
+   "old": "koProfile137",
+   "status": "unmatched",
+   "oldHead": "function koProfile137(state, ref) { if (!state || !ref) return null; const customers =",
+   "newHead": ""
+  },
+  {
+   "old": "kue",
+   "name": "cpe",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function kue(e){if(e.pendingEvent)return{state:e,handled:!1};const t=Y(e);if(!fs(t,e.slot)",
+   "newHead": "function cpe(e){if(e.pendingEvent)return{state:e,handled:!1};const t=Y(e);if(!ks(t,e.slot)"
+  },
+  {
+   "old": "lS",
+   "name": "BS",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function lS(e){const t=Y(e),o=Ws();if(!t)return e;const n=t.stage;if(!ZP[n])return o&&mt(e",
+   "newHead": "function BS(e){const t=Y(e),o=Gs();if(!t)return e;const n=t.stage;if(!IH[n])return o&&dt(e"
+  },
+  {
+   "old": "lo",
+   "name": "ro",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function lo(e,t){var o,n;return((n=(o=e.locations)==null?void 0:o[t])==null?void 0:n.occup",
+   "newHead": "function ro(e,t){var o,n;return((n=(o=e.locations)==null?void 0:o[t])==null?void 0:n.occup"
+  },
+  {
+   "old": "m$",
+   "name": "S5",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function m$(e,t){const o=t===\"drink_only\"||t===\"talk_only\",n=(()=>{switch(e){case\"regular\"",
+   "newHead": "function S5(e,t){const o=t===\"drink_only\"||t===\"talk_only\",n=(()=>{switch(e){case\"regular\""
+  },
+  {
+   "old": "mY",
+   "name": "rF",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "mY={taproom:new Set([\"back_room\",\"upstairs_hall\",\"upstairs_room_2\",\"bathroom\",\"kitchen\"]),",
+   "newHead": "rF={taproom:new Set([\"back_room\",\"upstairs_hall\",\"upstairs_room_2\",\"bathroom\",\"kitchen\"]),"
+  },
+  {
+   "old": "mo",
+   "name": "go",
+   "how": "override",
+   "score": 1,
+   "oldHead": "function mo(e,t){let o=2166136261;for(let n=0;n<t.length;n++)o^=t.charCodeAt(n),o=Math.imu",
+   "newHead": "function go(e,t){let o=2166136261;for(let n=0;n<t.length;n++)o^=t.charCodeAt(n),o=Math.imu"
+  },
+  {
+   "old": "n2",
+   "name": "hI",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function n2(e,t,o,n){if(lt(t.stage)){if(a4(t))return J1(t,n,e.slot)?null:(mt(e,\"natural-en",
+   "newHead": "function hI(e,t,o,n){if(it(t.stage)){if(j4(t))return FT(t,n,e.slot)?null:(dt(e,\"natural-en"
+  },
+  {
+   "old": "nY",
+   "name": "K7",
+   "how": "exact×4/position",
+   "score": 0.8,
+   "oldHead": "nY={taproom:\"홀\",back_room:\"뒷방\",bedroom:\"침실\",elena_room:\"그녀의 방\",upstairs_hall:\"위층\",upstairs",
+   "newHead": "K7={taproom:\"the taproom\",back_room:\"the back room\",bedroom:\"the bedroom\",elena_room:\"her "
+  },
+  {
+   "old": "ne",
+   "name": "te",
+   "how": "exact×2/position",
+   "score": 0.8,
+   "oldHead": "ne=[\"chatting\",\"flirting\",\"light_touch\",\"bold_touch\",\"groping\",\"intimate\",\"handjob_patron\"",
+   "newHead": "te=[\"chatting\",\"flirting\",\"light_touch\",\"bold_touch\",\"groping\",\"intimate\",\"handjob_patron\""
+  },
+  {
+   "old": "o3",
+   "name": "bO",
+   "how": "exact×4/position",
+   "score": 0.8,
+   "oldHead": "o3={taproom:\"홀\",back_room:\"뒷방\",bedroom:\"침실\",elena_room:\"그녀의 방\",upstairs_hall:\"객실\",upstairs",
+   "newHead": "bO={taproom:\"Taproom\",back_room:\"Back Room\",bedroom:\"Bedroom\",elena_room:\"Her Room\",upstai"
+  },
+  {
+   "old": "pT",
+   "name": "d$",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function pT(e){return tV[e]}",
+   "newHead": "function d$(e){return Wz[e]}"
+  },
+  {
+   "old": "pd",
+   "name": "Hd",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function pd(e,t){var n;if(!t)return 0;const o=(n=e.patronRecords)==null?void 0:n.find(s=>s",
+   "newHead": "function Hd(e,t){var n;if(!t)return 0;const o=(n=e.patronRecords)==null?void 0:n.find(s=>s"
+  },
+  {
+   "old": "ph",
+   "name": "Eh",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function ph(){return Hi??lF()??Ia}",
+   "newHead": "function Eh(){return Vi??zU()??Ra}"
+  },
+  {
+   "old": "qb",
+   "name": "ap",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function qb(e,t){const o=e.patronRecords.find(r=>r.name===t.name),n=qZ(FO(e.tavernReputati",
+   "newHead": "function ap(e,t){const o=e.patronRecords.find(r=>r.name===t.name),n=Fre(OH(e.tavernReputat"
+  },
+  {
+   "old": "qge",
+   "name": "qbe",
+   "how": "literal×2",
+   "score": 0.85,
+   "oldHead": "qge=.003",
+   "newHead": "qbe=.003"
+  },
+  {
+   "old": "r8",
+   "name": "VB",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function r8(e,t){if(t.roundsOrdered!==1)return e;const o=Sr(t),n=e.wordCarriedToday??{loca",
+   "newHead": "function VB(e,t){if(t.roundsOrdered!==1)return e;const o=Nr(t),n=e.wordCarriedToday??{loca"
+  },
+  {
+   "old": "rH",
+   "name": "qL",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function rH(e,t,o){const n=`customer-${zc++}`,s=Math.min(20,e.visitCount*5),r=e.personaTag",
+   "newHead": "function qL(e,t,o){const n=`customer-${_d++}`,s=Math.min(20,e.visitCount*5),r=e.personaTag"
+  },
+  {
+   "old": "rQ",
+   "name": "QX",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function rQ(e){const t=L(e).libido;return z(52+t*.45,52,90)}",
+   "newHead": "function QX(e){const t=B(e).libido;return K(52+t*.45,52,90)}"
+  },
+  {
+   "old": "re",
+   "name": "ae",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "re=gb()(_b((e,t)=>({state:_c(),started:!1,selectingArchetype:!1,selectingBuilder:!1,select",
+   "newHead": "ae=Wf()(Vb((e,t)=>({state:Pc(),started:!1,selectingArchetype:!1,selectingBuilder:!1,select"
+  },
+  {
+   "old": "rs",
+   "name": "ms",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function rs(e){const t=Ym(e.attunement)/100;return Math.round(kS+(xce-kS)*t)}",
+   "newHead": "function ms(e){const t=yf(e.attunement)/100;return Math.round(p1+($me-p1)*t)}"
+  },
+  {
+   "old": "so",
+   "name": "ao",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "so={chatting:null,flirting:\"kiss_chaste\",light_touch:\"kiss_chaste\",bold_touch:\"touch_over_",
+   "newHead": "ao={chatting:null,flirting:\"kiss_chaste\",light_touch:\"kiss_chaste\",bold_touch:\"touch_over_"
+  },
+  {
+   "old": "sy",
+   "name": "Iy",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function sy(e,t,o,n){var J;if((e.finishedParticipantIds??[]).includes(e.customerId))return",
+   "newHead": "function Iy(e,t,o,n){var X;if((e.finishedParticipantIds??[]).includes(e.customerId))return"
+  },
+  {
+   "old": "tl",
+   "name": "ul",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function tl(e){return Zl.find(t=>t.id===e)}",
+   "newHead": "function ul(e){return mh.find(t=>t.id===e)}"
+  },
+  {
+   "old": "u",
+   "name": "u",
+   "how": "override",
+   "score": 1,
+   "oldHead": "u=((runtime)=>{const koNameTails170={\"elena\":0,\"mara\":0,\"pippa\":0,\"aldric\":1,\"rolf\":0,\"lor",
+   "newHead": "u=Uq()"
+  },
+  {
+   "old": "ub",
+   "name": "Fb",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function ub(e){const t=Gl.get(e.imageKey);if(t)return t.promise;const o={promise:Promise.r",
+   "newHead": "function Fb(e){const t=nh.get(e.imageKey);if(t)return t.promise;const o={promise:Promise.r"
+  },
+  {
+   "old": "uh",
+   "name": "Nh",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function uh(e){var l;const t=((l=Dt(e.outfit))==null?void 0:l.boldnessScore)??0,o=e.exposu",
+   "newHead": "function Nh(e){var l;const t=((l=Ot(e.outfit))==null?void 0:l.boldnessScore)??0,o=e.exposu"
+  },
+  {
+   "old": "uw",
+   "name": "ip",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function uw(e,t,o,n){var d;const s=Mae[e??\"interested\"]??\"sex_patron\";let r=ne.indexOf(s);",
+   "newHead": "function ip(e,t,o,n){var d;const s=qre[e??\"interested\"]??\"sex_patron\";let r=te.indexOf(s);"
+  },
+  {
+   "old": "v0",
+   "name": "ak",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function v0(e){const t=e.imagePath.split(\"\\\\\").join(\"/\"),o=()=>t.split(\"/\").map(encodeURIC",
+   "newHead": "function ak(e){const t=e.imagePath.split(\"\\\\\").join(\"/\"),o=()=>t.split(\"/\").map(encodeURIC"
+  },
+  {
+   "old": "v5e",
+   "name": "wNe",
+   "how": "override",
+   "score": 1,
+   "oldHead": "v5e=.1",
+   "newHead": "wNe=.1"
+  },
+  {
+   "old": "vh",
+   "name": "oi",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function vh(e,t){return Ef(e,t)>=RP}",
+   "newHead": "function oi(e,t){return tp(e,t)>=pH}"
+  },
+  {
+   "old": "vr",
+   "name": "Ir",
+   "how": "override",
+   "score": 1,
+   "oldHead": "function vr(e){var r,a,i,l;let o=(((r=Dt(e.outfit))==null?void 0:r.boldnessScore)??0)*.5+(",
+   "newHead": "function Ir(e){var a,i;const t=((a=Ot(e.outfit))==null?void 0:a.boldnessScore)??0,o=B(e);l"
+  },
+  {
+   "old": "vt",
+   "name": "bt",
+   "how": "override",
+   "score": 1,
+   "oldHead": "function vt(e){return Hn(e,pe)}",
+   "newHead": "function bt(e){return Yn(e,fe)}"
+  },
+  {
+   "old": "vue",
+   "name": "dpe",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function vue(e){if(e.pendingEvent)return{state:e,handled:!1};if(Lt(e))return{state:e,handl",
+   "newHead": "function dpe(e){if(e.pendingEvent)return{state:e,handled:!1};if(Tt(e))return{state:e,handl"
+  },
+  {
+   "old": "w5e",
+   "name": "yNe",
+   "how": "literal×17",
+   "score": 0.85,
+   "oldHead": "w5e=.3",
+   "newHead": "yNe=.3"
+  },
+  {
+   "old": "wbe",
+   "name": "Ike",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function wbe(e,t){if(be(e)!==\"taproom\")return e;const o=e.patronRecords.findIndex(l=>l.nam",
+   "newHead": "function Ike(e,t){if(_e(e)!==\"taproom\")return e;const o=e.patronRecords.findIndex(l=>l.nam"
+  },
+  {
+   "old": "wc",
+   "name": "Bc",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function wc(e){const o=e%ho*Z3;let n=Qq+Math.floor(o/60);const s=o%60;n>=24&&(n-=24);const",
+   "newHead": "function Bc(e){const o=e%ho*b4;let n=Pz+Math.floor(o/60);const s=o%60;n>=24&&(n-=24);const"
+  },
+  {
+   "old": "wr",
+   "name": "Tr",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function wr(e){var t;return((t=e.tavern)==null?void 0:t.backRoomReady)===!1||hr(e)||un(e)|",
+   "newHead": "function Tr(e){var t;return((t=e.tavern)==null?void 0:t.backRoomReady)===!1||mr(e)||fn(e)|"
+  },
+  {
+   "old": "x5e",
+   "name": "kNe",
+   "how": "literal×7",
+   "score": 0.85,
+   "oldHead": "x5e=2.5",
+   "newHead": "kNe=2.5"
+  },
+  {
+   "old": "x6",
+   "name": "dB",
+   "how": "exact×9/position",
+   "score": 0.8,
+   "oldHead": "x6=new Set([\"bold_touch\",\"groping\",\"intimate\",\"handjob_patron\",\"blowjob_patron\",\"sex_patro",
+   "newHead": "dB=new Set([\"bold_touch\",\"groping\",\"intimate\",\"handjob_patron\",\"blowjob_patron\",\"sex_patro"
+  },
+  {
+   "old": "y$",
+   "name": "z$",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function y$(e,t,o){const n=t.intent??\"interested\";if(n===\"predatory\")return null;const s=g",
+   "newHead": "function z$(e,t,o){const n=t.intent??\"interested\";if(n===\"predatory\")return null;const s=g"
+  },
+  {
+   "old": "y$e",
+   "name": "gIe",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function y$e(e,t,o){var H,q,O,ie;if(t.ticksAtStage<1)return null;const n=e.customers.find(",
+   "newHead": "function gIe(e,t,o){var H,q,D,le;if(t.ticksAtStage<1)return null;const n=e.customers.find("
+  },
+  {
+   "old": "y2",
+   "name": "$I",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function y2(e,t,o,n,s=0){const r=g(e).name;let a=e;t===\"sex\"?(a=h1(a,o,n),a=qt(a,o,\"sex_pa",
+   "newHead": "function $I(e,t,o,n,s=0){const r=_(e).name;let a=e;t===\"sex\"?(a=iT(a,o,n),a=qt(a,o,\"sex_pa"
+  },
+  {
+   "old": "yR",
+   "name": "HC",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function yR(e,t,o){const n=g(e).name,s=o===\"brag\"?`자기 탁자의 남자들에게 ${n} 이야기를 하고 있었다.`:`${n}이(",
+   "newHead": "function HC(e,t,o){const n=_(e).name,s=o===\"brag\"?`was telling the men at his table about "
+  },
+  {
+   "old": "ya",
+   "name": "Sa",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function ya(e,t,o){const n=e.find(s=>s.type===t);n&&(n.weight+=o)}",
+   "newHead": "function Sa(e,t,o){const n=e.find(s=>s.type===t);n&&(n.weight+=o)}"
+  },
+  {
+   "old": "yd",
+   "name": "Ud",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function yd(e){return{dominance:Qr(e.boldness),charisma:Qr(e.charm+(L(e).charm-50)*.3),cun",
+   "newHead": "function Ud(e){return{dominance:oa(e.boldness),charisma:oa(e.charm+(B(e).charm-50)*.3),cun"
+  },
+  {
+   "old": "yr",
+   "name": "vr",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function yr(e,t,o){if(e===\"naked\")return!1;switch(o){case\"top\":return!(t!=null&&t.topRemov",
+   "newHead": "function vr(e,t,o){if(e===\"naked\")return!1;switch(o){case\"top\":return!(t!=null&&t.topRemov"
+  },
+  {
+   "old": "yre",
+   "name": "gre",
+   "how": "override",
+   "score": 1,
+   "oldHead": "yre=.35",
+   "newHead": "gre=.35"
+  },
+  {
+   "old": "yue",
+   "name": "ipe",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function yue(e){var m;if(e.pendingEvent)return{state:e};if(!wr(e))return{state:e};const t=",
+   "newHead": "function ipe(e){var f;if(e.pendingEvent)return{state:e};if(!Tr(e))return{state:e};const t="
+  },
+  {
+   "old": "z",
+   "name": "$a",
+   "how": "exact×9/position",
+   "score": 0.8,
+   "oldHead": "function z(e,t,o){return Math.max(t,Math.min(o,e))}",
+   "newHead": "function $a(e,t,o){return Math.max(t,Math.min(o,e))}"
+  },
+  {
+   "old": "zae",
+   "name": "Fhe",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function zae(e){const t=e?Ss(e):0;return[{pick:\"inside\",weight:2*(1-.9*t)},{pick:\"astride\"",
+   "newHead": "function Fhe(e){const t=e?As(e):0;return[{pick:\"inside\",weight:2*(1-.9*t)},{pick:\"astride\""
+  },
+  {
+   "old": "zb",
+   "name": "Lw",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function zb(e){const t=g(e),o=[],n=t.stats.energy;n<25?o.push({label:\"탈진함\",value:35}):n<40",
+   "newHead": "function Lw(e){const t=_(e),o=[],n=t.stats.energy;n<25?o.push({label:\"exhausted\",value:35}"
+  },
+  {
+   "old": "zue",
+   "name": "Ppe",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function zue(e,t,o){const n=L(e);let s=.04;return e.intent===\"predatory\"&&(s+=.4*(1-Qc(Te(",
+   "newHead": "function Ppe(e,t,o){const n=B(e);let s=.04;return e.intent===\"predatory\"&&(s+=.4*(1-wd(ke("
+  }
+ ]
+}

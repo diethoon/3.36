@@ -1,0 +1,38 @@
+[
+  [
+    "const WW_KEY='wayward-brothel-v3';",
+    "const WW_KEY='wayward-slave-v1';\n  /* WML: 창관 모드와 같은 저장 칸(wayward-brothel-v3)을 쓰면 창관이 저장한 설정을 읽다가 깨져서 칸을 나눔. 예전 노예관 저장이 옛 칸에 있으면 한 번 옮겨 옴 */\n  try{if(localStorage.getItem(WW_KEY)==null){const old=JSON.parse(localStorage.getItem('wayward-brothel-v3')||'null');if(old&&(Array.isArray(old.freed)||(old.dash&&typeof old.dash==='object')||(old.inventory&&Array.isArray(old.inventory.hanky))))localStorage.setItem(WW_KEY,JSON.stringify(old))}}catch{}"
+  ],
+  [
+    "worker.lastFullRestDay=state.day;",
+    "worker.lastFullRestDay=state.day;runtime.wagesEarned=0;"
+  ],
+  [
+    "      wwConfig = wwDefaults(ue.getState().state);",
+    "      wwConfig = wwDefaults(ue.getState().state);\n      /* WML: a new game built the config from defaults only, so the slave fields (inventory, dash, freed …) were missing and the settings tabs and the daily step threw */\n      wwNormConfigV4(wwConfig, {});"
+  ],
+  [
+    "  const WW_CORE_WINDOW_KEY='wayward-brothel-core-windows-v1',WW_CORE_PANES=['story','house','focus','actions'],WW_CORE_LABELS={story:'이야기',house:'가게',focus:'그녀',actions:'행동'},WW_CORE_HEADER=30;",
+    "  const WW_CORE_WINDOW_KEY='wayward-brothel-core-windows-v1',WW_CORE_PANES=['story','house','focus','actions'],WW_CORE_LABELS={story:'이야기',house:'가게',focus:'그녀',actions:'행동'},WW_CORE_HEADER=30;\n  /* WML: 이야기·가게·그녀·행동 네 칸을 떼어 내는 「창 분리」. 새 창이 아니라 같은 화면 안에서만 떠서 다른 모드 창과 앞뒤가 엉키고\n     네 칸을 가져가 버리기 때문에 기본은 꺼 둬요. 설정에서 켤 수 있고, 모니터를 여러 대 쓰려면 「창 나누기」 모드를 쓰세요. */\n  const WW_CORE_WINDOW_FLAG='wayward-slave-core-windows-on',WW_CORE_Z_BASE=2147480000,WW_CORE_Z_MAX=2147482000;\n  function wwCoreWindowsOn(){try{return localStorage.getItem(WW_CORE_WINDOW_FLAG)==='1'}catch{return false}}\n  function wwSetCoreWindowsOn(on){try{localStorage.setItem(WW_CORE_WINDOW_FLAG,on?'1':'0')}catch{}}"
+  ],
+  [
+    "  let wwCoreLayout=null,wwCoreZ=100;",
+    "  let wwCoreLayout=null,wwCoreZ=WW_CORE_Z_BASE,wwCoreMarked=false;  /* WML: 예전 100은 게임 화면(z 100000)보다 낮아 창틀이 화면 뒤에 숨었음 */"
+  ],
+  [
+    "  function wwNextWindowZ(){wwCoreZ+=4;return wwCoreZ}",
+    "  function wwNextWindowZ(){wwCoreZ=Math.min(wwCoreZ+4,WW_CORE_Z_MAX);return wwCoreZ}  /* WML: WML 버튼 줄·창보다는 아래에 머무르게 */"
+  ],
+  [
+    "  function wwDecorateCoreWindows(){\n    let started=false;try{started=!!ue.getState().started}catch{}const found=wwCoreFindPaneRow();",
+    "  /* WML: 창 분리를 끄면 창틀을 숨기는 것만으로는 안 됨 — 행에 붙인 레이아웃 클래스가 남아 좁은 화면 칸이 계속 숨겨지므로 붙인 표시를 다 떼어 냄 */\n  function wwCoreTeardown(){\n    if(!wwCoreMarked)return;wwCoreMarked=false;wwHideCoreWindows();\n    for(const item of wwCoreWindows.values())item.frame.remove();wwCoreWindows.clear();wwCoreZ=WW_CORE_Z_BASE;\n    for(const node of document.querySelectorAll('.ww-core-source-host,.ww-core-source-row,.ww-core-mobile-source'))node.classList.remove('ww-core-source-host','ww-core-source-row','ww-core-mobile-source');\n    for(const node of document.querySelectorAll('.ww-core-resizable-block')){node.classList.remove('ww-core-resizable-block');node.style.removeProperty('width');node.style.removeProperty('height');delete node.dataset.wwCoreBlockKey}\n  }\n  function wwDecorateCoreWindows(){\n    if(!wwCoreWindowsOn()){wwCoreTeardown();return}\n    wwCoreMarked=true;\n    let started=false;try{started=!!ue.getState().started}catch{}const found=wwCoreFindPaneRow();"
+  ],
+  [
+    "    const modals=[...document.querySelectorAll('#root .fixed.inset-0')],z='2147483646';for(const modal of modals){if(modal.style.getPropertyValue('z-index')!==z||modal.style.getPropertyPriority('z-index')!=='important')modal.style.setProperty('z-index',z,'important');modal.dataset.wwGameModalFront='1';const pane=modal.closest('.ww-core-pane'),key=pane?.dataset.wwCorePane;if(key&&wwCoreWindows.has(key)&&modal.dataset.wwCoreHostRaised!==key){modal.dataset.wwCoreHostRaised=key;wwCoreRaise(key)}}for(const item of wwCoreWindows.values())wwCoreSyncStack(item);return modals;",
+    "    const modals=[...document.querySelectorAll('#root .fixed.inset-0')],z='2147483646';\n    /* WML: 창 분리를 껐으면 게임 팝업의 z 를 건드리지 않아요 — 건드리면 팝업이 다른 모드 창보다 위로 올라가 버려요.\n       껐다 켰다 하니까 전에 붙여 둔 값은 떼어 내고 게임 원래 순서로 돌려 놔요 (팝업이 창 테두리에 가리는 건 「창 겹침 보정」 모드가 봐 줘요). */\n    if(!wwCoreWindowsOn()){for(const modal of modals)if(modal.dataset.wwGameModalFront==='1'){modal.style.removeProperty('z-index');delete modal.dataset.wwGameModalFront;delete modal.dataset.wwCoreHostRaised}return modals}\n    for(const modal of modals){if(modal.style.getPropertyValue('z-index')!==z||modal.style.getPropertyPriority('z-index')!=='important')modal.style.setProperty('z-index',z,'important');modal.dataset.wwGameModalFront='1';const pane=modal.closest('.ww-core-pane'),key=pane?.dataset.wwCorePane;if(key&&wwCoreWindows.has(key)&&modal.dataset.wwCoreHostRaised!==key){modal.dataset.wwCoreHostRaised=key;wwCoreRaise(key)}}for(const item of wwCoreWindows.values())wwCoreSyncStack(item);return modals;"
+  ],
+  [
+    "  wwTabDisplay=function(body,config,state){\n    const sec=wwSec(body,'실시간 인물 창');\n    const row=wwEl('label','ww-display-row'),sel=wwEl('select');sel.dataset.wwGridMode='1';const auto=wwEl('option','','자동');auto.value='auto';sel.append(auto);for(const id of WW_GRID_ORDER){const o=wwEl('option','',id.replace('x','×'));o.value=id;sel.append(o)}sel.value=config.gridMode;sel.addEventListener('change',()=>{config.gridMode=sel.value;config.panelRect=null;wwSave();wwRenderLive()});row.append(wwEl('span','','칸 배치'),sel);sec.append(row);\n    sec.append(wwEl('p','ww-help','구입한 노예만 보여 줍니다. 「자동」은 인원에 맞춰 배치하고(1명 1×1 · 2명 2×1 · 3명 3×1 · 4명 2×2 · 5~6명 3×2 · 7~8명 4×2 · 9명 이상 5×2), 실시간 창 위쪽 선택 상자로도 바꿀 수 있습니다. 글자 크기는 A−/A+로, 이미지·상태·이야기 높이는 창 안의 경계선을 끌어 조절합니다.'));\n    const resetRow=wwEl('div','ww-side-row'),reset=wwEl('button','ww-random-all','초기화');reset.type='button';reset.addEventListener('click',()=>{config.panelRect=null;config.liveFontScale=100;config.liveImageHeight=145;config.liveStatusHeight=62;config.liveStoryHeight=135;config.gridMode='auto';wwSave();wwRenderSettings()});resetRow.append(wwEl('span','','창 위치·크기·표시 크기·칸 배치'),reset);sec.append(resetRow);\n  };",
+    "  wwTabDisplay=function(body,config,state){\n    const sec=wwSec(body,'실시간 인물 창');\n    const row=wwEl('label','ww-display-row'),sel=wwEl('select');sel.dataset.wwGridMode='1';const auto=wwEl('option','','자동');auto.value='auto';sel.append(auto);for(const id of WW_GRID_ORDER){const o=wwEl('option','',id.replace('x','×'));o.value=id;sel.append(o)}sel.value=config.gridMode;sel.addEventListener('change',()=>{config.gridMode=sel.value;config.panelRect=null;wwSave();wwRenderLive()});row.append(wwEl('span','','칸 배치'),sel);sec.append(row);\n    sec.append(wwEl('p','ww-help','구입한 노예만 보여 줍니다. 「자동」은 인원에 맞춰 배치하고(1명 1×1 · 2명 2×1 · 3명 3×1 · 4명 2×2 · 5~6명 3×2 · 7~8명 4×2 · 9명 이상 5×2), 실시간 창 위쪽 선택 상자로도 바꿀 수 있습니다. 글자 크기는 A−/A+로, 이미지·상태·이야기 높이는 창 안의 경계선을 끌어 조절합니다.'));\n    const resetRow=wwEl('div','ww-side-row'),reset=wwEl('button','ww-random-all','초기화');reset.type='button';reset.addEventListener('click',()=>{config.panelRect=null;config.liveFontScale=100;config.liveImageHeight=145;config.liveStatusHeight=62;config.liveStoryHeight=135;config.gridMode='auto';wwSave();wwRenderSettings()});resetRow.append(wwEl('span','','창 위치·크기·표시 크기·칸 배치'),reset);sec.append(resetRow);\n    /* WML: 「창 분리」 켜고 끄기 (기본 꺼짐) */\n    const wwSplitSec=wwSec(body,'창 분리');\n    wwSplitSec.append(wwCheckRow('이야기·가게·그녀·행동 칸 떼어 내기','네 칸을 떼어 내 화면 안에서 옮기고 크기를 바꿉니다. 새 창이 아니라서 다른 모니터로는 못 보내고, 다른 모드 창과 앞뒤 순서가 엉킬 수 있어 기본은 꺼져 있어요. 모니터를 여러 대 쓰려면 「창 나누기」 모드를 쓰세요.',wwCoreWindowsOn(),value=>{wwSetCoreWindowsOn(value);wwDecorateGame();wwRenderSettings()}));\n  };"
+  ]
+]

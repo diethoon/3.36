@@ -1,0 +1,292 @@
+{
+ "from": "2026-09-30",
+ "to": "2026-10-04",
+ "rows": [
+  {
+   "old": "Fc",
+   "name": "gd",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "Fc=[eee,tee,oee,nee,see]",
+   "newHead": "gd=[gae,_ae,yae,bae,wae]"
+  },
+  {
+   "old": "G5e",
+   "name": "UNe",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function G5e(e){const t={};for(const[o,n]of Object.entries(Vq))n!=null&&(t[o]={encourageme",
+   "newHead": "function UNe(e){const t={};for(const[o,n]of Object.entries(p4))n!=null&&(t[o]={encourageme"
+  },
+  {
+   "old": "GM",
+   "name": "lD",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function GM(e,t,o,n){const s=e.name;if(t){const i=Ib(t);if(t.turnedOut){const l=go(n)-t.tu",
+   "newHead": "function lD(e,t,o,n){const s=e.name;if(t){const i=sw(t);if(t.turnedOut){const l=co(n)-t.tu"
+  },
+  {
+   "old": "Ga",
+   "name": "Ka",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function Ga(e,t,o){const n={...e,customers:[...e.customers,t]};return Bt(n,t.id,o)}",
+   "newHead": "function Ka(e,t,o){const n={...e,customers:[...e.customers,t]};return Pt(n,t.id,o)}"
+  },
+  {
+   "old": "Hw",
+   "name": "w0",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function Hw(e,t){var i;const o=Nd(e),n=`${Math.round(t*100)}%`,s=/[+−]$/.test(o)?`${o}${n}",
+   "newHead": "function w0(e,t){var i;const o=Qd(e),n=`${Math.round(t*100)}%`,s=/[+−]$/.test(o)?`${o}${n}"
+  },
+  {
+   "old": "Jf",
+   "name": "$p",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function Jf(e){return sye(yo(e).storage??[])}",
+   "newHead": "function $p(e){return d0e(wo(e).storage??[])}"
+  },
+  {
+   "old": "KV",
+   "name": "DK",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function KV(e){var m,p;const t=new Set(e.customers.map(y=>y.name)),o=go(e.slot);let n=e;co",
+   "newHead": "function DK(e){var f,p;const t=new Set(e.customers.map(g=>g.name)),o=co(e.slot);let n=e;co"
+  },
+  {
+   "old": "Kw",
+   "name": "E0",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function Kw(e,t,o=!1){var i,l;const n=new Map;for(const h of new Set(t)){const d=o?Fa(e,h)",
+   "newHead": "function E0(e,t,o=!1){var i,l;const n=new Map;for(const h of new Set(t)){const d=o?Va(e,h)"
+  },
+  {
+   "old": "L",
+   "name": "B",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function L(e){const t=(e==null?void 0:e.attributes)??X5e,o=e==null?void 0:e.attributeEffec",
+   "newHead": "function B(e){const t=(e==null?void 0:e.attributes)??QNe,o=e==null?void 0:e.attributeEffec"
+  },
+  {
+   "old": "Mn",
+   "name": "Hn",
+   "how": "literal×3",
+   "score": 0.85,
+   "oldHead": "Mn=\"player\"",
+   "newHead": "Hn=\"player\""
+  },
+  {
+   "old": "Nd",
+   "name": "Qd",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function Nd(e){var t;return((t=vo[e])==null?void 0:t.label)??e}",
+   "newHead": "function Qd(e){var t;return((t=So[e])==null?void 0:t.label)??e}"
+  },
+  {
+   "old": "V6",
+   "name": "DB",
+   "how": "exact×11/position",
+   "score": 0.8,
+   "oldHead": "V6=[\"hunting\",\"foraging\",\"brewing\",\"cooking\",\"serving\"]",
+   "newHead": "DB=[\"hunting\",\"foraging\",\"brewing\",\"cooking\",\"serving\"]"
+  },
+  {
+   "old": "Vq",
+   "name": "p4",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "Vq={sex_vaginal:45,sex_rough:45,sex_anal:45,oral_giving:30,oral_receiving:30,genital_rubbi",
+   "newHead": "p4={sex_vaginal:45,sex_rough:45,sex_anal:45,oral_giving:30,oral_receiving:30,genital_rubbi"
+  },
+  {
+   "old": "Ww",
+   "name": "x0",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function Ww(e,t,o){const n=V8(q8(e,t,o)),s=[\"clean\",\"partial\",\"overload\",\"sideways\",\"backl",
+   "newHead": "function x0(e,t,o){const n=BW(LW(e,t,o)),s=[\"clean\",\"partial\",\"overload\",\"sideways\",\"backl"
+  },
+  {
+   "old": "Ya",
+   "name": "qa",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function Ya(e){return Wa(e,\"player\")}",
+   "newHead": "function qa(e){return Ga(e,\"player\")}"
+  },
+  {
+   "old": "aH",
+   "name": "VL",
+   "how": "literal×12",
+   "score": 0.85,
+   "oldHead": "aH=8",
+   "newHead": "VL=8"
+  },
+  {
+   "old": "c7",
+   "name": "ZF",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function c7(e,t,o){if(o!==e.primaryCharacterId)return 0;let n=0;for(const s of t.effects){",
+   "newHead": "function ZF(e,t,o){if(o!==e.primaryCharacterId)return 0;let n=0;for(const s of t.effects){"
+  },
+  {
+   "old": "eae",
+   "name": "ehe",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function eae(e,t,o,n){var y;const s=`customer-${zc++}`,r=t?Math.min(25,t.boldness-e.boldne",
+   "newHead": "function ehe(e,t,o,n){var g;const s=`customer-${_d++}`,r=t?Math.min(25,t.boldness-e.boldne"
+  },
+  {
+   "old": "hx",
+   "name": "Qx",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function hx(e,t,o,n){const s=Hl(e,t,o),r=u0(e,o),a=o===Mn;let i=e;if(s.length===0)return j",
+   "newHead": "function Qx(e,t,o,n){const s=Jl(e,t,o),r=J0(e,o),a=o===Hn;let i=e;if(s.length===0)return N"
+  },
+  {
+   "old": "ibe",
+   "name": "fke",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function ibe(e,t,o){let n=e;const s=k5(zw(e),v5(t,o));if(Math.random()>=s)return n=qm(n,\"b",
+   "newHead": "function fke(e,t,o){let n=e;const s=N2(A0(e),j2(t,o));if(Math.random()>=s)return n=vf(n,\"b"
+  },
+  {
+   "old": "j",
+   "name": "N",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function j(e,t,o){return Va(e,{text:t,coLocated:St(e),...o?{eventCategory:o}:{}})}",
+   "newHead": "function N(e,t,o){return hs(e,{text:t,coLocated:kt(e),...o?{eventCategory:o}:{}})}"
+  },
+  {
+   "old": "k5",
+   "name": "N2",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function k5(e,t){const o=(e-t)/18,n=1/(1+Math.exp(-o));return z(.08+.87*n,.05,.95)}",
+   "newHead": "function N2(e,t){const o=(e-t)/18,n=1/(1+Math.exp(-o));return K(.08+.87*n,.05,.95)}"
+  },
+  {
+   "old": "kh",
+   "name": "Lh",
+   "how": "override",
+   "score": 1,
+   "oldHead": "function kh(e,t){const o=Fc.find(n=>((t&&Fc.some(koNamed=>t[koNamed.id]===e))?t[n.id]===e:",
+   "newHead": "function Lh(e,t){const o=gd.find(n=>n.name===e);if(o)return o;if(t){for(const[n,s]of Objec"
+  },
+  {
+   "old": "koCollector170",
+   "status": "unmatched",
+   "oldHead": "function koCollector170(record) { return !!record && (record.isCollector === true || rec",
+   "newHead": ""
+  },
+  {
+   "old": "m$",
+   "name": "S5",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function m$(e,t){const o=t===\"drink_only\"||t===\"talk_only\",n=(()=>{switch(e){case\"regular\"",
+   "newHead": "function S5(e,t){const o=t===\"drink_only\"||t===\"talk_only\",n=(()=>{switch(e){case\"regular\""
+  },
+  {
+   "old": "nd",
+   "name": "Td",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "nd=[Ct(\"nettle\",\"쐐기풀\",\"edge\",\"any\",.9,0,.1,[\"restore_energy\",\"sap_charm\",\"clear_fatigue\",\"",
+   "newHead": "Td=[Ct(\"nettle\",\"nettle\",\"edge\",\"any\",.9,0,.1,[\"restore_energy\",\"sap_charm\",\"clear_fatigue"
+  },
+  {
+   "old": "po",
+   "name": "_o",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function po(e){var t;return Math.max(0,Math.min(rs(e),((t=e.mana)==null?void 0:t.current)?",
+   "newHead": "function _o(e){var t;return Math.max(0,Math.min(ms(e),((t=e.mana)==null?void 0:t.current)?"
+  },
+  {
+   "old": "qw",
+   "name": "N0",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function qw(e){return e.effects.length===0?\"물이나 다름없는 것\":[...e.effects].sort((t,o)=>o.units",
+   "newHead": "function N0(e){return e.effects.length===0?\"water, near enough\":[...e.effects].sort((t,o)="
+  },
+  {
+   "old": "rH",
+   "name": "qL",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function rH(e,t,o){const n=`customer-${zc++}`,s=Math.min(20,e.visitCount*5),r=e.personaTag",
+   "newHead": "function qL(e,t,o){const n=`customer-${_d++}`,s=Math.min(20,e.visitCount*5),r=e.personaTag"
+  },
+  {
+   "old": "re",
+   "name": "ae",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "re=gb()(_b((e,t)=>({state:_c(),started:!1,selectingArchetype:!1,selectingBuilder:!1,select",
+   "newHead": "ae=Wf()(Vb((e,t)=>({state:Pc(),started:!1,selectingArchetype:!1,selectingBuilder:!1,select"
+  },
+  {
+   "old": "rs",
+   "name": "ms",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function rs(e){const t=Ym(e.attunement)/100;return Math.round(kS+(xce-kS)*t)}",
+   "newHead": "function ms(e){const t=yf(e.attunement)/100;return Math.round(p1+($me-p1)*t)}"
+  },
+  {
+   "old": "sh",
+   "name": "_h",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "sh={true_prude:{id:\"true_prude\",startingShift:{traits:{openness:-10},affinities:{anal:-1.5",
+   "newHead": "_h={true_prude:{id:\"true_prude\",startingShift:{traits:{openness:-10},affinities:{anal:-1.5"
+  },
+  {
+   "old": "sye",
+   "name": "d0e",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function sye(e){return tye+e.reduce((t,o)=>{var n;return t+(((n=Lw[o])==null?void 0:n.room",
+   "newHead": "function d0e(e){return l0e+e.reduce((t,o)=>{var n;return t+(((n=k0[o])==null?void 0:n.room"
+  },
+  {
+   "old": "vo",
+   "name": "So",
+   "how": "override",
+   "score": 1,
+   "oldHead": "vo=Object.fromEntries(K_e.map(e=>[e.id,e]))",
+   "newHead": "So=Object.fromEntries(o0e.map(e=>[e.id,e]))"
+  },
+  {
+   "old": "wbe",
+   "name": "Ike",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function wbe(e,t){if(be(e)!==\"taproom\")return e;const o=e.patronRecords.findIndex(l=>l.nam",
+   "newHead": "function Ike(e,t){if(_e(e)!==\"taproom\")return e;const o=e.patronRecords.findIndex(l=>l.nam"
+  },
+  {
+   "old": "yo",
+   "name": "wo",
+   "how": "exact",
+   "score": 1,
+   "oldHead": "function yo(e){const t=e.stillroom;if(!t)return Kye();if(t.cups&&t.known&&!t.potions)retur",
+   "newHead": "function wo(e){const t=e.stillroom;if(!t)return oke();if(t.cups&&t.known&&!t.potions)retur"
+  }
+ ]
+}

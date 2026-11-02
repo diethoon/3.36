@@ -1,0 +1,5 @@
+[
+  ["panel.setAttribute('role','dialog');panel.setAttribute('aria-labelledby','wdd-title');","/* WML: a side panel you keep open while playing, not a dialog; WAYWORKS stops every game hotkey while a role=dialog is visible (the theme popover below stays a dialog) */panel.setAttribute('role','complementary');panel.setAttribute('aria-labelledby','wdd-title');"],
+  ["find(node=>node.textContent.trim()==='일시 정지')","find(node=>['일시 정지','Paused'].includes(node.textContent.trim())) /* WML: English build too */"],
+  ["find(node=>node.textContent.trim()==='설정')","find(node=>['설정','Settings'].includes(node.textContent.trim()))"]
+]
