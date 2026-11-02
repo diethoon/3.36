@@ -46,3 +46,5 @@ WML 레이아웃 훅에서 기존 React 위치·인물 목록 요소의 표시 �
 이 패키지는 **4.38MB Wayward_WML_ko.html / 2026-10-24-pre7** 빌드 전용입니다. 6.74MB v4.0 빌드나 19MB 구형 HTML과 호환된다고 주장하지 않습니다.
 
 수정한 모드 파일에 대해 node --check, React 트리 회귀 테스트, git diff --check, WML ZIP 구조 및 원본 파일 SHA-256 검사를 수행합니다. 실제 브라우저·모바일 기기에서의 최종 화면 확인 결과는 별도로 구분해 보고합니다.
+
+<!-- trigger source-context refresh -->
