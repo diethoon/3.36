@@ -76,3 +76,5 @@ jobs:
 # trigger diagnostic test
 
 # trigger final v1.3.2 validation
+
+# trigger React marker fix validation
