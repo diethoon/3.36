@@ -40,16 +40,16 @@ jobs:
           whole = hashlib.sha256()
           manifest = []
           patterns = {
-              "function_loe": re.compile(rb"function\\s+loe\\b"),
-              "assign_loe": re.compile(rb"(?:const|let|var)?\\s*loe\\s*="),
-              "function_itt": re.compile(rb"function\\s+itt\\b"),
-              "assign_itt": re.compile(rb"(?:const|let|var)?\\s*itt\\s*="),
-              "function_hoe": re.compile(rb"function\\s+hoe\\b"),
-              "assign_hoe": re.compile(rb"(?:const|let|var)?\\s*hoe\\s*="),
-              "function_Z0": re.compile(rb"function\\s+Z0\\b"),
-              "assign_Z0": re.compile(rb"(?:const|let|var)?\\s*Z0\\s*="),
-              "function_Ast": re.compile(rb"function\\s+Ast\\b"),
-              "function_sB": re.compile(rb"function\\s+sB\\b"),
+              "function_loe": re.compile(rb"function\s+loe\b"),
+              "assign_loe": re.compile(rb"(?:const|let|var)?\s*loe\s*="),
+              "function_itt": re.compile(rb"function\s+itt\b"),
+              "assign_itt": re.compile(rb"(?:const|let|var)?\s*itt\s*="),
+              "function_hoe": re.compile(rb"function\s+hoe\b"),
+              "assign_hoe": re.compile(rb"(?:const|let|var)?\s*hoe\s*="),
+              "function_Z0": re.compile(rb"function\s+Z0\b"),
+              "assign_Z0": re.compile(rb"(?:const|let|var)?\s*Z0\s*="),
+              "function_Ast": re.compile(rb"function\s+Ast\b"),
+              "function_sB": re.compile(rb"function\s+sB\b"),
               "dialogue_terms": re.compile("대화|당신|그녀|대답|말한다|말했습니다".encode("utf-8")),
               "gauge_terms": re.compile("기력|기분|신뢰|이목|흥분도|게이지|상태".encode("utf-8")),
               "dialog_class_terms": re.compile(rb"dialogue|conversation|speech|gauge|meter|progressbar", re.I),
@@ -81,23 +81,25 @@ jobs:
 
           Path("evidence").mkdir(exist_ok=True)
           with Path("evidence/chunk-manifest.tsv").open("w", encoding="utf-8") as out:
-              out.write("offset\\tlength\\tsha256\\n")
+              out.write("offset\tlength\tsha256\n")
               for off, length, digest in manifest:
-                  out.write(f"{off}\\t{length}\\t{digest}\\n")
+                  out.write(f"{off}\t{length}\t{digest}\n")
 
-          raw = None
           excerpts = []
-          for key, positions in hits.items():
-              for pos in positions[:12]:
-                  start = max(0, pos - 700)
-                  end = min(len(raw), pos + 1100)
-                  excerpts.append({
-                      "pattern": key,
-                      "offset": pos,
-                      "start": start,
-                      "end": end,
-                      "text": raw[start:end].decode("utf-8", "replace")
-                  })
+          with source.open("rb") as excerpt_file:
+              for key, positions in hits.items():
+                  for pos in positions[:12]:
+                      start = max(0, pos - 700)
+                      end = min(size, pos + 1100)
+                      excerpt_file.seek(start)
+                      excerpt_bytes = excerpt_file.read(end - start)
+                      excerpts.append({
+                          "pattern": key,
+                          "offset": pos,
+                          "start": start,
+                          "end": end,
+                          "text": excerpt_bytes.decode("utf-8", "replace")
+                      })
           evidence = {
               "target": "Wayward_WML_ko.html",
               "checkout_head": subprocess.check_output(
