@@ -166,8 +166,7 @@ const thoughtCard = React.createElement("div", {
   ),
   thoughtBody
 );
-function Znt() {}
-const portraitResult = React.createElement(Znt, { children: thoughtCard });
+const portraitResult = React.createElement("section", {}, thoughtCard);
 const transformedPortrait = registeredHooks.wifePortrait.around(() => portraitResult);
 const pinnedThought = findByClass(transformedPortrait, "m36-ui-migration-inner-thought");
 assert.ok(pinnedThought, "original inner-thought card is tagged for sticky placement");
