@@ -2,7 +2,7 @@ name: Package Google Drive cloud-save mod
 
 on:
   push:
-    branches: [wml]
+    branches: [wml, fix/cloud-save-2026-10-24-pre7]
     paths:
       - "Wayward_MOD_v4.0_WML_검수완료/wml/mods/cloud-save/**"
       - "Wayward_MOD_v4.0_WML_검수완료/wml/mods/mods.js"
@@ -20,6 +20,8 @@ jobs:
       - name: Package installable mod folder
         run: |
           set -euo pipefail
+          node --check "Wayward_MOD_v4.0_WML_검수완료/wml/mods/cloud-save/mod.js"
+          node --check "Wayward_MOD_v4.0_WML_검수완료/wml/mods/cloud-save/crypto.js"
           mkdir -p dist/cloud-save/wml/mods
           cp -a "Wayward_MOD_v4.0_WML_검수완료/wml/mods/cloud-save" dist/cloud-save/wml/mods/
           cp "Wayward_MOD_v4.0_WML_검수완료/wml/mods/mods.js" dist/cloud-save/wml/mods/mods.js
