@@ -1,0 +1,166 @@
+name: Temporary M36 dialogue forensic
+
+on:
+  pull_request:
+    branches:
+      - mobile-ui-migration-438-v2
+    paths:
+      - .github/workflows/m36-dialogue-forensic.yml
+
+permissions:
+  contents: read
+
+jobs:
+  inspect-target-html:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout exact forensic target
+        uses: actions/checkout@v4
+        with:
+          ref: 85646064e47e7ee85b68a79a7cf63306d396446e
+          fetch-depth: 1
+
+      - name: Stream the exact HTML in 4096-byte chunks
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p evidence
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib
+          import json
+
+          path = Path("Wayward_WML_ko.html")
+          expected_size = 4383674
+          expected_sha256 = "35a0ccf79ff18d8650554f6788d8a0952ba7c683b63aea1c17c0b4f1273817f2"
+          expected_blob = "8d998b50e82febe18b5c1d1159b16663b9169775"
+
+          patterns = [
+              b"function loe", b"loe(", b"function itt", b"itt(",
+              b"function hoe", b"hoe(", b"function Ast", b"Ast(",
+              b"function Z0", b"Z0(", b"function sLe", b"sLe(",
+              "응대 중".encode(), "가까이 다가갑니다".encode(),
+              "당신".encode(), "그녀".encode(), "기력".encode(),
+              "기분".encode(), "신뢰".encode(), "대화".encode(),
+              "라이자".encode(), b"conversation", b"dialogue", b"Dialogue",
+              b"aria-label", b"role:"
+          ]
+          counts = {p: 0 for p in patterns}
+          samples = {p: [] for p in patterns}
+          overlap = max(len(p) for p in patterns) - 1
+          tail = b""
+          offset = 0
+          sha256 = hashlib.sha256()
+          git_sha1 = hashlib.sha1()
+          chunk_rows = []
+
+          if not path.is_file():
+              raise SystemExit("TARGET_HTML_MISSING: " + str(path))
+
+          actual_size = path.stat().st_size
+          git_sha1.update(b"blob " + str(actual_size).encode("ascii") + b"\0")
+
+          with path.open("rb") as src:
+              while True:
+                  chunk = src.read(4096)
+                  if not chunk:
+                      break
+                  sha256.update(chunk)
+                  git_sha1.update(chunk)
+                  chunk_rows.append(
+                      f"{offset}\t{len(chunk)}\t{hashlib.sha256(chunk).hexdigest()}\n"
+                  )
+
+                  scan = tail + chunk
+                  scan_base = offset - len(tail)
+                  for pattern in patterns:
+                      pos = 0
+                      while True:
+                          hit = scan.find(pattern, pos)
+                          if hit < 0:
+                              break
+                          absolute = scan_base + hit
+                          if absolute + len(pattern) > offset:
+                              counts[pattern] += 1
+                              if len(samples[pattern]) < 12:
+                                  samples[pattern].append(absolute)
+                          pos = hit + 1
+
+                  tail = scan[-overlap:] if overlap else b""
+                  offset += len(chunk)
+
+          digest = sha256.hexdigest()
+          blob = git_sha1.hexdigest()
+          Path("evidence/chunk_hashes.tsv").write_text(
+              "offset\tlength\tsha256\n" + "".join(chunk_rows),
+              encoding="utf-8"
+          )
+
+          lines = [
+              "# M36 exact-source forensic report",
+              "",
+              f"- path: {path}",
+              f"- bytes: {actual_size}",
+              f"- read_bytes: {offset}",
+              f"- chunks: {len(chunk_rows)}",
+              f"- sha256: {digest}",
+              f"- git_blob_sha1: {blob}",
+              f"- expected_size_match: {actual_size == expected_size}",
+              f"- expected_sha256_match: {digest == expected_sha256}",
+              f"- expected_blob_match: {blob == expected_blob}",
+              "",
+              "## Search counts and byte offsets",
+              ""
+          ]
+
+          with path.open("rb") as src:
+              for pattern in patterns:
+                  label = pattern.decode("utf-8", "replace")
+                  offsets = samples[pattern]
+                  lines.append(f"### {label} — count={counts[pattern]}")
+                  lines.append("offsets: " + (", ".join(map(str, offsets)) if offsets else "(none)"))
+                  for index, absolute in enumerate(offsets[:8], 1):
+                      start = max(0, absolute - 768)
+                      src.seek(start)
+                      raw = src.read(1792)
+                      text = raw.decode("utf-8", "replace")
+                      text = " ".join(text.split())
+                      lines.append(f"sample {index} @ {absolute}:")
+                      lines.append(text)
+                  lines.append("")
+
+          Path("evidence/forensic_report.md").write_text(
+              "\n".join(lines) + "\n",
+              encoding="utf-8"
+          )
+
+          summary = {
+              "path": str(path),
+              "bytes": actual_size,
+              "read_bytes": offset,
+              "chunks": len(chunk_rows),
+              "sha256": digest,
+              "git_blob_sha1": blob,
+              "expected_size_match": actual_size == expected_size,
+              "expected_sha256_match": digest == expected_sha256,
+              "expected_blob_match": blob == expected_blob,
+              "pattern_counts": {
+                  pattern.decode("utf-8", "replace"): counts[pattern]
+                  for pattern in patterns
+              }
+          }
+          Path("evidence/summary.json").write_text(
+              json.dumps(summary, ensure_ascii=False, indent=2) + "\n",
+              encoding="utf-8"
+          )
+          print(json.dumps(summary, ensure_ascii=False))
+          PY
+
+      - name: Upload forensic evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: m36-dialogue-forensic
+          path: evidence/
+          if-no-files-found: error
+          retention-days: 1
