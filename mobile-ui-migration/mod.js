@@ -112,6 +112,10 @@ WML.define({
       const storyPane = inStoryPane ||
         className.includes("flex-1 min-h-0 overflow-y-auto p-2 text-[0.78rem]");
 
+      if (portraitMode && statusElements?.prepPanel &&
+          node.type === "div" && className.includes("mb-3") &&
+          containsComponent(node, "$ot")) return null;
+
       if (portraitMode && node === statusElements?.prepPanel &&
           typeName === "$ot") return null;
 
