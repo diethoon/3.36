@@ -1,9 +1,7 @@
 name: Temporary inspect Wayward inner thoughts
 on:
-  push:
+  pull_request:
     branches: [main]
-    paths:
-      - .github/workflows/inspect-wayward-inner-thoughts.yml
 permissions:
   contents: read
 jobs:
