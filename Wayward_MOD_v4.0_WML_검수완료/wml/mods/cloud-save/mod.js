@@ -5,15 +5,10 @@
 WML.define({
   id: 'cloud-save',
   name: '클라우드세이브 (Google Drive)',
-  version: '0.4.1',
+  version: '0.4.3',
   game: '>=2026-10-04',
   description: 'Google 계정으로 연결해 개인 Drive에 암호화 세이브를 저장합니다. 게임 세이브는 서버를 거치지 않습니다.',
   symbols: {
-    "nativeSaveJSON": {
-      "raw": { "2026-10-04": "VDe" },
-      "doc": "게임 기본 세이브(JSON)를 생성합니다.",
-      "find": { "all": ["gameVersion:"], "len": 150, "any": ["modData:", "format:", "savedAt:", ".toISOString", ".stringify", "state:"] }
-    },
     "pauseMenu": {
       "raw": { "2026-10-04": "N6e" },
       "doc": "게임 기본 일시정지 메뉴.",
@@ -44,7 +39,7 @@ WML.define({
     let sessionPolicy = 'persistent';
 
     // Fixed HTTPS bridge avoids per-device Google OAuth origin setup.
-    const AUTH_BRIDGE_URL = 'https://diethoon.github.io/3.36/cloud-save-auth-static/';
+    const AUTH_BRIDGE_URL = 'https://wayward-cloud-auth.vercel.app/';
     const FILE_PREFIX = 'wayward-cloud-slot-';
     const STYLE_ID = 'wml-google-drive-save-style';
 
@@ -309,21 +304,40 @@ WML.define({
       if (!state || typeof state !== 'object' || Array.isArray(state)) {
         throw new Error('게임이 시작된 뒤에 저장할 수 있습니다.');
       }
-      const native = JSON.parse(api.fn('nativeSaveJSON')(state, String(api.game || '')));
-      if (!native || native.format !== 1 || !native.state || typeof native.state !== 'object') {
-        throw new Error('게임의 기본 세이브 형식을 만들지 못했습니다.');
+      // Prefer the game's native serializer when WML resolves it. Some newer
+      // builds no longer expose that minified helper under a stable symbol.
+      // In that case preserve the current JSON-compatible game state directly;
+      // do not block the whole addon on an optional private implementation detail.
+      let native = null;
+      if (api.has('nativeSaveJSON')) {
+        try {
+          native = JSON.parse(api.fn('nativeSaveJSON')(state, String(api.game || '')));
+        } catch (_) {
+          native = null;
+        }
       }
+      const stateToSave = native && native.format === 1 && native.state &&
+        typeof native.state === 'object' && !Array.isArray(native.state)
+        ? native.state
+        : JSON.parse(JSON.stringify(state));
+      const gameVersion = native && native.gameVersion != null
+        ? String(native.gameVersion)
+        : String(api.game || '');
+      const modData = native && native.modData && typeof native.modData === 'object'
+        ? native.modData
+        : (stateToSave.mods && typeof stateToSave.mods === 'object' &&
+          !Array.isArray(stateToSave.mods) ? stateToSave.mods : {});
       return {
         schema: 'wayward-cloud-save',
         version: 1,
         game: String(api.game || ''),
-        gameVersion: native.gameVersion,
-        nativeFormat: native.format,
+        gameVersion,
+        nativeFormat: 1,
         savedAt: Date.now(),
         memo: '',
-        title: defaultTitle(native.state),
-        state: native.state,
-        modData: native.modData || {}
+        title: defaultTitle(stateToSave),
+        state: stateToSave,
+        modData
       };
     }
 
