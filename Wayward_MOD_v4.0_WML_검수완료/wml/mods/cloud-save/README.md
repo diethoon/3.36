@@ -1,4 +1,4 @@
-# 클라우드세이브 — Google Drive (WML / v0.4.2)
+# 클라우드세이브 — Google Drive (WML / v0.4.3)
 
 이 모드는 Wayward의 현재 WML HTML과 함께 사용하는 Google Drive 저장 모드입니다. 0.4.2부터 게임 내부 `nativeSaveJSON` 심볼을 찾을 수 없는 최신 빌드에서는 현재 게임 상태를 JSON으로 보존하는 호환 경로를 사용합니다. 저장 파일은 게임 페이지에서 암호화한 뒤 Google Drive의 앱 전용 `appDataFolder`에 직접 올립니다. 게임 세이브 본문을 저장 서버에 업로드하지 않습니다.
 
@@ -13,11 +13,11 @@
 
 인증 페이지는 다음 GitHub Pages 정적 주소를 사용합니다.
 
-`https://diethoon.github.io/3.36/cloud-save-auth-static/`
+`https://wayward-cloud-auth.vercel.app/`
 
-- 이 게임 모드의 로그인에는 별도 Vercel API, OAuth client secret, OAUTH state secret 또는 게임별 redirect URI가 필요하지 않습니다.
+- 인증 화면과 OAuth 시작/콜백은 기존 Vercel 프로젝트 `wayward-cloud-auth`를 사용합니다. 사용자는 Vercel API 키나 OAuth client secret을 게임 파일에 넣을 필요가 없습니다.
 - 정적 인증 페이지는 저장 데이터를 받지 않습니다. OAuth 브라우저 토큰을 게임 창에만 전달하며 요청의 nonce와 창 출처를 확인합니다.
-- 공개 Google OAuth 클라이언트 ID는 저장소의 `cloud-save-auth-static/config.js`에 이미 지정되어 있습니다. 인증이 설정 오류로 거부된다면 해당 OAuth 클라이언트의 승인된 JavaScript 원본에 `https://diethoon.github.io`가 등록되어 있는지와 페이지 배포 상태를 확인하세요. client secret을 게임 HTML이나 모드 ZIP에 넣지 마세요.
+- 공개 Google OAuth 클라이언트 ID는 저장소의 `cloud-save-auth-static/config.js`에 이미 지정되어 있습니다. 인증이 설정 오류로 거부된다면 해당 OAuth 클라이언트의 승인된 JavaScript 원본에 `https://wayward-cloud-auth.vercel.app`가 등록되어 있는지와 Vercel 인증 서비스 상태를 확인하세요. client secret을 게임 HTML이나 모드 ZIP에 넣지 마세요.
 - 브라우저가 팝업을 차단하면 인증 팝업을 허용해야 합니다. 일부 브라우저는 `file://`에서 팝업 메시지, WebCrypto 또는 로컬 저장소를 제한할 수 있으므로 문제가 있으면 AWebServer/localhost 또는 HTTPS에서 실행하세요.
 
 ## 저장·암호화·로그인 유지
