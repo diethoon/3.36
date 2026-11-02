@@ -64,3 +64,5 @@ jobs:
 # inspect stock preparation and customer renderer
 
 # trigger updated stock and customer contexts
+
+# refresh stock component call sites
