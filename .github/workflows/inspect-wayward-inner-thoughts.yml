@@ -21,32 +21,24 @@ jobs:
           terms=['그녀의 속마음','속마음','이야기','가게','피파','narration','thought','innerThought','thoughts','마음']
           terms=[t.encode() for t in terms]
           h=hashlib.sha256(); manifest=hashlib.sha256(); overlap=b''; off=0; chunks=0; hits={t:[] for t in terms}
+          target=3692801
           with open(p,'rb') as f:
+            f.seek(0); data=f.read()
+          fn=data.rfind(b'function ',0,target)
+          print('PREVIOUS_FUNCTION offset=%d context=%r'%(fn,data[fn:fn+500]))
+          for term in ['이야기','가게','피파','그녀의 속마음']:
+            t=term.encode()
+            ps=[]; start=max(0,target-250000)
             while True:
-              c=f.read(4096)
-              if not c: break
-              h.update(c); manifest.update(off.to_bytes(8,'big')+len(c).to_bytes(4,'big')+hashlib.sha256(c).digest()); chunks+=1
-              d=overlap+c; base=off-len(overlap)
-              for t in terms:
-                i=0
-                while True:
-                  j=d.find(t,i)
-                  if j<0: break
-                  pos=base+j
-                  if pos+len(t)>off and (not hits[t] or hits[t][-1]!=pos): hits[t].append(pos)
-                  i=j+1
-              overlap=d[-max(map(len,terms)):]; off+=len(c)
-          print('SOURCE bytes=%d chunks=%d sha256=%s manifest=%s'%(off,chunks,h.hexdigest(),manifest.hexdigest()))
-          for t,ps in hits.items(): print('HIT %r count=%d offsets=%s'%(t,len(ps),ps[:30]))
-          with open(p,'rb') as f:
-            f.seek(3692801)
-            prefix=f.read(3692801)
-          fn=prefix.rfind(b'function ')
-          centers=[fn,3649082,3688829,3692801,3788736]
+              j=data.find(t,start)
+              if j<0 or j>target+250000: break
+              ps.append(j); start=j+1
+            print('NEAR_TERM %s %s'%(term,ps[:100]))
+          centers=[fn,3649082,3688829,3692801]
           windows=[]
           for pos in centers:
             if pos<0: continue
-            a=max(0,pos-400); b=min(off,pos+7400)
+            a=max(0,pos-200); b=min(off,pos+7600)
             if any(not (b<=x or a>=y) for x,y in windows): continue
             windows.append((a,b))
           for a,b in windows[:16]:
