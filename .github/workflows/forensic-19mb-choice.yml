@@ -4,6 +4,7 @@ on:
     branches: [mobile-migration-v1]
     paths:
       - .github/workflows/forensic-19mb-choice.yml
+      - .github/workflows/forensic-19mb-choice-context.yml
 permissions:
   contents: read
 jobs:
