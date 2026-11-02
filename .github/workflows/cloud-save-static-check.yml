@@ -121,10 +121,13 @@ jobs:
             day: 4, rng: { seed: 123 },
             mods: { existing: { ok: true }, overlap: 'saved', 'cloud-save': { sample: 1 } },
           }, 'same-version game state, RNG, and WML mod data must be restored');
-          const accepted = restoredState;
           api.game = '2026-11-02';
           applySnapshot({ ...snapshot, game: '2026-10-04', gameVersion: '2026-10-04' });
-          assert.deepEqual(restoredState, accepted, 'same-family saves must restore across different build identifiers');
+          assert.deepEqual(restoredState, {
+            day: 4, rng: { seed: 123 },
+            mods: { existing: { ok: true }, overlap: 'saved', 'cloud-save': { sample: 1 } },
+          }, 'same-family saves must restore across different build identifiers');
+          const accepted = restoredState;
           assert.throws(() => applySnapshot({ ...snapshot, gameFamily: 'other-game' }), /다른 게임 계열/);
           assert.deepEqual(restoredState, accepted, 'different game families must not mutate game state');
           assert.throws(() => applySnapshot({ ...snapshot, modData: [] }), /MOD 데이터/);
