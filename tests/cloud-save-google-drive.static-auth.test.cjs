@@ -43,3 +43,13 @@ test('the static OAuth config contains only the public web client ID', () => {
   assert.match(config, /WAYWARD_GOOGLE_CLIENT_ID/);
   assert.doesNotMatch(config, /CLIENT_SECRET|OAUTH_STATE_SECRET|client_secret/i);
 });
+
+test('cloud saves are compatible across builds while retaining a game-family guard', () => {
+  assert.doesNotMatch(mod, /game:\s*'>=2026-10-04'/);
+  assert.match(mod, /gameFamily: 'wayward'/);
+  assert.match(mod, /snapshot\.gameFamily && snapshot\.gameFamily !== 'wayward'/);
+  assert.doesNotMatch(mod, /String\(snapshot\.gameVersion \|\| ''\) !== String\(api\.game \|\| ''\)/);
+  assert.match(mod, /"optional": true/);
+  assert.match(mod, /const rawOrigin = String\(window\.location\.origin \|\| ''\)/);
+  assert.match(mod, /const targetOrigin = isFileExecution \|\| !rawOrigin \|\| rawOrigin === 'null' \? 'null' : rawOrigin/);
+});
