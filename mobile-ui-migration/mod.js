@@ -1,10 +1,10 @@
 WML.define({
   id: "mobile-ui-migration",
   name: "M36 모바일 UI 마이그레이션",
-  version: "1.3.0",
+  version: "1.4.0",
   game: "2026-10-24-pre7",
   platform: "mobile",
-  description: "4.38MB WML 빌드용: 원본 상태·위치 UI 고정, 이야기 나레이션 정리, 전체화면·비활성 행동 접기",
+  description: "4.38MB WML 빌드용: 원본 인물 상태, 대화 본문·게이지 고정, 전체화면·비활성 행동 접기",
   symbols: {
     React: { raw: { "2026-10-24-pre7": "J" } },
     layout: { raw: { "2026-10-24-pre7": "Ast" } },
@@ -16,6 +16,7 @@ WML.define({
     const ACTION_PANEL_CLASS = "m36-ui-migration-action-panel";
     const ACTION_SCROLL_CLASS = "m36-ui-migration-action-scroll";
     const PINNED_PANEL_CLASS = "m36-ui-migration-pinned-panel";
+    const DIALOGUE_PINNED_CLASS = "m36-ui-migration-dialogue-pinned";
     const STYLE_ID = "m36-mobile-ui-migration-style";
     const MOBILE_PORTRAIT = window.matchMedia("(max-width: 1023px) and (orientation: portrait)");
     const hostPlatform = api.host?.platform || "unknown";
@@ -176,11 +177,58 @@ WML.define({
       }
     });
 
+    function pinDialogueContent(result) {
+      if (!mobileHost || !MOBILE_PORTRAIT.matches ||
+          !React.isValidElement(result) || result.type !== "div") return result;
+
+      const children = React.Children.toArray(result.props?.children);
+      if (children.length < 2) return result;
+
+      const choicePanel = children[children.length - 1];
+      if (!React.isValidElement(choicePanel)) return result;
+      const choiceClass = typeof choicePanel.props?.className === "string"
+        ? choicePanel.props.className
+        : "";
+      if (!choiceClass.includes("grid-cols-1") || !choiceClass.includes("gap-2")) {
+        return result;
+      }
+
+      const dialogueChildren = children.slice(0, -1);
+      const hasDialogueCard = dialogueChildren.some((child) => {
+        if (!React.isValidElement(child)) return false;
+        const childClass = typeof child.props?.className === "string"
+          ? child.props.className
+          : "";
+        return childClass.includes("p-3 rounded-lg border-2") &&
+          childClass.includes("bg-stone-800");
+      });
+      if (!hasDialogueCard) return result;
+
+      // Keep the game's original title, status, gauges and dialogue card intact.
+      // Only their wrapper changes; the original choice grid remains the last child.
+      const pinned = h("section", {
+        key: "m36-ui-migration-dialogue-pinned",
+        className: DIALOGUE_PINNED_CLASS,
+        "aria-label": "대화·상태·게이지"
+      }, ...dialogueChildren);
+
+      return React.cloneElement(result, null, pinned, choicePanel);
+    }
+
+    const unhookDialogue = api.hook("sB", {
+      around(next, ...args) {
+        return pinDialogueContent(next(...args));
+      }
+    });
+
     const style = document.createElement("style");
     style.id = STYLE_ID;
     style.textContent = [
       "#root ." + PINNED_PANEL_CLASS + "{display:none;box-sizing:border-box;flex:0 0 auto;min-width:0;max-width:100%;max-height:44vh;padding:4px 4px 5px;color:#e7e5e4;background:rgba(28,25,23,.98);border-bottom:1px solid rgba(120,113,108,.48);overflow-x:hidden;overflow-y:auto;overscroll-behavior:contain}",
       "#root .m36-ui-migration-original-status{min-width:0;max-width:100%;overflow-x:hidden}",
+      "#root ." + DIALOGUE_PINNED_CLASS + "{position:sticky;top:0;z-index:28;box-sizing:border-box;min-width:0;max-width:100%;max-height:42vh;overflow-x:hidden;overflow-y:auto;overscroll-behavior:contain;padding:2px 2px 5px;background:rgba(28,25,23,.985);border-bottom:1px solid rgba(120,113,108,.65);box-shadow:0 5px 10px rgba(0,0,0,.22)}",
+      "#root .m36-ui-migration-original-status [class~='items-start'][class*='my-0.5']>div[class~='flex-1']>div[class*='items-baseline'][class*='leading-snug']{display:flex!important;flex-direction:column!important;align-items:stretch!important;gap:0!important;width:100%!important}",
+      "#root .m36-ui-migration-original-status [class~='items-start'][class*='my-0.5']>div[class~='flex-1']>div[class*='items-baseline'][class*='leading-snug']>span{display:block!important;width:100%!important;max-width:100%!important;min-width:0!important;overflow:hidden!important;text-overflow:ellipsis!important;white-space:nowrap!important;line-height:1.15!important}",
       "#root ." + ACTION_SCROLL_CLASS + "{min-height:0!important;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}",
       "#root ." + ACTION_SCROLL_CLASS + " button.m36-ui-migration-disabled-choice{position:relative!important;display:flex!important;align-items:center!important;justify-content:space-between!important;gap:.35rem!important;box-sizing:border-box!important;width:100%!important;min-width:0!important;min-height:1.75rem!important;margin:.08rem 0!important;padding:.28rem .4rem!important;border:1px solid rgb(68 64 60)!important;border-radius:.4rem!important;background:rgba(28,25,23,.72)!important;color:rgb(168 162 158)!important;text-align:left!important;font-size:0!important;line-height:1.15!important;opacity:.7!important;overflow:hidden!important;white-space:nowrap!important}",
       "#root ." + ACTION_SCROLL_CLASS + " button.m36-ui-migration-disabled-choice>*{display:none!important}",
@@ -432,11 +480,11 @@ WML.define({
     Object.defineProperty(window, "__M36_MOBILE_UI_MIGRATION__", {
       configurable: true,
       value: {
-        version: "1.3.0",
+        version: "1.4.0",
         game: api.game,
         hostPlatform,
         getStatus: () => ({
-          version: "1.3.0",
+          version: "1.4.0",
           game: api.game,
           hostPlatform,
           mobileHost,
@@ -444,6 +492,7 @@ WML.define({
           actionPanel: !!document.querySelector(GAME_SELECTOR + " ." + ACTION_PANEL_CLASS),
           actionScroll: !!document.querySelector(GAME_SELECTOR + " ." + ACTION_SCROLL_CLASS),
           pinnedPanel: !!document.querySelector(GAME_SELECTOR + " ." + PINNED_PANEL_CLASS),
+          dialoguePinned: !!document.querySelector(GAME_SELECTOR + " ." + DIALOGUE_PINNED_CLASS),
           fullscreenButton: !!document.querySelector(GAME_SELECTOR + " [data-m36-ui-migration-fullscreen]"),
           disabledChoices: document.querySelectorAll(
             GAME_SELECTOR + " ." + ACTION_SCROLL_CLASS + " button.m36-ui-migration-disabled-choice"
@@ -460,12 +509,13 @@ WML.define({
           window.removeEventListener("orientationchange", queueSync);
           MOBILE_PORTRAIT.removeEventListener?.("change", queueSync);
           document.removeEventListener("fullscreenchange", updateFullscreenButton);
+          unhookDialogue();
           unhookLayout();
         }
       }
     });
 
-    console.info("[WML] M36 mobile UI migration 1.3.0 ready", {
+    console.info("[WML] M36 mobile UI migration 1.4.0 ready", {
       game: api.game,
       hostPlatform,
       mobileHost,
