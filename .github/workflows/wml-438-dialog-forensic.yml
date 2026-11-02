@@ -192,3 +192,29 @@ jobs:
           path: evidence/
           if-no-files-found: warn
           retention-days: 3
+
+
+  verify-mobile-ui-module:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout the pull request head
+        uses: actions/checkout@v4
+        with:
+          ref: \${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+
+      - name: Check module and regression harness syntax
+        run: |
+          node --check mobile-ui-migration/mod.js
+          node --check mobile-ui-migration/tests/pinned-renderers.test.cjs
+
+      - name: Run React-tree regression harness
+        run: node mobile-ui-migration/tests/pinned-renderers.test.cjs
+
+      - name: Inspect existing ZIP layout and verify repository diff
+        run: |
+          set -euo pipefail
+          unzip -t mobile-ui-migration/mobile-ui-migration-438.zip
+          echo "Existing package paths:"
+          unzip -Z1 mobile-ui-migration/mobile-ui-migration-438.zip | head -n 30
+          git diff --check \${{ github.event.pull_request.base.sha }}...\${{ github.event.pull_request.head.sha }}
