@@ -2,6 +2,7 @@ name: Temporary M36 dialogue forensic
 
 on:
   pull_request:
+    types: [opened, reopened, synchronize, ready_for_review]
     branches:
       - mobile-ui-migration-438-v2
     paths:
