@@ -69,16 +69,37 @@ WML.define({
       });
     }
 
-    function PinnedPanel({ statusElements }) {
-      const elements = [statusElements?.locations].filter(Boolean);
+    function collectPrepPanel(node, found) {
+      if (!React.isValidElement(node) || found.prepPanel) return;
+      if (componentName(node) === "$ot") {
+        found.prepPanel = node;
+        return;
+      }
+      React.Children.forEach(node.props?.children, (child) => {
+        collectPrepPanel(child, found);
+      });
+    }
 
-      if (!elements.length) return null;
+    function PinnedPanel({ statusElements }) {
+      const locations = statusElements?.locations;
+      const prepPanel = statusElements?.prepPanel
+        ? React.cloneElement(statusElements.prepPanel, {
+            key: "m36-ui-migration-prep-panel"
+          })
+        : null;
+
+      if (!locations && !prepPanel) return null;
 
       return h("section", {
         className: PINNED_PANEL_CLASS,
-        "aria-label": "원본 인물·위치 상태"
+        "aria-label": "인물·위치 상태 및 영업 준비"
       },
-        h("div", { className: "m36-ui-migration-original-status" }, ...elements)
+        locations
+          ? h("div", { className: "m36-ui-migration-original-status" }, locations)
+          : null,
+        prepPanel
+          ? h("div", { className: "m36-ui-migration-prep-fixed" }, prepPanel)
+          : null
       );
     }
 
@@ -90,6 +111,9 @@ WML.define({
       const typeName = componentName(node);
       const storyPane = inStoryPane ||
         className.includes("flex-1 min-h-0 overflow-y-auto p-2 text-[0.78rem]");
+
+      if (portraitMode && node === statusElements?.prepPanel &&
+          typeName === "$ot") return null;
 
       if (portraitMode && isOriginalLocationWrapper(node, storyPane)) {
         return null;
@@ -154,15 +178,19 @@ WML.define({
       }, []);
 
       try {
-        const currentStatusElements = { locations: null };
-        if (portraitMode) collectOriginalStatus(tree, currentStatusElements);
+        const currentStatusElements = { locations: null, prepPanel: null };
+        if (portraitMode) {
+          collectOriginalStatus(tree, currentStatusElements);
+          collectPrepPanel(tree, currentStatusElements);
+        }
         if (currentStatusElements.locations) {
           originalLocationRef.current = currentStatusElements.locations;
         }
         const statusElements = {
           locations: portraitMode
             ? currentStatusElements.locations || originalLocationRef.current
-            : null
+            : null,
+          prepPanel: portraitMode ? currentStatusElements.prepPanel : null
         };
         return transformTree(tree, statusElements, portraitMode);
       } catch (error) {
@@ -405,6 +433,7 @@ WML.define({
       "#root ." + ACTION_SCROLL_CLASS + " button.m36-ui-migration-disabled-choice::after{content:attr(data-m36-ui-disabled-status);display:block!important;flex:0 1 auto!important;max-width:44%!important;min-width:0!important;overflow:hidden!important;color:rgb(148 163 184)!important;font-size:.61rem!important;line-height:1.15!important;text-align:right!important;text-overflow:ellipsis!important;white-space:nowrap!important}",
       "#root .m36-ui-migration-fullscreen-button{box-sizing:border-box;flex:0 0 auto}",
       "#root .m36-ui-migration-inner-thought{position:sticky;bottom:0;z-index:36;width:fit-content;max-width:100%;margin-top:.35rem;margin-right:auto;box-sizing:border-box;overflow-wrap:anywhere;box-shadow:0 -5px 12px rgba(0,0,0,.28)}#root .m36-ui-migration-inner-thought>div:last-child{max-width:100%;overflow-wrap:anywhere}",
+      "#root .m36-ui-migration-prep-fixed{flex:0 1 auto;min-width:0;max-width:100%;max-height:32vh;overflow-x:hidden;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;margin-top:.35rem;padding-top:.35rem;border-top:1px solid rgba(120,113,108,.45)}",
       "@media screen and (max-width:1023px) and (orientation:portrait){#root ." + PINNED_PANEL_CLASS + "{display:block}#root .m36-ui-migration-event-root{display:flex;flex-direction:column;width:100%;height:100%;min-width:0;min-height:0;max-height:100%;overflow:hidden;box-sizing:border-box}#root .m36-ui-migration-event-fixed{flex:0 1 auto;min-width:0;max-width:100%;max-height:48vh;overflow-x:hidden;overflow-y:auto;overscroll-behavior:contain;padding:4px 4px 5px;background:rgba(28,25,23,.98);border-bottom:1px solid rgba(120,113,108,.48)}#root .m36-ui-migration-event-description{display:block;min-width:0;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}#root .m36-ui-migration-event-gauges{margin-bottom:.45rem}#root .m36-ui-migration-event-scroll{flex:0 1 66.666%;min-width:0;min-height:0;max-height:66.666%;overflow-x:hidden;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;padding:4px 3px 8px}#root .m36-ui-migration-question-choices{margin:0 0 .75rem}}",
       "@media screen and (orientation:landscape),(min-width:1024px){#root ." + PINNED_PANEL_CLASS + "{display:none!important}#root .m36-ui-migration-fullscreen-button{display:none!important}}"
     ].join("\n");
@@ -664,6 +693,7 @@ WML.define({
           pinnedPanel: !!document.querySelector(GAME_SELECTOR + " ." + PINNED_PANEL_CLASS),
           fixedEventRoots: document.querySelectorAll(GAME_SELECTOR + " .m36-ui-migration-event-root").length,
           fixedInnerThoughts: document.querySelectorAll(GAME_SELECTOR + " .m36-ui-migration-inner-thought").length,
+          fixedPrepPanels: document.querySelectorAll(GAME_SELECTOR + " .m36-ui-migration-prep-fixed").length,
           fullscreenButton: !!document.querySelector(GAME_SELECTOR + " [data-m36-ui-migration-fullscreen]"),
           disabledChoices: document.querySelectorAll(
             GAME_SELECTOR + " ." + ACTION_SCROLL_CLASS + " button.m36-ui-migration-disabled-choice"
