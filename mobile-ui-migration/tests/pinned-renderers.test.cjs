@@ -215,10 +215,6 @@ const actionPanel = React.createElement("div", {
 const originalLayoutTree = React.createElement("main", {}, storyPane, actionPanel);
 const responsiveLayoutElement = registeredHooks.layout.after(originalLayoutTree);
 const transformedLayoutTree = responsiveLayoutElement.type(responsiveLayoutElement.props);
-const movedPrep = allElements(transformedLayoutTree).find((element) =>
-  element.type === $ot
-);
-assert.ok(movedPrep, "original prep component remains mounted after relocation");
 const storyAfterMove = allElements(transformedLayoutTree).find((element) =>
   element.props.className === "flex-1 min-h-0 overflow-y-auto p-2 text-[0.78rem]"
 );
@@ -232,6 +228,9 @@ const pinnedPanelElement = allElements(transformedLayoutTree).find((element) =>
   element.type.name === "PinnedPanel"
 );
 assert.ok(pinnedPanelElement, "fixed panel is inserted above the action list");
+const movedPrep = pinnedPanelElement.props.statusElements.prepPanel;
+assert.ok(movedPrep && movedPrep.type === $ot,
+  "original prep component is passed to the fixed panel");
 const renderedPinnedPanel = pinnedPanelElement.type(pinnedPanelElement.props);
 const prepFixed = findByClass(renderedPinnedPanel, "m36-ui-migration-prep-fixed");
 assert.ok(prepFixed, "prep and supply controls are placed in the fixed action panel");
