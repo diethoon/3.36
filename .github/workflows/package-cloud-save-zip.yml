@@ -1,0 +1,34 @@
+name: Package Google Drive cloud-save mod
+
+on:
+  push:
+    branches: [wml]
+    paths:
+      - "Wayward_MOD_v4.0_WML_검수완료/wml/mods/cloud-save/**"
+      - "Wayward_MOD_v4.0_WML_검수완료/wml/mods/mods.js"
+      - ".github/workflows/package-cloud-save-zip.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Package installable mod folder
+        run: |
+          set -euo pipefail
+          mkdir -p dist/cloud-save/wml/mods
+          cp -a "Wayward_MOD_v4.0_WML_검수완료/wml/mods/cloud-save" dist/cloud-save/wml/mods/
+          cp "Wayward_MOD_v4.0_WML_검수완료/wml/mods/mods.js" dist/cloud-save/wml/mods/mods.js
+          (cd dist/cloud-save && zip -r ../../Wayward_Google_Drive_Cloud_Save_v4_WML.zip wml)
+          unzip -t Wayward_Google_Drive_Cloud_Save_v4_WML.zip
+          unzip -l Wayward_Google_Drive_Cloud_Save_v4_WML.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Wayward_Google_Drive_Cloud_Save_v4_WML
+          path: Wayward_Google_Drive_Cloud_Save_v4_WML.zip
+          if-no-files-found: error
+          retention-days: 30
