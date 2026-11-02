@@ -70,8 +70,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          git fetch origin mobile-ui-migration-438-v5-dialog-gauges
-          git diff --check origin/mobile-ui-migration-438-v5-dialog-gauges...HEAD
+          git diff --check HEAD~5..HEAD
+          git diff --check
           rm -rf /tmp/m36-mobile-package
           mkdir -p /tmp/m36-mobile-package/mobile-ui-migration
           cp mobile-ui-migration/mod.js /tmp/m36-mobile-package/mobile-ui-migration/mod.js
