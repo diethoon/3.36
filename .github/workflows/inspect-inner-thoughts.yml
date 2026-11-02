@@ -56,3 +56,5 @@ jobs:
 # trigger bounded source context re-read
 
 # rerun component boundary extraction
+
+# rerun nearby story tab scan
