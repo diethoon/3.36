@@ -143,11 +143,13 @@ WML.define({
         // our HTTPS bridge; only the return message needs the opaque-origin fallback.
         const isFileExecution = window.location.protocol === 'file:';
         const rawOrigin = String(window.location.origin || '');
-        // Some embedded/mobile WebViews expose an empty origin for an opaque page.
-        // Treat it like file://: the bridge requires an explicit user confirmation and
-        // returns through a source+nonce-checked postMessage using the opaque-origin path.
-        const targetOrigin = isFileExecution || !rawOrigin || rawOrigin === 'null' ? 'null' : rawOrigin;
-        if (!/^(https?|file):$/.test(window.location.protocol)) {
+        // Some embedded/mobile WebViews expose an empty location.origin even for HTTP(S).
+        // Rebuild that origin from protocol+host before falling back to the opaque file mode.
+        const fallbackOrigin = /^(https?):$/.test(window.location.protocol) && window.location.host
+          ? window.location.protocol + '//' + window.location.host : '';
+        const targetOrigin = isFileExecution || rawOrigin === 'null'
+          ? 'null' : (rawOrigin || fallbackOrigin);
+        if (!targetOrigin || !/^(https?|file):$/.test(window.location.protocol)) {
           reject(new Error('지원하지 않는 실행 주소입니다. file://, HTTP 또는 HTTPS에서 실행해 주세요.'));
           return;
         }
