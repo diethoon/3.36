@@ -172,10 +172,10 @@ jobs:
               b"function loe(", b"function itt(", b"function Ast(",
               b"function sLe(", b"function iB(", b"function Gte(",
               b"function YD(", b"function xu(",
-              b'children:"당신"', b'children:"그녀"',
-              b'children:"기력"', b'children:"기분"',
-              b'children:"신뢰"', b'children:"대화"',
-              b'"당신 / 그녀"', b'"당신"', b'"그녀"'
+              'children:"당신"'.encode(), 'children:"그녀"'.encode(),
+              'children:"기력"'.encode(), 'children:"기분"'.encode(),
+              'children:"신뢰"'.encode(), 'children:"대화"'.encode(),
+              '"당신 / 그녀"'.encode(), '"당신"'.encode(), '"그녀"'.encode()
           ]
           overlap = max(map(len, patterns)) - 1
           tail = b""
