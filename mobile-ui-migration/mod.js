@@ -720,11 +720,11 @@ WML.define({
     Object.defineProperty(window, "__M36_MOBILE_UI_MIGRATION__", {
       configurable: true,
       value: {
-        version: "1.3.2",
+        version: "1.3.3",
         game: api.game,
         hostPlatform,
         getStatus: () => ({
-          version: "1.3.2",
+          version: "1.3.3",
           game: api.game,
           hostPlatform,
           mobileHost,
