@@ -1,0 +1,53 @@
+name: Temporary inspect Wayward inner thoughts
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/inspect-wayward-inner-thoughts.yml
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: mobile-ui-migration-438-v5-dialog-gauges
+      - name: Verify and scan source in bounded chunks
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import hashlib, os
+          p='Wayward_WML_ko.html'
+          terms=['그녀의 속마음','속마음','이야기','가게','피파','narration','thought','innerThought','thoughts','마음']
+          terms=[t.encode() for t in terms]
+          h=hashlib.sha256(); manifest=hashlib.sha256(); overlap=b''; off=0; chunks=0; hits={t:[] for t in terms}
+          with open(p,'rb') as f:
+            while True:
+              c=f.read(4096)
+              if not c: break
+              h.update(c); manifest.update(off.to_bytes(8,'big')+len(c).to_bytes(4,'big')+hashlib.sha256(c).digest()); chunks+=1
+              d=overlap+c; base=off-len(overlap)
+              for t in terms:
+                i=0
+                while True:
+                  j=d.find(t,i)
+                  if j<0: break
+                  pos=base+j
+                  if pos+len(t)>off and (not hits[t] or hits[t][-1]!=pos): hits[t].append(pos)
+                  i=j+1
+              overlap=d[-max(map(len,terms)):]; off+=len(c)
+          print('SOURCE bytes=%d chunks=%d sha256=%s manifest=%s'%(off,chunks,h.hexdigest(),manifest.hexdigest()))
+          for t,ps in hits.items(): print('HIT %r count=%d offsets=%s'%(t,len(ps),ps[:30]))
+          focus=sorted(set(hits['속마음']+hits['그녀의 속마음']))
+          windows=[]
+          for pos in focus:
+            a=max(0,pos-2200); b=min(off,pos+3200)
+            if any(not (b<=x or a>=y) for x,y in windows): continue
+            windows.append((a,b))
+          for a,b in windows[:16]:
+            with open(p,'rb') as f: f.seek(a); raw=f.read(min(7600,b-a))
+            print('\\n===== CONTEXT %d..%d bytes=%d ====='%(a,b,len(raw)))
+            print(raw.decode('utf-8','replace'))
+          PY
