@@ -5,7 +5,7 @@
 WML.define({
   id: 'cloud-save',
   name: '클라우드세이브 (Google Drive)',
-  version: '0.4.2',
+  version: '0.4.3',
   game: '>=2026-10-04',
   description: 'Google 계정으로 연결해 개인 Drive에 암호화 세이브를 저장합니다. 게임 세이브는 서버를 거치지 않습니다.',
   symbols: {
@@ -39,7 +39,7 @@ WML.define({
     let sessionPolicy = 'persistent';
 
     // Fixed HTTPS bridge avoids per-device Google OAuth origin setup.
-    const AUTH_BRIDGE_URL = 'https://diethoon.github.io/3.36/cloud-save-auth-static/';
+    const AUTH_BRIDGE_URL = 'https://wayward-cloud-auth.vercel.app/';
     const FILE_PREFIX = 'wayward-cloud-slot-';
     const STYLE_ID = 'wml-google-drive-save-style';
 
