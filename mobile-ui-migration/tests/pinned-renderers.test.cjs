@@ -260,8 +260,8 @@ assert.ok(findByClass(fixed, "text-sm font-bold text-amber-400"), "dialogue head
 assert.ok(findByClass(fixed, "m36-ui-migration-event-description"), "one-line action description pinned");
 assert.ok(findByClass(fixed, "m36-ui-migration-event-gauges"), "player/Elena gauges pinned");
 assert.ok(findByClass(fixed, "border-2 border-pink-600"), "dialogue text card pinned");
-assert.ok(findByClass(fixed, "당신을 기다리는 중"), "question prompt title pinned");
-assert.ok(findByClass(fixed, "어떻게 대답하시겠습니까?"), "question prompt text pinned");
+assert.ok(collectText(fixed).includes("당신을 기다리는 중"), "question prompt title pinned");
+assert.ok(collectText(fixed).includes("어떻게 대답하시겠습니까?"), "question prompt text pinned");
 assert.ok(findByClass(scrolling, "m36-ui-migration-question-choices"),
   "question answer buttons moved to scroll region");
 assert.ok(findByClass(scrolling, "grid grid-cols-1 gap-2"),
