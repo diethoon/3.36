@@ -18,7 +18,7 @@ jobs:
           python3 - <<'PY'
           import hashlib, os
           p='Wayward_WML_ko.html'
-          terms=[x.encode() for x in ['그녀의 속마음','속마음','이야기','가게','피파','narration','thought','innerThought','thoughts','마음','function ']]
+          terms=[x.encode() for x in ['그녀의 속마음','속마음','이야기','가게','피파','narration','thought','innerThought','thoughts','마음','function ','function _B','function M36MobileRoomCustomer','M36MobileRoomCustomer','M36MobileRoomActivity','stock_up','물자 채우기','물자채우기','영업 준비','facilityOnly','M36MobileStockStatus','position:sticky']]
           h=hashlib.sha256(); manifest=hashlib.sha256(); overlap=b''; off=0; chunks=0
           hits={t:[] for t in terms}; last_function=-1
           target=3692801
@@ -51,16 +51,23 @@ jobs:
             ps=[x for x in hits[t] if abs(x-target)<250000]
             print('NEAR_TERM %s offsets=%s'%(label,ps[:100]))
           print('PREVIOUS_FUNCTION_OFFSET',last_function)
-          centers=[last_function,3649082,3688829,3692801]
+          for t,ps in hits.items():
+            if t not in [b'function ',b'이야기',b'가게',b'마음']:
+              print('HIT %r count=%d offsets=%s'%(t,len(ps),ps[:20]))
+          selected=[]
+          for term in [b'function _B',b'M36MobileRoomCustomer',b'stock_up','물자 채우기'.encode(),'물자채우기'.encode(),'영업 준비'.encode(),b'facilityOnly',b'M36MobileStockStatus',b'M36MobileRoomActivity']:
+            if hits.get(term): selected.append((term,hits[term][0]))
+          near_story=[p for p in hits[b'이야기'] if 3690000<p<3710000]
+          if near_story: selected.append((b'이야기-tab-area',near_story[0]))
+          centers=[(label,pos) for label,pos in selected[:9]]
           windows=[]
-          for pos in centers:
-            if pos<0: continue
-            a=max(0,pos-200); b=min(off,a+7800)
+          for label,pos in centers:
+            a=max(0,pos-1800); b=min(off,a+6000)
             if any(not (b<=x or a>=y) for x,y in windows): continue
-            windows.append((a,b))
-          for a,b in windows[:8]:
+            windows.append((a,b,label))
+          for a,b,label in windows[:9]:
             with open(p,'rb') as f:
               f.seek(a); raw=f.read(b-a)
-            print('\\n===== CONTEXT %d..%d bytes=%d ====='%(a,b,len(raw)))
+            print('\\n===== CONTEXT %s %d..%d bytes=%d ====='%(label.decode('utf-8','replace'),a,b,len(raw)))
             print(raw.decode('utf-8','replace'))
           PY
