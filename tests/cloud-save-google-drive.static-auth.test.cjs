@@ -5,7 +5,6 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const vm = require('node:vm');
 
-const root = process.cwd();
 const mod = fs.readFileSync('Wayward_MOD_v4.0_WML_검수완료/wml/mods/cloud-save/mod.js', 'utf8');
 const helper = fs.readFileSync('cloud-save-auth-static/index.html', 'utf8');
 const config = fs.readFileSync('cloud-save-auth-static/config.js', 'utf8');
@@ -32,9 +31,10 @@ test('game page and static bridge share origin, nonce, source, and message contr
 });
 
 test('static helper inline JavaScript parses', () => {
-  const scripts = [...helper.matchAll(/<script\\b[^>]*>([\\s\\S]*?)<\\/script>/gi)];
-  const inline = scripts.map(match => match[1]).find(source => source.trim().length > 0);
-  assert.ok(inline, 'expected an inline script in the static OAuth helper');
+  const scriptStart = helper.lastIndexOf('<script>');
+  const scriptEnd = helper.indexOf('</script>', scriptStart);
+  assert.ok(scriptStart >= 0 && scriptEnd > scriptStart, 'expected an inline script in the static OAuth helper');
+  const inline = helper.slice(scriptStart + '<script>'.length, scriptEnd);
   assert.doesNotThrow(() => new vm.Script(inline, { filename: 'cloud-save-auth-static/index.html' }));
 });
 
