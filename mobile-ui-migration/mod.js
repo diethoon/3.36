@@ -1,13 +1,15 @@
 WML.define({
   id: "mobile-ui-migration",
   name: "M36 모바일 UI 마이그레이션",
-  version: "1.3.0",
+  version: "1.3.1",
   game: "2026-10-24-pre7",
   platform: "mobile",
   description: "4.38MB WML 빌드용: 원본 상태·위치 UI 고정, 이야기 나레이션 정리, 전체화면·비활성 행동 접기",
   symbols: {
     React: { raw: { "2026-10-24-pre7": "J" } },
     layout: { raw: { "2026-10-24-pre7": "Ast" } },
+    actionRenderer: { raw: { "2026-10-24-pre7": "sB" } },
+    customerRow: { raw: { "2026-10-24-pre7": "_B" } },
   },
   setup(api) {
     const React = api.fn("React");
@@ -169,6 +171,265 @@ WML.define({
       }
     }
 
+
+    function plainTextFromNode(node) {
+      if (node == null || typeof node === "boolean") return "";
+      if (typeof node === "string" || typeof node === "number") return String(node);
+      if (Array.isArray(node)) return node.map(plainTextFromNode).join("");
+      if (!React.isValidElement(node)) return "";
+      return plainTextFromNode(node.props?.children);
+    }
+
+    function isCustomerMetaNode(node) {
+      if (!React.isValidElement(node) || node.type !== "span") return false;
+      const className = typeof node.props?.className === "string"
+        ? node.props.className
+        : "";
+      return className.includes("text-[0.7rem]") &&
+        (className.includes("truncate") || className.includes("text-pink-400"));
+    }
+
+    function transformCustomerRowNode(node) {
+      if (!React.isValidElement(node)) return node;
+
+      const props = node.props || {};
+      const className = typeof props.className === "string" ? props.className : "";
+      const children = React.Children.toArray(props.children);
+
+      if (node.type === "div" && className.includes("group flex items-center gap-1.5")) {
+        const nameIndex = children.findIndex((child) =>
+          React.isValidElement(child) &&
+          child.type === "span" &&
+          typeof child.props?.className === "string" &&
+          child.props.className.includes("font-medium truncate")
+        );
+
+        if (nameIndex >= 0) {
+          const nameNode = children[nameIndex];
+          const metaNodes = children.filter((child, index) =>
+            index > nameIndex && isCustomerMetaNode(child)
+          );
+          const fullMeta = metaNodes
+            .map(plainTextFromNode)
+            .filter(Boolean)
+            .join(" · ");
+          const identity = h(
+            "div",
+            { className: "m36-ui-migration-customer-identity" },
+            nameNode,
+            metaNodes.length
+              ? h(
+                  "div",
+                  {
+                    className: "m36-ui-migration-customer-meta",
+                    title: fullMeta || undefined
+                  },
+                  ...metaNodes
+                )
+              : null
+          );
+
+          const nextChildren = [];
+          children.forEach((child, index) => {
+            if (index === nameIndex) {
+              nextChildren.push(identity);
+            } else if (index > nameIndex && isCustomerMetaNode(child)) {
+              return;
+            } else {
+              nextChildren.push(transformCustomerRowNode(child));
+            }
+          });
+          return React.cloneElement(node, null, ...nextChildren);
+        }
+      }
+
+      if (!children.length) return node;
+      let changed = false;
+      const nextChildren = children.map((child) => {
+        const next = transformCustomerRowNode(child);
+        if (next !== child) changed = true;
+        return next;
+      });
+      return changed ? React.cloneElement(node, null, ...nextChildren) : node;
+    }
+
+    function transformCustomerRow(result) {
+      if (!React.isValidElement(result)) return result;
+      return transformCustomerRowNode(result);
+    }
+
+    function findFirstComponent(node, name) {
+      if (!React.isValidElement(node)) return null;
+      if (componentName(node) === name) return node;
+      let found = null;
+      React.Children.forEach(node.props?.children, (child) => {
+        if (!found) found = findFirstComponent(child, name);
+      });
+      return found;
+    }
+
+    function hasPlayerGauge(node) {
+      if (!React.isValidElement(node)) return false;
+      if (componentName(node) === "fb" && node.props?.label === "당신") return true;
+      let found = false;
+      React.Children.forEach(node.props?.children, (child) => {
+        if (!found && hasPlayerGauge(child)) found = true;
+      });
+      return found;
+    }
+
+    function isDialogueTextCard(node) {
+      if (!React.isValidElement(node) || node.type !== "div") return false;
+      const className = typeof node.props?.className === "string"
+        ? node.props.className
+        : "";
+      if (!className.includes("border-2") || !className.includes("p-3")) return false;
+      let found = false;
+      function visit(child) {
+        if (!React.isValidElement(child)) return;
+        const childClass = typeof child.props?.className === "string"
+          ? child.props.className
+          : "";
+        if (child.type === "p" && childClass.includes("whitespace-pre-line") &&
+            childClass.includes("leading-relaxed")) {
+          found = true;
+          return;
+        }
+        React.Children.forEach(child.props?.children, visit);
+      }
+      React.Children.forEach(node.props?.children, visit);
+      return found;
+    }
+
+    function splitQuestionPrompt(node) {
+      const questionNode = findFirstComponent(node, "utt");
+      if (!questionNode || typeof questionNode.type !== "function") return null;
+
+      // In 2026-10-24-pre7, utt is a pure JSX component without hooks.
+      // Calling it exposes its original prompt and button children so only
+      // the prompt can be pinned while the exact original buttons still scroll.
+      const renderedQuestion = questionNode.type(questionNode.props || {});
+      if (!React.isValidElement(renderedQuestion)) return null;
+
+      const questionChildren = React.Children.toArray(renderedQuestion.props?.children);
+      const buttonIndex = questionChildren.findIndex((child) =>
+        React.isValidElement(child) &&
+        typeof child.props?.className === "string" &&
+        child.props.className.includes("flex flex-wrap gap-2")
+      );
+      if (buttonIndex < 0) return null;
+
+      const buttonBlock = questionChildren[buttonIndex];
+      const promptChildren = questionChildren.filter((child, index) => index !== buttonIndex);
+      if (promptChildren.length < 2) return null;
+
+      const pinnedQuestion = React.cloneElement(renderedQuestion, null, ...promptChildren);
+      const pinnedWrapper = React.cloneElement(node, null, pinnedQuestion);
+      const oldButtonClass = typeof buttonBlock.props?.className === "string"
+        ? buttonBlock.props.className
+        : "";
+      const scrollingButtons = React.cloneElement(buttonBlock, {
+        className: (oldButtonClass + " m36-ui-migration-question-choices").trim()
+      });
+
+      return { pinned: pinnedWrapper, scrolling: scrollingButtons };
+    }
+
+    function transformActionEvent(result) {
+      if (!MOBILE_PORTRAIT.matches || !React.isValidElement(result) || result.type !== "div") {
+        return result;
+      }
+
+      const children = React.Children.toArray(result.props?.children);
+      const pinned = [];
+      const scrolling = [];
+      let hasHeader = false;
+      let hasDialogue = false;
+      let hasChoiceGrid = false;
+
+      for (const child of children) {
+        const className = React.isValidElement(child) &&
+          typeof child.props?.className === "string"
+          ? child.props.className
+          : "";
+
+        if (React.isValidElement(child) && child.type === "h3" &&
+            className.includes("text-sm font-bold text-amber-400")) {
+          pinned.push(child);
+          hasHeader = true;
+          continue;
+        }
+
+        if (React.isValidElement(child) && child.type === "div" &&
+            className.includes("text-xs text-violet-300/80 mb-2")) {
+          pinned.push(React.cloneElement(child, {
+            className: (className + " m36-ui-migration-event-description").trim()
+          }));
+          continue;
+        }
+
+        if (React.isValidElement(child) && findFirstComponent(child, "utt")) {
+          const split = splitQuestionPrompt(child);
+          if (split) {
+            pinned.push(split.pinned);
+            scrolling.push(split.scrolling);
+            continue;
+          }
+        }
+
+        if (hasPlayerGauge(child)) {
+          pinned.push(React.cloneElement(child, {
+            className: (className + " m36-ui-migration-event-gauges").trim()
+          }));
+          continue;
+        }
+
+        if (isDialogueTextCard(child)) {
+          pinned.push(child);
+          hasDialogue = true;
+          continue;
+        }
+
+        if (React.isValidElement(child) && child.type === "div" &&
+            className.includes("grid grid-cols-1 gap-2")) {
+          hasChoiceGrid = true;
+        }
+        scrolling.push(child);
+      }
+
+      if (!hasHeader || !hasDialogue || !hasChoiceGrid || !pinned.length) return result;
+
+      return h(
+        "div",
+        { className: "m36-ui-migration-event-root" },
+        h(
+          "div",
+          { className: "m36-ui-migration-event-fixed", "aria-label": "대화 내용과 상태" },
+          ...pinned
+        ),
+        h(
+          "div",
+          { className: "m36-ui-migration-event-scroll" },
+          ...scrolling
+        )
+      );
+    }
+
+    const unhookCustomerRow = api.hook("customerRow", {
+      around(next, ...args) {
+        const result = next(...args);
+        return mobileHost && MOBILE_PORTRAIT.matches
+          ? transformCustomerRow(result)
+          : result;
+      }
+    });
+
+    const unhookActionRenderer = api.hook("actionRenderer", {
+      around(next, ...args) {
+        return transformActionEvent(next(...args));
+      }
+    });
+
     const unhookLayout = api.hook("layout", {
       after(result) {
         if (!mobileHost) return result;
@@ -187,7 +448,7 @@ WML.define({
       "#root ." + ACTION_SCROLL_CLASS + " button.m36-ui-migration-disabled-choice::before{content:attr(data-m36-ui-disabled-label);display:block!important;flex:1 1 auto!important;min-width:0!important;overflow:hidden!important;text-overflow:ellipsis!important;white-space:nowrap!important;font-size:.68rem!important;line-height:1.15!important}",
       "#root ." + ACTION_SCROLL_CLASS + " button.m36-ui-migration-disabled-choice::after{content:attr(data-m36-ui-disabled-status);display:block!important;flex:0 1 auto!important;max-width:44%!important;min-width:0!important;overflow:hidden!important;color:rgb(148 163 184)!important;font-size:.61rem!important;line-height:1.15!important;text-align:right!important;text-overflow:ellipsis!important;white-space:nowrap!important}",
       "#root .m36-ui-migration-fullscreen-button{box-sizing:border-box;flex:0 0 auto}",
-      "@media screen and (max-width:1023px) and (orientation:portrait){#root ." + PINNED_PANEL_CLASS + "{display:block}}",
+      "@media screen and (max-width:1023px) and (orientation:portrait){#root ." + PINNED_PANEL_CLASS + "{display:block}#root .m36-ui-migration-customer-identity{display:flex;flex:1 1 auto;flex-direction:column;min-width:0;max-width:100%;overflow:hidden}#root .m36-ui-migration-customer-identity>span:first-child{display:block;max-width:100%!important;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}#root .m36-ui-migration-customer-meta{display:block;min-width:0;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;line-height:1.15;font-size:.64rem}#root .m36-ui-migration-event-root{display:flex;flex-direction:column;width:100%;height:100%;min-width:0;min-height:0;max-height:100%;overflow:hidden;box-sizing:border-box}#root .m36-ui-migration-event-fixed{flex:0 1 auto;min-width:0;max-width:100%;max-height:48vh;overflow-x:hidden;overflow-y:auto;overscroll-behavior:contain;padding:4px 4px 5px;background:rgba(28,25,23,.98);border-bottom:1px solid rgba(120,113,108,.48)}#root .m36-ui-migration-event-description{display:block;min-width:0;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}#root .m36-ui-migration-event-gauges{margin-bottom:.45rem}#root .m36-ui-migration-event-scroll{flex:1 1 auto;min-width:0;min-height:0;overflow-x:hidden;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;padding:4px 3px 8px}#root .m36-ui-migration-question-choices{margin:0 0 .75rem}}",
       "@media screen and (orientation:landscape),(min-width:1024px){#root ." + PINNED_PANEL_CLASS + "{display:none!important}#root .m36-ui-migration-fullscreen-button{display:none!important}}"
     ].join("\n");
     document.head.appendChild(style);
@@ -432,11 +693,11 @@ WML.define({
     Object.defineProperty(window, "__M36_MOBILE_UI_MIGRATION__", {
       configurable: true,
       value: {
-        version: "1.3.0",
+        version: "1.3.1",
         game: api.game,
         hostPlatform,
         getStatus: () => ({
-          version: "1.3.0",
+          version: "1.3.1",
           game: api.game,
           hostPlatform,
           mobileHost,
@@ -444,6 +705,8 @@ WML.define({
           actionPanel: !!document.querySelector(GAME_SELECTOR + " ." + ACTION_PANEL_CLASS),
           actionScroll: !!document.querySelector(GAME_SELECTOR + " ." + ACTION_SCROLL_CLASS),
           pinnedPanel: !!document.querySelector(GAME_SELECTOR + " ." + PINNED_PANEL_CLASS),
+          fixedEventRoots: document.querySelectorAll(GAME_SELECTOR + " .m36-ui-migration-event-root").length,
+          fixedCustomerMetaRows: document.querySelectorAll(GAME_SELECTOR + " .m36-ui-migration-customer-meta").length,
           fullscreenButton: !!document.querySelector(GAME_SELECTOR + " [data-m36-ui-migration-fullscreen]"),
           disabledChoices: document.querySelectorAll(
             GAME_SELECTOR + " ." + ACTION_SCROLL_CLASS + " button.m36-ui-migration-disabled-choice"
@@ -460,12 +723,14 @@ WML.define({
           window.removeEventListener("orientationchange", queueSync);
           MOBILE_PORTRAIT.removeEventListener?.("change", queueSync);
           document.removeEventListener("fullscreenchange", updateFullscreenButton);
+          unhookCustomerRow?.();
+          unhookActionRenderer?.();
           unhookLayout();
         }
       }
     });
 
-    console.info("[WML] M36 mobile UI migration 1.3.0 ready", {
+    console.info("[WML] M36 mobile UI migration 1.3.1 ready", {
       game: api.game,
       hostPlatform,
       mobileHost,
