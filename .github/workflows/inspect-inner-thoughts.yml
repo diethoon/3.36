@@ -1,7 +1,7 @@
 name: Inspect current mobile source inner-thoughts tab
 on:
   pull_request:
-    branches: [mobile-ui-migration-438-v6-fixed-inner-thoughts]
+    branches: [mobile-ui-migration-438-v5-dialog-gauges]
     paths:
       - .github/workflows/inspect-inner-thoughts.yml
 permissions:
