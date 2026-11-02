@@ -1,3 +1,4 @@
 Temporary pull_request trigger for exact 4.38MB WML forensic inspection. No game source changed.
 Second pass: collect bounded JSX renderer windows; source unchanged.
 Third pass: trace native dialog and gauge child functions.
+Fourth pass trigger for exact component declaration offsets.
