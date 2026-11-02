@@ -1,0 +1,86 @@
+name: Mobile UI migration v6 validation and package
+on:
+  pull_request:
+    branches: [mobile-ui-migration-438-v5-dialog-gauges]
+    paths:
+      - "mobile-ui-migration/mod.js"
+      - "mobile-ui-migration/README_ko.md"
+      - "mobile-ui-migration/tests/**"
+permissions:
+  contents: write
+jobs:
+  validate-and-package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Verify exact 4.38MB source in 4KB chunks
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import hashlib
+          p='Wayward_WML_ko.html'
+          expected_size=4383674
+          expected_sha='35a0ccf79ff18d8650554f6788d5a0952ba7c683b63aea1c17c0b4f1273817f2'
+          terms=[x.encode() for x in ['그녀의 속마음','innerThought','stock_up','물자 채우기','물자채우기','영업 준비','facilityOnly','M36MobileStockStatus','function _B','M36MobileRoomCustomer']]
+          h=hashlib.sha256(); manifest=hashlib.sha256(); overlap=b''; off=0; chunks=0; hits={t:[] for t in terms}
+          with open(p,'rb') as f:
+            while True:
+              c=f.read(4096)
+              if not c: break
+              h.update(c); manifest.update(off.to_bytes(8,'big')+len(c).to_bytes(4,'big')+hashlib.sha256(c).digest()); chunks+=1
+              d=overlap+c; base=off-len(overlap)
+              for t in terms:
+                i=0
+                while True:
+                  j=d.find(t,i)
+                  if j<0: break
+                  pos=base+j
+                  if pos+len(t)>off and (not hits[t] or hits[t][-1]!=pos): hits[t].append(pos)
+                  i=j+1
+              overlap=d[-max(map(len,terms)):]; off+=len(c)
+          actual=h.hexdigest()
+          print(f'SOURCE bytes={off} chunks={chunks} sha256={actual} manifest={manifest.hexdigest()}')
+          if off!=expected_size or actual!=expected_sha: raise SystemExit('SOURCE IDENTITY MISMATCH')
+          for t,ps in hits.items(): print(f'HIT {t.decode("utf-8","replace")} count={len(ps)} offsets={ps[:20]}')
+          PY
+      - name: Syntax and React-tree regression tests
+        run: |
+          node --check mobile-ui-migration/mod.js
+          node mobile-ui-migration/tests/pinned-renderers.test.cjs
+      - name: Diff and package validation
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin "${{ github.event.pull_request.base.ref }}"
+          git diff --check "origin/${{ github.event.pull_request.base.ref }}...HEAD"
+          rm -rf /tmp/m36-mobile-package
+          mkdir -p /tmp/m36-mobile-package/mobile-ui-migration
+          cp mobile-ui-migration/mod.js /tmp/m36-mobile-package/mobile-ui-migration/mod.js
+          cp mobile-ui-migration/README_ko.md /tmp/m36-mobile-package/mobile-ui-migration/README_ko.md
+          mkdir -p mobile-ui-migration
+          rm -f mobile-ui-migration/mobile-ui-migration-438.zip
+          (cd /tmp/m36-mobile-package && zip -qr "$GITHUB_WORKSPACE/mobile-ui-migration/mobile-ui-migration-438.zip" mobile-ui-migration)
+          unzip -t mobile-ui-migration/mobile-ui-migration-438.zip
+          unzip -p mobile-ui-migration/mobile-ui-migration-438.zip mobile-ui-migration/mod.js | cmp - mobile-ui-migration/mod.js
+          unzip -p mobile-ui-migration/mobile-ui-migration-438.zip mobile-ui-migration/README_ko.md | cmp - mobile-ui-migration/README_ko.md
+          sha256sum mobile-ui-migration/mobile-ui-migration-438.zip
+      - name: Commit validated package to feature branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add mobile-ui-migration/mobile-ui-migration-438.zip
+          if git diff --cached --quiet; then echo "ZIP already current"; exit 0; fi
+          git commit -m "build(mobile): package validated mobile UI 1.3.2 [skip ci]"
+          git push origin "HEAD:refs/heads/${{ github.event.pull_request.head.ref }}"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mobile-ui-migration-438-v1.3.2
+          path: mobile-ui-migration/mobile-ui-migration-438.zip
+          if-no-files-found: error
