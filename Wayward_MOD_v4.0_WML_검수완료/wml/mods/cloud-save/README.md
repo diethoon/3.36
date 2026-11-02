@@ -1,6 +1,6 @@
-# 클라우드세이브 — Google Drive (WML / v0.4.1)
+# 클라우드세이브 — Google Drive (WML / v0.4.2)
 
-이 모드는 Wayward의 현재 WML HTML과 함께 사용하는 Google Drive 저장 모드입니다. 저장 파일은 게임 페이지에서 암호화한 뒤 Google Drive의 앱 전용 `appDataFolder`에 직접 올립니다. 게임 세이브 본문을 저장 서버에 업로드하지 않습니다.
+이 모드는 Wayward의 현재 WML HTML과 함께 사용하는 Google Drive 저장 모드입니다. 0.4.2부터 게임 내부 `nativeSaveJSON` 심볼을 찾을 수 없는 최신 빌드에서는 현재 게임 상태를 JSON으로 보존하는 호환 경로를 사용합니다. 저장 파일은 게임 페이지에서 암호화한 뒤 Google Drive의 앱 전용 `appDataFolder`에 직접 올립니다. 게임 세이브 본문을 저장 서버에 업로드하지 않습니다.
 
 ## 설치
 
