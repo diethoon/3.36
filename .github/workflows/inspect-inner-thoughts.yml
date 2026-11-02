@@ -58,3 +58,5 @@ jobs:
 # rerun component boundary extraction
 
 # rerun nearby story tab scan
+
+# trigger corrected chunked scan
