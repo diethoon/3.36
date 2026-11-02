@@ -48,3 +48,5 @@ jobs:
             print('\\n===== CONTEXT %s %d..%d bytes=%d ====='%(label,a,b,len(raw)))
             print(raw.decode('utf-8','replace'))
           PY
+
+# trigger latest bounded scan
