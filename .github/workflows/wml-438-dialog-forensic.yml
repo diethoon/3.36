@@ -200,7 +200,6 @@ jobs:
       - name: Checkout the pull request head
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.pull_request.head.sha }}
           fetch-depth: 0
 
       - name: Check module and regression harness syntax
@@ -217,4 +216,4 @@ jobs:
           unzip -t mobile-ui-migration/mobile-ui-migration-438.zip
           echo "Existing package paths:"
           unzip -Z1 mobile-ui-migration/mobile-ui-migration-438.zip | head -n 30
-          git diff --check ${{ github.event.pull_request.base.sha }}...${{ github.event.pull_request.head.sha }}
+          git diff --check HEAD^ HEAD
