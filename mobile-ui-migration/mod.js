@@ -1,7 +1,7 @@
 WML.define({
   id: "mobile-ui-migration",
   name: "M36 모바일 UI 마이그레이션",
-  version: "1.1.0",
+  version: "1.2.0",
   game: "2026-10-24-pre7",
   platform: "mobile",
   description: "4.38MB 최종 WML 빌드용: 전체화면, 고정 상태 게이지·나레이션, 비활성 행동 접기",
@@ -66,6 +66,7 @@ WML.define({
           wifeName: "아내",
           locationLines: [],
           gauges: [],
+          highlightedNarration: "",
           dialogue: null
         };
       }
@@ -118,6 +119,12 @@ WML.define({
         { label: "흥분도", value: value(wifeStats.arousal) }
       ].filter((item) => item.value !== null);
 
+      const importantLog = Array.isArray(state.log)
+        ? [...state.log].reverse().find((entry) =>
+            entry && entry.important === true && typeof entry.text === "string" && entry.text.trim()
+          )
+        : null;
+
       const event = state.pendingEvent;
       const excludedEvents = new Set([
         "confrontation",
@@ -148,6 +155,7 @@ WML.define({
         wifeName,
         locationLines,
         gauges,
+        highlightedNarration: importantLog?.text?.trim() || "",
         dialogue
       };
     }
@@ -221,6 +229,12 @@ WML.define({
         snapshot.gauges.length
           ? h("div", { className: "m36-ui-migration-gauges" },
               snapshot.gauges.map((item) => h(GaugeCell, { item, key: item.label }))
+            )
+          : null,
+        snapshot.highlightedNarration
+          ? h("div", { className: "m36-ui-migration-highlighted-narration" },
+              h("div", { className: "m36-ui-migration-highlighted-label" }, "강조 나레이션"),
+              h("p", { className: "m36-ui-migration-highlighted-text" }, snapshot.highlightedNarration)
             )
           : null,
         snapshot.dialogue
@@ -303,6 +317,9 @@ WML.define({
       "#root .m36-ui-migration-location{display:flex;align-items:baseline;gap:3px;min-width:0;overflow:hidden}",
       "#root .m36-ui-migration-location-label{flex:0 0 auto;color:#78716c;font-size:8px;white-space:nowrap}",
       "#root .m36-ui-migration-location-value{min-width:0;overflow:hidden;color:#d6d3d1;font-size:8px;text-overflow:ellipsis;white-space:nowrap}",
+      "#root .m36-ui-migration-highlighted-narration{min-width:0;max-height:54px;margin-top:4px;padding:4px 5px;border-left:2px solid rgba(245,158,11,.8);border-radius:0 3px 3px 0;background:rgba(120,53,15,.28);overflow:hidden}",
+      "#root .m36-ui-migration-highlighted-label{margin-bottom:2px;color:#fbbf24;font-size:8px;font-weight:700;line-height:1.1}",
+      "#root .m36-ui-migration-highlighted-text{display:-webkit-box;max-height:3.6em;overflow:hidden;color:#fef3c7;font-size:9px;line-height:1.2;overflow-wrap:anywhere;-webkit-box-orient:vertical;-webkit-line-clamp:3}",
       "#root .m36-ui-migration-dialogue{min-width:0;max-height:92px;margin-top:5px;padding:4px 5px;border-left:2px solid #d6a64f;border-radius:3px;background:rgba(41,37,36,.96);overflow-y:auto;overscroll-behavior:contain}",
       "#root .m36-ui-migration-dialogue-label{margin-bottom:3px;color:#fbbf24;font-size:9px;font-weight:700;line-height:1.15;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}",
       "#root .m36-ui-migration-dialogue-text{color:#e7e5e4;font-size:9px;line-height:1.25;white-space:pre-wrap;overflow-wrap:anywhere}",
@@ -557,11 +574,11 @@ WML.define({
     Object.defineProperty(window, "__M36_MOBILE_UI_MIGRATION__", {
       configurable: true,
       value: {
-        version: "1.1.0",
+        version: "1.2.0",
         game: api.game,
         hostPlatform,
         getStatus: () => ({
-          version: "1.1.0",
+          version: "1.2.0",
           game: api.game,
           hostPlatform,
           mobileHost,
@@ -590,7 +607,7 @@ WML.define({
       }
     });
 
-    console.info("[WML] M36 mobile UI migration 1.0.0 ready", {
+    console.info("[WML] M36 mobile UI migration 1.2.0 ready", {
       game: api.game,
       hostPlatform,
       mobileHost,
