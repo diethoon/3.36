@@ -50,8 +50,9 @@ const media = {
   addListener() {},
   removeListener() {}
 };
+const injectedStyles = [];
 const doc = {
-  head: { appendChild() {} },
+  head: { appendChild(style) { injectedStyles.push(style); } },
   documentElement: {},
   createElement() {
     return {
@@ -105,7 +106,7 @@ const api = {
 require(path.resolve(__dirname, "../mod.js"));
 assert.ok(definition, "WML.define registered the module");
 definition.setup(api);
-assert.ok(registeredHooks.customerRow, "customer row hook registered");
+assert.ok(registeredHooks.wifePortrait, "wife portrait hook registered");
 assert.ok(registeredHooks.actionRenderer, "action renderer hook registered");
 assert.ok(registeredHooks.layout, "layout hook registered");
 
@@ -139,66 +140,55 @@ function allElements(node, result = []) {
   return result;
 }
 
-// Customer row: the original name, activity, order and action text must
-// become a two-line identity block, without changing the parent click or
-// the service/action control callbacks.
-const parentClick = () => "parent-click";
-const greetClick = () => "greet";
-const dot = React.createElement("span", { className: "w-1.5 h-1.5" });
-const name = React.createElement("span", {
-  className: "text-[0.8rem] font-medium truncate max-w-[10rem]"
-}, "라이자");
-const status = React.createElement("span", {
-  className: "text-[0.7rem] truncate text-violet-400"
-}, "대화를 나누는 중");
-const order = React.createElement("span", {
-  className: "text-[0.7rem] text-stone-500 truncate"
-}, "따뜻한 차 주문");
-const acting = React.createElement("span", {
-  className: "text-[0.7rem] text-pink-400"
-}, "당신이 응대 중");
-const warning = React.createElement("span", {
-  className: "text-[0.7rem] text-red-400"
-}, "⚠1");
-const controlButton = React.createElement("button", { onClick: greetClick }, "인사하기");
-const controls = React.createElement("span", {
-  className: "flex items-center gap-1.5 flex-shrink-0"
-}, controlButton);
-const originalRow = React.createElement("div", {
-  onClick: parentClick,
-  className: "group flex items-center gap-1.5 px-1.5 py-0.5 rounded border"
-}, dot, name, status, order, acting, warning, controls);
-function Ou() {}
-const customerComponentResult = React.createElement(Ou, { children: originalRow });
-const customerResult = registeredHooks.customerRow.around(
-  () => customerComponentResult
+// Customer rows remain native. The old two-line/ellipsis transform is removed
+// so order, response, tip and other original details remain visible inline.
+assert.equal(registeredHooks.customerRow, undefined,
+  "native customer row is not rewritten or truncated");
+
+// Inner thoughts: tag only the original "그녀의 속마음" card, preserving its
+// content and click handler. CSS keeps it sticky and content-width responsive.
+const toggleThought = () => "toggle-thought";
+const thoughtToggle = React.createElement("button", {
+  onClick: toggleThought,
+  "aria-expanded": true
+}, "그녀의 속마음");
+const thoughtBody = React.createElement("div", {
+  className: "text-stone-400 italic text-[0.8rem] leading-relaxed"
+}, "그녀가 아직 말하지 않은 생각이 여기에 표시됩니다.");
+const thoughtCard = React.createElement("div", {
+  className: "px-3 py-2 bg-stone-900/50 border-l-2 border-l-stone-700 text-sm leading-relaxed"
+},
+  React.createElement("div", { className: "flex justify-between items-baseline mb-1" },
+    thoughtToggle
+  ),
+  thoughtBody
 );
-const transformedRow = findByClass(customerResult, "group flex items-center gap-1.5");
-assert.ok(transformedRow, "transformed customer row exists");
-assert.equal(transformedRow.props.onClick, parentClick, "row click handler preserved");
-const identity = findByClass(transformedRow, "m36-ui-migration-customer-identity");
-const meta = findByClass(transformedRow, "m36-ui-migration-customer-meta");
-assert.ok(identity, "name and metadata have a dedicated identity block");
-assert.ok(meta, "metadata is rendered beneath the name");
+function Znt() {}
+const portraitResult = React.createElement(Znt, { children: thoughtCard });
+const transformedPortrait = registeredHooks.wifePortrait.around(() => portraitResult);
+const pinnedThought = findByClass(transformedPortrait, "m36-ui-migration-inner-thought");
+assert.ok(pinnedThought, "original inner-thought card is tagged for sticky placement");
+assert.equal(collectText(pinnedThought), collectText(thoughtCard),
+  "inner-thought text and toggle label are preserved");
+assert.equal(findByClass(pinnedThought, "text-stone-400 italic").props.children,
+  "그녀가 아직 말하지 않은 생각이 여기에 표시됩니다.",
+  "inner-thought body is preserved");
+assert.equal(findByClass(pinnedThought, "text-stone-400 italic").props.children,
+  thoughtBody.props.children, "inner-thought text is not rewritten");
 assert.equal(
-  collectText(identity),
-  "라이자대화를 나누는 중따뜻한 차 주문당신이 응대 중",
-  "name and all original activity details remain present"
+  allElements(pinnedThought).find((element) => element.type === "button").props.onClick,
+  toggleThought,
+  "inner-thought expand/collapse callback is preserved"
 );
-assert.equal(
-  meta.props.title,
-  "대화를 나누는 중 · 따뜻한 차 주문 · 당신이 응대 중",
-  "full activity description remains available as a title"
-);
-assert.ok(
-  !React.Children.toArray(transformedRow.props.children)
-    .some((child) => child === status || child === order || child === acting),
-  "metadata is no longer inline beside the name"
-);
-assert.equal(findByClass(transformedRow, "text-[0.7rem] text-red-400"), warning,
-  "warning badge remains outside the metadata row");
-assert.equal(findByClass(transformedRow, "flex items-center gap-1.5 flex-shrink-0")
-  .props.children.props.onClick, greetClick, "action button callback preserved");
+assert.ok(injectedStyles.some((style) =>
+  style.textContent.includes("position:sticky") &&
+  style.textContent.includes("width:fit-content") &&
+  style.textContent.includes("m36-ui-migration-inner-thought")
+), "inner-thought card uses sticky, content-sized styling");
+assert.ok(injectedStyles.some((style) =>
+  style.textContent.includes("max-height:66.666%") &&
+  style.textContent.includes("m36-ui-migration-event-scroll")
+), "choice scroll area is reduced to about two-thirds of available height");
 
 // Action event: title, description, question prompt, player/Elena gauges and
 // dialogue card are pinned; both question answers and normal choices remain
@@ -284,9 +274,9 @@ assert.equal(
   "landscape action event remains unchanged"
 );
 assert.equal(
-  registeredHooks.customerRow.around(() => customerComponentResult),
-  customerComponentResult,
-  "landscape customer row remains unchanged"
+  registeredHooks.wifePortrait.around(() => portraitResult),
+  portraitResult,
+  "landscape wife portrait remains unchanged"
 );
 
-console.log("PASS 1.3.1: native customer row split, ellipsis metadata container, dialogue/gauge pinning, question/menu scroll split, callbacks and landscape passthrough");
+console.log("PASS 1.3.2: native customer details, sticky content-width inner thoughts, two-thirds choice scroll, dialogue/gauge pinning, callbacks and landscape passthrough");
