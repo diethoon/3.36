@@ -72,3 +72,5 @@ jobs:
 # trigger prep relocation validation
 
 # trigger current 1.3.2 test commit
+
+# trigger diagnostic test
