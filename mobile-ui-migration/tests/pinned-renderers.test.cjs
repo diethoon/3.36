@@ -167,7 +167,11 @@ const thoughtCard = React.createElement("div", {
   thoughtBody
 );
 const portraitResult = thoughtCard;
-const transformedPortrait = registeredHooks.wifePortrait.around(() => portraitResult);
+assert.ok(React.isValidElement(portraitResult), "portrait fixture is a React element");
+const transformedPortrait = registeredHooks.wifePortrait.around(() => {
+  console.log("TEST next fixture", React.isValidElement(portraitResult), portraitResult.type);
+  return portraitResult;
+});
 const pinnedThought = findByClass(transformedPortrait, "m36-ui-migration-inner-thought");
 assert.ok(pinnedThought, "original inner-thought card is tagged for sticky placement");
 assert.equal(collectText(pinnedThought), collectText(thoughtCard),
