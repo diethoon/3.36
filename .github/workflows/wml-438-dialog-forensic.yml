@@ -103,13 +103,19 @@ jobs:
 
           renderer_windows = []
           source_windows = {
-              "sB_action_renderer": (3575639, 3575639 + 6200),
+              "sB_action_renderer_0": (3575639, 3575639 + 6200),
+              "sB_action_renderer_1": (3581839, 3581839 + 6200),
+              "sB_action_renderer_2": (3588039, 3588039 + 6200),
+              "sB_action_renderer_3": (3594239, 3594239 + 6200),
               "Ast_layout_renderer": (3738349, 3738349 + 5200),
               "loe_native_status": (3717824, 3717824 + 5200),
               "itt_story_log": (3465439, 3465439 + 5200),
               "Z0_portrait_card": (3619151, 3619151 + 6200),
               "hoe_response_alert": (3731117, 3731117 + 3000),
           }
+          for key in ("function_utt", "function_fb", "function_Znt", "function_iB", "function__B", "function_wst"):
+              for index, position in enumerate(hits.get(key, [])[:2]):
+                  source_windows[f"{key}_{index}"] = (position, position + 6200)
           with source.open("rb") as source_file:
               for label, (start, end) in source_windows.items():
                   source_file.seek(start)
