@@ -52,3 +52,5 @@ jobs:
             print('\\n===== CONTEXT %d..%d bytes=%d ====='%(a,b,len(raw)))
             print(raw.decode('utf-8','replace'))
           PY
+
+# trigger bounded source context re-read
