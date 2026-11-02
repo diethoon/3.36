@@ -1,0 +1,135 @@
+name: Temporary WML 4.38MB dialog forensic
+
+on:
+  pull_request:
+    branches:
+      - forensic/wml-438-dialog-investigation-20261103
+
+permissions:
+  contents: read
+
+jobs:
+  inspect-exact-source:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout exact WML source commit
+        uses: actions/checkout@v4
+        with:
+          ref: 5e5c78c4e32198e460ba040256e920d37ed1711c
+          fetch-depth: 1
+
+      - name: Stream all source bytes and extract targeted contexts
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib, json, re, subprocess
+
+          source = Path("Wayward_WML_ko.html")
+          expected_size = 4_383_674
+          expected_blob = "8d998b50e82febe18b5c1d1159b16663b9169775"
+          expected_sha256 = "35a0ccf79ff18d8650554f6788d5a0952ba7c683b63aea1c17c0b4f1273817f2"
+          chunk_size = 4096
+          if not source.is_file():
+              raise SystemExit("TARGET_SOURCE_MISSING")
+          size = source.stat().st_size
+          git_blob = subprocess.check_output(
+              ["git", "hash-object", str(source)], text=True
+          ).strip()
+          whole = hashlib.sha256()
+          manifest = []
+          patterns = {
+              "function_loe": re.compile(rb"function\\s+loe\\b"),
+              "assign_loe": re.compile(rb"(?:const|let|var)?\\s*loe\\s*="),
+              "function_itt": re.compile(rb"function\\s+itt\\b"),
+              "assign_itt": re.compile(rb"(?:const|let|var)?\\s*itt\\s*="),
+              "function_hoe": re.compile(rb"function\\s+hoe\\b"),
+              "assign_hoe": re.compile(rb"(?:const|let|var)?\\s*hoe\\s*="),
+              "function_Z0": re.compile(rb"function\\s+Z0\\b"),
+              "assign_Z0": re.compile(rb"(?:const|let|var)?\\s*Z0\\s*="),
+              "function_Ast": re.compile(rb"function\\s+Ast\\b"),
+              "function_sB": re.compile(rb"function\\s+sB\\b"),
+              "dialogue_terms": re.compile("대화|당신|그녀|대답|말한다|말했습니다".encode("utf-8")),
+              "gauge_terms": re.compile("기력|기분|신뢰|이목|흥분도|게이지|상태".encode("utf-8")),
+              "dialog_class_terms": re.compile(rb"dialogue|conversation|speech|gauge|meter|progressbar", re.I),
+          }
+          hits = {key: [] for key in patterns}
+          counts = {key: 0 for key in patterns}
+          previous_tail = b""
+          offset = 0
+          with source.open("rb") as fh:
+              while True:
+                  chunk = fh.read(chunk_size)
+                  if not chunk:
+                      break
+                  chunk_hash = hashlib.sha256(chunk).hexdigest()
+                  manifest.append((offset, len(chunk), chunk_hash))
+                  whole.update(chunk)
+                  combined = previous_tail + chunk
+                  base_offset = offset - len(previous_tail)
+                  for key, pattern in patterns.items():
+                      for match in pattern.finditer(combined):
+                          absolute = base_offset + match.start()
+                          if absolute < offset - len(previous_tail):
+                              continue
+                          counts[key] += 1
+                          if len(hits[key]) < 40:
+                              hits[key].append(absolute)
+                  previous_tail = combined[-1024:]
+                  offset += len(chunk)
+
+          Path("evidence").mkdir(exist_ok=True)
+          with Path("evidence/chunk-manifest.tsv").open("w", encoding="utf-8") as out:
+              out.write("offset\\tlength\\tsha256\\n")
+              for off, length, digest in manifest:
+                  out.write(f"{off}\\t{length}\\t{digest}\\n")
+
+          raw = source.read_bytes()
+          excerpts = []
+          for key, positions in hits.items():
+              for pos in positions[:12]:
+                  start = max(0, pos - 700)
+                  end = min(len(raw), pos + 1100)
+                  excerpts.append({
+                      "pattern": key,
+                      "offset": pos,
+                      "start": start,
+                      "end": end,
+                      "text": raw[start:end].decode("utf-8", "replace")
+                  })
+          evidence = {
+              "target": "Wayward_WML_ko.html",
+              "checkout_head": subprocess.check_output(
+                  ["git", "rev-parse", "HEAD"], text=True
+              ).strip(),
+              "size_bytes": size,
+              "chunk_size": chunk_size,
+              "chunk_count": len(manifest),
+              "final_chunk_length": manifest[-1][1] if manifest else 0,
+              "git_blob_sha1": git_blob,
+              "sha256": whole.hexdigest(),
+              "expected_size_bytes": expected_size,
+              "expected_git_blob_sha1": expected_blob,
+              "expected_sha256": expected_sha256,
+              "identity_match": size == expected_size and git_blob == expected_blob and whole.hexdigest() == expected_sha256,
+              "pattern_counts": counts,
+              "pattern_offsets": hits,
+              "excerpts": excerpts
+          }
+          Path("evidence/targeted-contexts.json").write_text(
+              json.dumps(evidence, ensure_ascii=False, indent=2), encoding="utf-8"
+          )
+          print(json.dumps({k:v for k,v in evidence.items() if k != "excerpts"}, ensure_ascii=False, indent=2))
+          if not evidence["identity_match"]:
+              raise SystemExit("EXACT_SOURCE_IDENTITY_MISMATCH")
+          PY
+
+      - name: Upload forensic evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: wml-438-dialog-forensic-evidence
+          path: evidence/
+          if-no-files-found: warn
+          retention-days: 3
