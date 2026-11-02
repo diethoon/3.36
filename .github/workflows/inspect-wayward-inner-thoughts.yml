@@ -58,7 +58,7 @@ jobs:
           for term in [b'function _B',b'M36MobileRoomCustomer',b'stock_up','물자 채우기'.encode(),'물자채우기'.encode(),'영업 준비'.encode(),b'facilityOnly',b'M36MobileStockStatus',b'M36MobileRoomActivity']:
             if hits.get(term): selected.append((term,hits[term][0]))
           near_story=[p for p in hits['이야기'.encode()] if 3690000<p<3710000]
-          if near_story: selected.append((b'이야기-tab-area',near_story[0]))
+          if near_story: selected.append(('이야기-tab-area'.encode(),near_story[0]))
           centers=[(label,pos) for label,pos in selected[:9]]
           windows=[]
           for label,pos in centers:
