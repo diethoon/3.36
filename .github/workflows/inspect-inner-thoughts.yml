@@ -70,3 +70,5 @@ jobs:
 # trigger exact stock component call-site scan
 
 # trigger prep relocation validation
+
+# trigger current 1.3.2 test commit
