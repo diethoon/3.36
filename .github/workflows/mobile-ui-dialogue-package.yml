@@ -22,7 +22,6 @@ jobs:
       - name: Checkout exact PR head
         uses: actions/checkout@v4
         with:
-          ref: \${{ github.event.pull_request.head.sha }}
           fetch-depth: 0
 
       - name: Set up Node
@@ -37,10 +36,7 @@ jobs:
         run: node tests/test-dialogue-pin.cjs
 
       - name: Check patch whitespace
-        env:
-          BASE_SHA: \${{ github.event.pull_request.base.sha }}
-          HEAD_SHA: \${{ github.event.pull_request.head.sha }}
-        run: git diff --check "$BASE_SHA...$HEAD_SHA"
+        run: git diff --check "origin/$GITHUB_BASE_REF...HEAD"
 
       - name: Build and verify install ZIP
         shell: bash
