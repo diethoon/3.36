@@ -167,6 +167,7 @@ const thoughtCard = React.createElement("div", {
   thoughtBody
 );
 const portraitResult = thoughtCard;
+console.log("TEST element diagnostic", { element: portraitResult, marker: portraitResult && portraitResult.$typeof, valid: React.isValidElement(portraitResult) });
 assert.ok(React.isValidElement(portraitResult), "portrait fixture is a React element");
 const transformedPortrait = registeredHooks.wifePortrait.around(() => {
   console.log("TEST next fixture", React.isValidElement(portraitResult), portraitResult.type);
