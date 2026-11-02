@@ -34,7 +34,7 @@ const React = {
     };
   },
   isValidElement(value) {
-    return !!value && value.$typeof === ELEMENT;
+    return !!value && value.$$typeof === ELEMENT;
   },
   useState(value) { return [value, () => {}]; },
   useRef(value) { return { current: value }; },
