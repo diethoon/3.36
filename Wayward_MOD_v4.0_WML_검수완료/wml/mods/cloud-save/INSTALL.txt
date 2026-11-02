@@ -1,4 +1,4 @@
-Wayward Google Drive CloudSave — WML v0.4.1
+Wayward Google Drive CloudSave — WML v0.4.3
 
 설치
 1. cloud-save 폴더를 게임의 wml/mods/에 복사합니다.
@@ -7,9 +7,9 @@ Wayward Google Drive CloudSave — WML v0.4.1
 4. Google 계정으로 연결을 누른 후, 열린 인증 창에서 Drive 앱 데이터 접근을 승인합니다.
 
 인증 브리지
-https://diethoon.github.io/3.36/cloud-save-auth-static/
+https://wayward-cloud-auth.vercel.app/
 
-기본 GitHub Pages 인증 브리지를 이용하므로 게임 모드 설치자마다 Vercel API, OAuth client secret 또는 redirect URI를 설정할 필요가 없습니다. Google OAuth 클라이언트의 승인된 JavaScript 원본에는 https://diethoon.github.io 가 등록되어 있어야 합니다.
+기존 Vercel 인증 브리지(wayward-cloud-auth)를 이용합니다. 설치자는 Vercel API 키나 OAuth client secret을 설정할 필요가 없습니다. Google OAuth 클라이언트의 승인된 JavaScript 원본에는 https://wayward-cloud-auth.vercel.app 가 등록되어 있어야 합니다.
 
 file:// 실행에서는 인증 브리지의 로컬 파일 확인을 완료해야 합니다. 브라우저가 로컬 파일과 팝업 메시지를 제한하면 localhost/AWebServer/HTTPS에서 실행하세요. 공용 기기에서는 로그인 유지를 켜지 말고 사용 후 로그아웃하세요.
 
