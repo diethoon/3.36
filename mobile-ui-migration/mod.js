@@ -1,7 +1,7 @@
 WML.define({
   id: "mobile-ui-migration",
   name: "M36 모바일 UI 마이그레이션",
-  version: "1.3.2",
+  version: "1.3.3",
   game: "2026-10-24-pre7",
   platform: "mobile",
   description: "4.38MB WML 빌드용: 원본 상태·위치 UI 고정, 이야기 나레이션 정리, 전체화면·비활성 행동 접기",
@@ -586,26 +586,65 @@ WML.define({
     }
 
     let fullscreenButton = null;
+    const FULLSCREEN_PREFERENCE_KEY = "m36-mobile-ui-migration-fullscreen-wanted";
+    function readFullscreenPreference() {
+      try {
+        return window.localStorage.getItem(FULLSCREEN_PREFERENCE_KEY) === "1";
+      } catch (_) {
+        return false;
+      }
+    }
+    let fullscreenWanted = readFullscreenPreference();
+    function writeFullscreenPreference(wanted) {
+      fullscreenWanted = wanted;
+      try {
+        window.localStorage.setItem(FULLSCREEN_PREFERENCE_KEY, wanted ? "1" : "0");
+      } catch (_) {
+        // Keep the preference for this page session if storage is unavailable.
+      }
+    }
     function updateFullscreenButton() {
       if (!fullscreenButton) return;
-      const active = !!document.fullscreenElement;
+      const active = !!(document.fullscreenElement || document.webkitFullscreenElement);
       fullscreenButton.textContent = active ? "↙" : "⛶";
       fullscreenButton.title = active ? "전체화면 종료" : "전체화면";
       fullscreenButton.setAttribute("aria-label", active ? "전체화면 종료" : "전체화면");
       fullscreenButton.setAttribute("aria-pressed", active ? "true" : "false");
     }
+    async function requestGameFullscreen() {
+      const element = document.documentElement;
+      if (element.requestFullscreen) {
+        await element.requestFullscreen({ navigationUI: "hide" });
+      } else if (element.webkitRequestFullscreen) {
+        element.webkitRequestFullscreen();
+      } else {
+        throw new Error("이 실행 환경은 전체화면 API를 지원하지 않습니다.");
+      }
+    }
+    async function restoreFullscreenIfWanted() {
+      if (!fullscreenWanted || document.hidden || !mobileHost ||
+          !MOBILE_PORTRAIT.matches ||
+          document.fullscreenElement || document.webkitFullscreenElement) return;
+      try {
+        await requestGameFullscreen();
+      } catch (error) {
+        // Browsers may require a fresh user gesture after the app was backgrounded.
+        console.info("[WML mobile-ui-migration] automatic fullscreen restore was blocked", error);
+      }
+      updateFullscreenButton();
+    }
     async function toggleFullscreen(event) {
       event.preventDefault();
       event.stopPropagation();
       try {
-        if (document.fullscreenElement) {
-          await document.exitFullscreen();
-        } else if (document.documentElement.requestFullscreen) {
-          await document.documentElement.requestFullscreen({ navigationUI: "hide" });
-        } else if (document.documentElement.webkitRequestFullscreen) {
-          document.documentElement.webkitRequestFullscreen();
+        if (document.fullscreenElement || document.webkitFullscreenElement) {
+          // Only the explicit button turns the persistent preference off.
+          writeFullscreenPreference(false);
+          if (document.exitFullscreen) await document.exitFullscreen();
+          else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
         } else {
-          throw new Error("이 실행 환경은 전체화면 API를 지원하지 않습니다.");
+          writeFullscreenPreference(true);
+          await requestGameFullscreen();
         }
       } catch (error) {
         console.warn("[WML mobile-ui-migration] fullscreen request failed", error);
@@ -666,7 +705,16 @@ WML.define({
     window.addEventListener("resize", queueSync, { passive: true });
     window.addEventListener("orientationchange", queueSync, { passive: true });
     MOBILE_PORTRAIT.addEventListener?.("change", queueSync);
-    document.addEventListener("fullscreenchange", updateFullscreenButton);
+    document.addEventListener("fullscreenchange", () => {
+      updateFullscreenButton();
+      if (fullscreenWanted && !document.hidden) restoreFullscreenIfWanted();
+    });
+    document.addEventListener("webkitfullscreenchange", updateFullscreenButton);
+    document.addEventListener("visibilitychange", () => {
+      if (!document.hidden) restoreFullscreenIfWanted();
+    });
+    window.addEventListener("pageshow", restoreFullscreenIfWanted);
+    window.addEventListener("focus", restoreFullscreenIfWanted);
     queueSync();
 
     Object.defineProperty(window, "__M36_MOBILE_UI_MIGRATION__", {
@@ -710,7 +758,7 @@ WML.define({
       }
     });
 
-    console.info("[WML] M36 mobile UI migration 1.3.2 ready", {
+    console.info("[WML] M36 mobile UI migration 1.3.3 ready", {
       game: api.game,
       hostPlatform,
       mobileHost,
