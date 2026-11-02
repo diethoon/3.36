@@ -3,14 +3,14 @@ on:
   pull_request:
     branches: [main]
 permissions:
-  contents: read
+  contents: write
 jobs:
   inspect:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: mobile-ui-migration-438-v5-dialog-gauges
+          ref: mobile-ui-migration-438-v6-fixed-inner-thoughts
       - name: Verify and scan source in bounded chunks
         shell: bash
         run: |
@@ -48,3 +48,38 @@ jobs:
             print('\\n===== CONTEXT %s %d..%d bytes=%d ====='%(label,a,b,len(raw)))
             print(raw.decode('utf-8','replace'))
           PY
+      - name: Syntax and regression tests
+        run: |
+          node --check mobile-ui-migration/mod.js
+          node mobile-ui-migration/tests/pinned-renderers.test.cjs
+      - name: Diff check and build package
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          git diff --check origin/main...HEAD
+          rm -rf /tmp/m36-mobile-package
+          mkdir -p /tmp/m36-mobile-package/mobile-ui-migration
+          cp mobile-ui-migration/mod.js /tmp/m36-mobile-package/mobile-ui-migration/mod.js
+          cp mobile-ui-migration/README_ko.md /tmp/m36-mobile-package/mobile-ui-migration/README_ko.md
+          rm -f mobile-ui-migration/mobile-ui-migration-438.zip
+          (cd /tmp/m36-mobile-package && zip -qr "$GITHUB_WORKSPACE/mobile-ui-migration/mobile-ui-migration-438.zip" mobile-ui-migration)
+          unzip -t mobile-ui-migration/mobile-ui-migration-438.zip
+          unzip -p mobile-ui-migration/mobile-ui-migration-438.zip mobile-ui-migration/mod.js | cmp - mobile-ui-migration/mod.js
+          unzip -p mobile-ui-migration/mobile-ui-migration-438.zip mobile-ui-migration/README_ko.md | cmp - mobile-ui-migration/README_ko.md
+          sha256sum mobile-ui-migration/mobile-ui-migration-438.zip
+      - name: Commit validated ZIP
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add mobile-ui-migration/mobile-ui-migration-438.zip
+          if git diff --cached --quiet; then echo "ZIP already current"; exit 0; fi
+          git commit -m "build(mobile): package validated UI 1.3.2 [skip ci]"
+          git push origin "HEAD:refs/heads/mobile-ui-migration-438-v6-fixed-inner-thoughts"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mobile-ui-migration-438-v1.3.2
+          path: mobile-ui-migration/mobile-ui-migration-438.zip
+          if-no-files-found: error
