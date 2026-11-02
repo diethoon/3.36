@@ -1,0 +1,9 @@
+name: Temporary PR sync trigger
+on:
+  pull_request:
+    branches: [main]
+jobs:
+  no-op:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo trigger
