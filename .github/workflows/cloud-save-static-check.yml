@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - feature/wml-cloud-save-20261020
+      - feat/cloud-save-cross-version-compat
     paths:
       - ".github/workflows/cloud-save-static-check.yml"
       - "Wayward_MOD_v4.0_WML_검수완료/wml/mods/cloud-save/mod.js"
@@ -121,8 +122,11 @@ jobs:
             mods: { existing: { ok: true }, overlap: 'saved', 'cloud-save': { sample: 1 } },
           }, 'same-version game state, RNG, and WML mod data must be restored');
           const accepted = restoredState;
-          assert.throws(() => applySnapshot({ ...snapshot, game: '2026-09-30' }), /다른 게임 버전/);
-          assert.strictEqual(restoredState, accepted, 'wrong-version save must not mutate game state');
+          api.game = '2026-11-02';
+          applySnapshot({ ...snapshot, game: '2026-10-04', gameVersion: '2026-10-04' });
+          assert.deepEqual(restoredState, accepted, 'same-family saves must restore across different build identifiers');
+          assert.throws(() => applySnapshot({ ...snapshot, gameFamily: 'other-game' }), /다른 게임 계열/);
+          assert.deepEqual(restoredState, accepted, 'different game families must not mutate game state');
           assert.throws(() => applySnapshot({ ...snapshot, modData: [] }), /MOD 데이터/);
           assert.strictEqual(restoredState, accepted, 'invalid mod data must not mutate game state');
           console.log('Cloud-save state-restore checks passed.');
