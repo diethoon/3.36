@@ -62,3 +62,5 @@ jobs:
 # trigger corrected chunked scan
 
 # inspect stock preparation and customer renderer
+
+# trigger updated stock and customer contexts
