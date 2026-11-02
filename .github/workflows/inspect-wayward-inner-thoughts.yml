@@ -16,19 +16,15 @@ jobs:
         run: |
           set -euo pipefail
           python3 - <<'PY'
-          import hashlib, os
+          import hashlib
           p='Wayward_WML_ko.html'
-          terms=[x.encode() for x in ['그녀의 속마음','속마음','이야기','가게','피파','narration','thought','innerThought','thoughts','마음','function ','function _B','function M36MobileRoomCustomer','M36MobileRoomCustomer','M36MobileRoomActivity','stock_up','물자 채우기','물자채우기','영업 준비','facilityOnly','M36MobileStockStatus','position:sticky']]
-          h=hashlib.sha256(); manifest=hashlib.sha256(); overlap=b''; off=0; chunks=0
-          hits={t:[] for t in terms}; last_function=-1
-          target=3692801
+          terms=[s.encode() for s in ['그녀의 속마음','속마음','이야기','가게','피파','innerThought','thoughts','function _B','M36MobileRoomCustomer','M36MobileRoomActivity','stock_up','물자 채우기','물자채우기','영업 준비','facilityOnly','M36MobileStockStatus','position:sticky']]
+          h=hashlib.sha256(); manifest=hashlib.sha256(); overlap=b''; off=0; chunks=0; hits={t:[] for t in terms}
           with open(p,'rb') as f:
             while True:
               c=f.read(4096)
               if not c: break
-              h.update(c)
-              manifest.update(off.to_bytes(8,'big')+len(c).to_bytes(4,'big')+hashlib.sha256(c).digest())
-              chunks+=1
+              h.update(c); manifest.update(off.to_bytes(8,'big')+len(c).to_bytes(4,'big')+hashlib.sha256(c).digest()); chunks+=1
               d=overlap+c; base=off-len(overlap)
               for t in terms:
                 i=0
@@ -36,38 +32,19 @@ jobs:
                   j=d.find(t,i)
                   if j<0: break
                   pos=base+j
-                  if pos+len(t)>off and (not hits[t] or hits[t][-1]!=pos):
-                    hits[t].append(pos)
-                    if t==b'function ' and pos<=target: last_function=pos
+                  if pos+len(t)>off and (not hits[t] or hits[t][-1]!=pos): hits[t].append(pos)
                   i=j+1
-              overlap=d[-max(map(len,terms)):]
-              off+=len(c)
+              overlap=d[-max(map(len,terms)):]; off+=len(c)
           print('SOURCE bytes=%d chunks=%d sha256=%s manifest=%s'%(off,chunks,h.hexdigest(),manifest.hexdigest()))
-          for t,ps in hits.items():
-            if t in ['그녀의 속마음'.encode(),'속마음'.encode(),b'innerThought',b'thoughts']:
-              print('HIT %r count=%d offsets=%s'%(t,len(ps),ps[:30]))
-          for label in ['이야기','가게','피파','그녀의 속마음']:
-            t=label.encode()
-            ps=[x for x in hits[t] if abs(x-target)<250000]
-            print('NEAR_TERM %s offsets=%s'%(label,ps[:100]))
-          print('PREVIOUS_FUNCTION_OFFSET',last_function)
-          for t,ps in hits.items():
-            if t not in [b'function ','이야기'.encode(),'가게'.encode(),'마음'.encode()]:
-              print('HIT %r count=%d offsets=%s'%(t,len(ps),ps[:20]))
+          for term in terms:
+            print('HIT %s count=%d offsets=%s'%(term.decode('utf-8','replace'),len(hits[term]),hits[term][:20]))
           selected=[]
-          for term in [b'function _B',b'M36MobileRoomCustomer',b'stock_up','물자 채우기'.encode(),'물자채우기'.encode(),'영업 준비'.encode(),b'facilityOnly',b'M36MobileStockStatus',b'M36MobileRoomActivity']:
-            if hits.get(term): selected.append((term,hits[term][0]))
-          near_story=[p for p in hits['이야기'.encode()] if 3690000<p<3710000]
-          if near_story: selected.append(('이야기-tab-area'.encode(),near_story[0]))
-          centers=[(label,pos) for label,pos in selected[:9]]
-          windows=[]
-          for label,pos in centers:
-            a=max(0,pos-1800); b=min(off,a+6000)
-            if any(not (b<=x or a>=y) for x,y in windows): continue
-            windows.append((a,b,label))
-          for a,b,label in windows[:9]:
-            with open(p,'rb') as f:
-              f.seek(a); raw=f.read(b-a)
-            print('\\n===== CONTEXT %s %d..%d bytes=%d ====='%(label.decode('utf-8','replace'),a,b,len(raw)))
+          for label in ['function _B','M36MobileRoomCustomer','stock_up','물자 채우기','물자채우기','영업 준비','facilityOnly','M36MobileStockStatus','M36MobileRoomActivity','innerThought']:
+            term=label.encode()
+            if hits.get(term): selected.append((label,hits[term][0]))
+          for label,pos in selected[:10]:
+            a=max(0,pos-1600); b=min(off,a+5600)
+            with open(p,'rb') as f: f.seek(a); raw=f.read(b-a)
+            print('\\n===== CONTEXT %s %d..%d bytes=%d ====='%(label,a,b,len(raw)))
             print(raw.decode('utf-8','replace'))
           PY
