@@ -68,3 +68,5 @@ jobs:
 # refresh stock component call sites
 
 # trigger exact stock component call-site scan
+
+# trigger prep relocation validation
