@@ -66,3 +66,5 @@ jobs:
 # trigger updated stock and customer contexts
 
 # refresh stock component call sites
+
+# trigger exact stock component call-site scan
