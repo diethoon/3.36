@@ -51,5 +51,6 @@ test('cloud saves are compatible across builds while retaining a game-family gua
   assert.doesNotMatch(mod, /String\(snapshot\.gameVersion \|\| ''\) !== String\(api\.game \|\| ''\)/);
   assert.match(mod, /"optional": true/);
   assert.match(mod, /const rawOrigin = String\(window\.location\.origin \|\| ''\)/);
-  assert.match(mod, /const targetOrigin = isFileExecution \|\| !rawOrigin \|\| rawOrigin === 'null' \? 'null' : rawOrigin/);
+  assert.match(mod, /const fallbackOrigin = \/\^\(https\?\):\$\/.test\(window\.location\.protocol\) && window\.location\.host/);
+  assert.match(mod, /rawOrigin \|\| fallbackOrigin/);
 });
