@@ -158,6 +158,76 @@ jobs:
           print(json.dumps(summary, ensure_ascii=False))
           PY
 
+      - name: Extract bounded React component contexts
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          path = Path("Wayward_WML_ko.html")
+          patterns = [
+              b"function sB(", b"function Znt(", b"function UZe(",
+              b"function loe(", b"function itt(", b"function Ast(",
+              b"function sLe(", b"function iB(", b"function Gte(",
+              b"function YD(", b"function xu(",
+              b'children:"당신"', b'children:"그녀"',
+              b'children:"기력"', b'children:"기분"',
+              b'children:"신뢰"', b'children:"대화"',
+              b'"당신 / 그녀"', b'"당신"', b'"그녀"'
+          ]
+          overlap = max(map(len, patterns)) - 1
+          tail = b""
+          offset = 0
+          hits = {p: [] for p in patterns}
+          with path.open("rb") as src:
+              while True:
+                  chunk = src.read(4096)
+                  if not chunk:
+                      break
+                  scan = tail + chunk
+                  base = offset - len(tail)
+                  for pattern in patterns:
+                      pos = 0
+                      while True:
+                          hit = scan.find(pattern, pos)
+                          if hit < 0:
+                              break
+                          absolute = base + hit
+                          if absolute + len(pattern) > offset and len(hits[pattern]) < 20:
+                              hits[pattern].append(absolute)
+                          pos = hit + 1
+                  tail = scan[-overlap:]
+                  offset += len(chunk)
+
+          blocks = []
+          with path.open("rb") as src:
+              for pattern, offsets in hits.items():
+                  blocks.append(f"### {pattern.decode('utf-8', 'replace')} | {offsets}")
+                  for number, at in enumerate(offsets[:3], 1):
+                      # Each extracted source window is <= 7600 bytes.
+                      start = max(0, at - 1800)
+                      length = min(7600, path.stat().st_size - start)
+                      src.seek(start)
+                      raw = src.read(length)
+                      blocks.append(f"--- sample {number}; offset={at}; window={start}+{len(raw)} ---")
+                      blocks.append(raw.decode("utf-8", "replace"))
+                  blocks.append("")
+
+              # Full layout compositor context around function Ast().
+              at = 3738349
+              start = max(0, at - 1600)
+              src.seek(start)
+              raw = src.read(7600)
+              blocks.append(f"### AST COMPOSITOR WINDOW offset={at}; window={start}+{len(raw)}")
+              blocks.append(raw.decode("utf-8", "replace"))
+
+          out = "\n".join(blocks)
+          Path("evidence/component_contexts.txt").write_text(out, encoding="utf-8")
+          print("contexts_created", len(blocks), "characters", len(out))
+          PY
+
       - name: Upload forensic evidence
         uses: actions/upload-artifact@v4
         with:
