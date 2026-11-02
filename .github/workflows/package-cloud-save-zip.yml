@@ -2,7 +2,7 @@ name: Package Google Drive cloud-save mod
 
 on:
   push:
-    branches: [wml, fix/cloud-save-2026-10-24-pre7]
+    branches: [wml, fix/cloud-save-2026-10-24-pre7, feat/cloud-save-cross-version-compat]
     paths:
       - "Wayward_MOD_v4.0_WML_검수완료/wml/mods/cloud-save/**"
       - "Wayward_MOD_v4.0_WML_검수완료/wml/mods/mods.js"
