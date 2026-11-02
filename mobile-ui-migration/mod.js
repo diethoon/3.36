@@ -717,7 +717,7 @@ WML.define({
       }
     });
 
-    console.info("[WML] M36 mobile UI migration 1.3.1 ready", {
+    console.info("[WML] M36 mobile UI migration 1.3.2 ready", {
       game: api.game,
       hostPlatform,
       mobileHost,
