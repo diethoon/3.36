@@ -47,12 +47,12 @@ jobs:
           for t,ps in found.items(): print('ANCHOR %r %s'%(t,ps[:10]))
           # Print separate contexts, each <= 7,800 bytes.
           windows=[
-            ('customer-row',18953714,6500),
-            ('room-activity',18953633,5200),
-            ('action-panel-component',18963370,7800),
-            ('prep-renderer',18771301,7800),
-            ('fixed-and-prep-css',19525678,7800),
-            ('narration-and-choice-css',19502355,7800)
+            ('dialogue-component',18751377,7200),
+            ('pleasure-component',18752036,7200),
+            ('stock-status-component',18957949,7200),
+            ('action-panel-and-scroll',18963883,7200),
+            ('landscape-info-scroll-css',19502355,7200),
+            ('dialogue-fixed-css',19525678,7200)
           ]
           for label,center,n in windows:
             a=max(0,center-n//2); b=min(size,a+n)
