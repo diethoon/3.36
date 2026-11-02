@@ -6,12 +6,12 @@ WML.define({
   id: 'cloud-save',
   name: '클라우드세이브 (Google Drive)',
   version: '0.4.3',
-  game: '>=2026-10-04',
   description: 'Google 계정으로 연결해 개인 Drive에 암호화 세이브를 저장합니다. 게임 세이브는 서버를 거치지 않습니다.',
   symbols: {
     "pauseMenu": {
       "raw": { "2026-10-04": "N6e" },
-      "doc": "게임 기본 일시정지 메뉴.",
+      "doc": "게임 기본 일시정지 메뉴. 버전에 따라 없어도 모드의 클라우드 창은 사용할 수 있습니다.",
+      "optional": true,
       "find": { "all": ["\"support\""], "len": 2849, "any": ["\"save\"", ".returnToTitle", "\"changelog\"", "\"settings\"", "onDone:", "\"load\""] }
     }
   },
@@ -142,8 +142,12 @@ WML.define({
         // file:// pages have an opaque "null" origin. Google OAuth still runs on
         // our HTTPS bridge; only the return message needs the opaque-origin fallback.
         const isFileExecution = window.location.protocol === 'file:';
-        const targetOrigin = isFileExecution ? 'null' : window.location.origin;
-        if ((!isFileExecution && targetOrigin === 'null') || !/^(https?|file):$/.test(window.location.protocol)) {
+        const rawOrigin = String(window.location.origin || '');
+        // Some embedded/mobile WebViews expose an empty origin for an opaque page.
+        // Treat it like file://: the bridge requires an explicit user confirmation and
+        // returns through a source+nonce-checked postMessage using the opaque-origin path.
+        const targetOrigin = isFileExecution || !rawOrigin || rawOrigin === 'null' ? 'null' : rawOrigin;
+        if (!/^(https?|file):$/.test(window.location.protocol)) {
           reject(new Error('지원하지 않는 실행 주소입니다. file://, HTTP 또는 HTTPS에서 실행해 주세요.'));
           return;
         }
@@ -330,7 +334,8 @@ WML.define({
       return {
         schema: 'wayward-cloud-save',
         version: 1,
-        game: String(api.game || ''),
+        gameFamily: 'wayward',
+        game: String(api.game || ''), // build identifier for diagnostics; not a compatibility gate
         gameVersion,
         nativeFormat: 1,
         savedAt: Date.now(),
@@ -377,9 +382,11 @@ WML.define({
           typeof snapshot.state !== 'object' || Array.isArray(snapshot.state)) {
         throw new Error('지원하지 않는 세이브 형식입니다.');
       }
-      if (String(snapshot.game || '') !== String(api.game || '') ||
-          String(snapshot.gameVersion || '') !== String(api.game || '')) {
-        throw new Error('다른 게임 버전의 세이브입니다.');
+      // `game` and `gameVersion` are build identifiers, not game identities.
+      // Keep old snapshots (which have no gameFamily) readable across Wayward builds.
+      // The stable snapshot schema + nativeFormat are the compatibility contract.
+      if (snapshot.gameFamily && snapshot.gameFamily !== 'wayward') {
+        throw new Error('다른 게임 계열의 세이브입니다.');
       }
       const modData = snapshot.modData == null ? {} : snapshot.modData;
       if (!modData || typeof modData !== 'object' || Array.isArray(modData)) {
