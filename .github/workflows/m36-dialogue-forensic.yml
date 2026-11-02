@@ -223,7 +223,16 @@ jobs:
               blocks.append(f"### AST COMPOSITOR WINDOW offset={at}; window={start}+{len(raw)}")
               blocks.append(raw.decode("utf-8", "replace"))
 
-          out = "\n".join(blocks)
+              # Continue the long sB() renderer in separate <=7600-byte reads.
+              for start in (3581439, 3589039, 3596639):
+                  if start >= path.stat().st_size:
+                      continue
+                  src.seek(start)
+                  raw = src.read(7600)
+                  blocks.append(f"### sB CONTINUATION window={start}+{len(raw)}")
+                  blocks.append(raw.decode("utf-8", "replace"))
+
+          out = "\\n".join(blocks)
           Path("evidence/component_contexts.txt").write_text(out, encoding="utf-8")
           print("contexts_created", len(blocks), "characters", len(out))
           PY
