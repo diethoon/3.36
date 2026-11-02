@@ -9,9 +9,9 @@ const mod = fs.readFileSync('Wayward_MOD_v4.0_WML_검수완료/wml/mods/cloud-sa
 const helper = fs.readFileSync('cloud-save-auth-static/index.html', 'utf8');
 const config = fs.readFileSync('cloud-save-auth-static/config.js', 'utf8');
 
-test('Drive mod targets the deployed static HTTPS bridge', () => {
-  assert.match(mod, /const AUTH_BRIDGE_URL = 'https:\/\/diethoon\.github\.io\/3\.36\/cloud-save-auth-static\/'/);
-  assert.doesNotMatch(mod, /wayward-cloud-auth\.vercel\.app|GOOGLE_CLIENT_SECRET|OAUTH_STATE_SECRET/);
+test('Drive mod targets the working Vercel HTTPS bridge', () => {
+  assert.match(mod, /const AUTH_BRIDGE_URL = 'https:\/\/wayward-cloud-auth\.vercel\.app\/'/);
+  assert.doesNotMatch(mod, /GOOGLE_CLIENT_SECRET|OAUTH_STATE_SECRET/);
 });
 
 test('game page and static bridge share origin, nonce, source, and message contracts', () => {
