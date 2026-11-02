@@ -201,9 +201,12 @@ const prepComponent = React.createElement($ot, { "data-original-prep": true });
 const originalLocation = React.createElement("div", {
   className: "mb-2 pb-2 border-b border-stone-800"
 }, React.createElement(loe, { label: "엘레나" }));
+const prepNarrationWrapper = React.createElement("div", {
+  className: "mb-3"
+}, prepComponent);
 const storyPane = React.createElement("div", {
   className: "flex-1 min-h-0 overflow-y-auto p-2 text-[0.78rem]"
-}, originalLocation, prepComponent);
+}, originalLocation, prepNarrationWrapper);
 const actionScroll = React.createElement("div", {
   className: "flex-1 min-h-0 overflow-y-auto"
 }, React.createElement("button", {}, "선택지"));
@@ -223,6 +226,9 @@ const storyAfterMove = allElements(transformedLayoutTree).find((element) =>
 assert.ok(storyAfterMove, "story pane remains present");
 assert.equal(allElements(storyAfterMove).some((element) => element.type === $ot), false,
   "prep component is removed from the story pane");
+assert.equal(allElements(storyAfterMove).some((element) =>
+  element.props.className === "mb-3"
+), false, "empty original prep wrapper is removed from the story pane");
 const pinnedPanelElement = allElements(transformedLayoutTree).find((element) =>
   element.type.name === "PinnedPanel"
 );
