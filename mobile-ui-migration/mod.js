@@ -391,12 +391,6 @@ WML.define({
     const unhookWifePortrait = api.hook("wifePortrait", {
       around(next, ...args) {
         const result = next(...args);
-        console.log("[WML mobile-ui-migration] inner-thought hook", {
-          mobileHost,
-          portrait: MOBILE_PORTRAIT.matches,
-          resultType: React.isValidElement(result) ? componentName(result) || result.type : typeof result,
-          resultText: plainTextFromNode(result).slice(0, 100)
-        });
         return mobileHost && MOBILE_PORTRAIT.matches
           ? transformInnerThoughtNode(result)
           : result;
