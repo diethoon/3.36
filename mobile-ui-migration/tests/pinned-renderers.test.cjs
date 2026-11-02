@@ -34,8 +34,11 @@ const React = {
     };
   },
   isValidElement(value) {
-    return !!value && value.$$typeof === ELEMENT;
+    return !!value && value.$typeof === ELEMENT;
   },
+  useState(value) { return [value, () => {}]; },
+  useRef(value) { return { current: value }; },
+  useEffect() {},
   Children: {
     toArray(children) { return flatten(children); },
     forEach(children, callback) { flatten(children).forEach(callback); }
@@ -190,6 +193,50 @@ assert.ok(injectedStyles.some((style) =>
   style.textContent.includes("m36-ui-migration-event-scroll")
 ), "choice scroll area is reduced to about two-thirds of available height");
 
+// The original prep component is moved out of the story pane and placed
+// inside the fixed panel above the action list. It is rendered only once.
+function $ot() {}
+function loe() {}
+const prepComponent = React.createElement($ot, { "data-original-prep": true });
+const originalLocation = React.createElement("div", {
+  className: "mb-2 pb-2 border-b border-stone-800"
+}, React.createElement(loe, { label: "엘레나" }));
+const storyPane = React.createElement("div", {
+  className: "flex-1 min-h-0 overflow-y-auto p-2 text-[0.78rem]"
+}, originalLocation, prepComponent);
+const actionScroll = React.createElement("div", {
+  className: "flex-1 min-h-0 overflow-y-auto"
+}, React.createElement("button", {}, "선택지"));
+const actionPanel = React.createElement("div", {
+  className: "w-[37%] flex flex-col"
+}, actionScroll);
+const originalLayoutTree = React.createElement("main", {}, storyPane, actionPanel);
+const responsiveLayoutElement = registeredHooks.layout.after(originalLayoutTree);
+const transformedLayoutTree = responsiveLayoutElement.type(responsiveLayoutElement.props);
+const movedPrep = allElements(transformedLayoutTree).find((element) =>
+  element.type === $ot
+);
+assert.ok(movedPrep, "original prep component remains mounted after relocation");
+const storyAfterMove = allElements(transformedLayoutTree).find((element) =>
+  element.props.className === "flex-1 min-h-0 overflow-y-auto p-2 text-[0.78rem]"
+);
+assert.ok(storyAfterMove, "story pane remains present");
+assert.equal(allElements(storyAfterMove).some((element) => element.type === $ot), false,
+  "prep component is removed from the story pane");
+const pinnedPanelElement = allElements(transformedLayoutTree).find((element) =>
+  element.type.name === "PinnedPanel"
+);
+assert.ok(pinnedPanelElement, "fixed panel is inserted above the action list");
+const renderedPinnedPanel = pinnedPanelElement.type(pinnedPanelElement.props);
+const prepFixed = findByClass(renderedPinnedPanel, "m36-ui-migration-prep-fixed");
+assert.ok(prepFixed, "prep and supply controls are placed in the fixed action panel");
+assert.equal(allElements(prepFixed).filter((element) => element.type === $ot).length, 1,
+  "prep component is relocated once without duplicating its stateful controls");
+assert.ok(allElements(transformedLayoutTree).some((element) =>
+  typeof element.props.className === "string" &&
+  element.props.className.includes("m36-ui-migration-action-scroll")
+), "action choices retain their own scroll region");
+
 // Action event: title, description, question prompt, player/Elena gauges and
 // dialogue card are pinned; both question answers and normal choices remain
 // in the scroll content with their original callbacks and IDs.
@@ -279,4 +326,4 @@ assert.equal(
   "landscape wife portrait remains unchanged"
 );
 
-console.log("PASS 1.3.2: native customer details, sticky content-width inner thoughts, two-thirds choice scroll, dialogue/gauge pinning, callbacks and landscape passthrough");
+console.log("PASS 1.3.2: native customer details, sticky inner thoughts, relocated prep/supply controls, two-thirds choice scroll, dialogue/gauge pinning and callbacks");
