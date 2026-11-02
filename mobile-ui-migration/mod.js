@@ -139,6 +139,7 @@ WML.define({
 
     function ResponsiveLayout({ tree }) {
       const [portraitMode, setPortraitMode] = React.useState(MOBILE_PORTRAIT.matches);
+      const originalLocationRef = React.useRef(null);
 
       React.useEffect(() => {
         const updateOrientation = () => setPortraitMode(MOBILE_PORTRAIT.matches);
@@ -151,8 +152,16 @@ WML.define({
       }, []);
 
       try {
-        const statusElements = { locations: null };
-        if (portraitMode) collectOriginalStatus(tree, statusElements);
+        const currentStatusElements = { locations: null };
+        if (portraitMode) collectOriginalStatus(tree, currentStatusElements);
+        if (currentStatusElements.locations) {
+          originalLocationRef.current = currentStatusElements.locations;
+        }
+        const statusElements = {
+          locations: portraitMode
+            ? currentStatusElements.locations || originalLocationRef.current
+            : null
+        };
         return transformTree(tree, statusElements, portraitMode);
       } catch (error) {
         console.error("[WML mobile-ui-migration] layout transform failed", error);
