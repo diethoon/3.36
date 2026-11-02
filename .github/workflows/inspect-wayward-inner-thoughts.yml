@@ -47,6 +47,11 @@ jobs:
             with open(p,'rb') as f: f.seek(a); raw=f.read(b-a)
             print('\\n===== CONTEXT %s %d..%d bytes=%d ====='%(label,a,b,len(raw)))
             print(raw.decode('utf-8','replace'))
+          for label,pos in [('customer-row-second-function',3712585),('stock-up-ui',3593085),('stock-up-label-ui',3593346),('prep-tab-area',3572104),('prep-tab-area-2',3590712),('prep-tab-area-3',3597388)]:
+            a=max(0,pos-1800); b=min(off,a+6000)
+            with open(p,'rb') as f: f.seek(a); raw=f.read(b-a)
+            print('\\n===== CONTEXT %s %d..%d bytes=%d ====='%(label,a,b,len(raw)))
+            print(raw.decode('utf-8','replace'))
           PY
       - name: Syntax and regression tests
         run: |
@@ -56,8 +61,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          git fetch origin main
-          git diff --check origin/main...HEAD
+          git fetch origin mobile-ui-migration-438-v5-dialog-gauges
+          git diff --check origin/mobile-ui-migration-438-v5-dialog-gauges...HEAD
           rm -rf /tmp/m36-mobile-package
           mkdir -p /tmp/m36-mobile-package/mobile-ui-migration
           cp mobile-ui-migration/mod.js /tmp/m36-mobile-package/mobile-ui-migration/mod.js
