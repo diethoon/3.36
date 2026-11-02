@@ -41,7 +41,7 @@ jobs:
           print('SOURCE bytes=%d chunks=%d sha256=%s manifest=%s'%(off,chunks,h.hexdigest(),manifest.hexdigest()))
           for t,ps in hits.items(): print('HIT %r count=%d offsets=%s'%(t,len(ps),ps[:30]))
           # Output compact contexts around all exact "속마음" and "그녀의 속마음" hits.
-          focus=sorted(set(hits['속마음']+hits['그녀의 속마음']))
+          focus=sorted(set(hits['속마음'.encode()]+hits['그녀의 속마음'.encode()]))
           windows=[]
           for pos in focus:
             a=max(0,pos-1800); b=min(off,pos+2600)
