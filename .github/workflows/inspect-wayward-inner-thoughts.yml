@@ -4,6 +4,9 @@ on:
     branches: [main]
 permissions:
   contents: write
+concurrency:
+  group: mobile-ui-v6-${{ github.event.pull_request.head.ref }}
+  cancel-in-progress: true
 jobs:
   inspect:
     runs-on: ubuntu-latest
@@ -82,6 +85,11 @@ jobs:
           unzip -p mobile-ui-migration/mobile-ui-migration-438.zip mobile-ui-migration/mod.js | cmp - mobile-ui-migration/mod.js
           unzip -p mobile-ui-migration/mobile-ui-migration-438.zip mobile-ui-migration/README_ko.md | cmp - mobile-ui-migration/README_ko.md
           sha256sum mobile-ui-migration/mobile-ui-migration-438.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mobile-ui-migration-438-v1.3.2
+          path: mobile-ui-migration/mobile-ui-migration-438.zip
+          if-no-files-found: error
       - name: Commit validated ZIP
         shell: bash
         run: |
@@ -91,9 +99,7 @@ jobs:
           git add mobile-ui-migration/mobile-ui-migration-438.zip
           if git diff --cached --quiet; then echo "ZIP already current"; exit 0; fi
           git commit -m "build(mobile): package validated UI 1.3.2 [skip ci]"
-          git push origin "HEAD:refs/heads/mobile-ui-migration-438-v6-fixed-inner-thoughts"
-      - uses: actions/upload-artifact@v4
-        with:
-          name: mobile-ui-migration-438-v1.3.2
-          path: mobile-ui-migration/mobile-ui-migration-438.zip
-          if-no-files-found: error
+          BRANCH="${{ github.event.pull_request.head.ref }}"
+          git fetch origin "$BRANCH"
+          git rebase "origin/$BRANCH"
+          git push origin "HEAD:refs/heads/$BRANCH"
