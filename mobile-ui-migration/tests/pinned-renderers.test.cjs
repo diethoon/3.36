@@ -289,4 +289,4 @@ assert.equal(
   "landscape customer row remains unchanged"
 );
 
-console.log("PASS: native customer row split, ellipsis metadata container, dialogue/gauge pinning, question/menu scroll split, callbacks and landscape passthrough");
+console.log("PASS 1.3.1: native customer row split, ellipsis metadata container, dialogue/gauge pinning, question/menu scroll split, callbacks and landscape passthrough");
