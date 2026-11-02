@@ -10,6 +10,10 @@ on:
       - "Wayward_MOD_v4.0_WML_검수완료/wml/mods/cloud-save/crypto.js"
       - "Wayward_MOD_v4.0_WML_검수완료/wml/mods/cloud-save/opaque-client-entry.js"
       - "Wayward_MOD_v4.0_WML_검수완료/wml/mods/cloud-save/README.md"
+      - "tests/cloud-save-google-drive.crypto.test.mjs"
+      - "tests/cloud-save-google-drive.static-auth.test.cjs"
+      - "tools/verify-wml-html-byte-chunks.py"
+      - "cloud-save-auth-static/**"
       - "workers/wayward-save-share/index.src.js"
       - "workers/wayward-save-share/schema.sql"
       - "workers/wayward-save-share/test-worker.mjs"
@@ -24,6 +28,10 @@ on:
       - "Wayward_MOD_v4.0_WML_검수완료/wml/mods/cloud-save/crypto.js"
       - "Wayward_MOD_v4.0_WML_검수완료/wml/mods/cloud-save/opaque-client-entry.js"
       - "Wayward_MOD_v4.0_WML_검수완료/wml/mods/cloud-save/README.md"
+      - "tests/cloud-save-google-drive.crypto.test.mjs"
+      - "tests/cloud-save-google-drive.static-auth.test.cjs"
+      - "tools/verify-wml-html-byte-chunks.py"
+      - "cloud-save-auth-static/**"
       - "workers/wayward-save-share/index.src.js"
       - "workers/wayward-save-share/schema.sql"
       - "workers/wayward-save-share/test-worker.mjs"
@@ -42,12 +50,9 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
-      - name: Install pinned OPAQUE library and bundler
+      - name: Install dependencies for existing Worker regression tests
         working-directory: workers/wayward-save-share
         run: npm install --no-audit --no-fund --no-package-lock
-      - name: Build standalone Worker and WML client
-        working-directory: workers/wayward-save-share
-        run: node build.mjs
       - name: Check JavaScript syntax
         shell: bash
         run: |
@@ -56,6 +61,23 @@ jobs:
           node --input-type=module --check < "Wayward_MOD_v4.0_WML_검수완료/wml/mods/cloud-save/crypto.js"
           node --input-type=module --check < "workers/wayward-save-share/index.src.js"
           node --input-type=module --check < "workers/wayward-save-share/index.js"
+
+      - name: Test Google Drive encryption and tamper rejection
+        run: node --test tests/cloud-save-google-drive.crypto.test.mjs
+
+      - name: Test static Google OAuth bridge contract
+        run: node --test tests/cloud-save-google-drive.static-auth.test.cjs
+
+      - name: Scan exact v4.0 HTML in 4096-byte binary chunks
+        run: python tools/verify-wml-html-byte-chunks.py "Wayward_MOD_v4.0_WML_검수완료/Wayward_WML_ko.html"
+
+      - name: Upload HTML byte-scan evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: wml-v4-html-byte-scan
+          path: artifacts/wml-html-scan/
+          if-no-files-found: warn
       - name: Verify cloud-save bindings against the shipped game
         working-directory: Wayward_MOD_v4.0_WML_검수완료/wml
         shell: bash
@@ -141,8 +163,6 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          grep -q "'/api/opaque/register/start'" "Wayward_MOD_v4.0_WML_검수완료/wml/mods/cloud-save/mod.js"
-          grep -q "'/api/opaque/login/start'" "Wayward_MOD_v4.0_WML_검수완료/wml/mods/cloud-save/mod.js"
           grep -q "/api/opaque/register/start" "workers/wayward-save-share/index.src.js"
           grep -q "/api/opaque/login/start" "workers/wayward-save-share/index.src.js"
           grep -q "wayward-cloud-save-encrypted" "workers/wayward-save-share/index.src.js"
