@@ -1,10 +1,10 @@
 WML.define({
   id: "mobile-ui-migration",
   name: "M36 모바일 UI 마이그레이션",
-  version: "1.3.1",
+  version: "1.3.4",
   game: "2026-10-24-pre7",
   platform: "mobile",
-  description: "4.38MB WML 빌드용: 원본 상태·위치 UI 고정, 이야기 나레이션 정리, 전체화면·비활성 행동 접기",
+  description: "4.38MB WML 빌드용: 고객 2행 헤더, 선택지 영역 축소, 전체화면 복귀 유지",
   symbols: {
     React: { raw: { "2026-10-24-pre7": "J" } },
     layout: { raw: { "2026-10-24-pre7": "Ast" } },
@@ -239,7 +239,11 @@ WML.define({
               nextChildren.push(transformCustomerRowNode(child));
             }
           });
-          return React.cloneElement(node, null, ...nextChildren);
+          return React.cloneElement(
+            node,
+            { className: (className + " m36-ui-migration-customer-row").trim() },
+            ...nextChildren
+          );
         }
       }
 
@@ -442,13 +446,13 @@ WML.define({
     style.textContent = [
       "#root ." + PINNED_PANEL_CLASS + "{display:none;box-sizing:border-box;flex:0 0 auto;min-width:0;max-width:100%;max-height:44vh;padding:4px 4px 5px;color:#e7e5e4;background:rgba(28,25,23,.98);border-bottom:1px solid rgba(120,113,108,.48);overflow-x:hidden;overflow-y:auto;overscroll-behavior:contain}",
       "#root .m36-ui-migration-original-status{min-width:0;max-width:100%;overflow-x:hidden}",
-      "#root ." + ACTION_SCROLL_CLASS + "{min-height:0!important;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}",
+      "#root ." + ACTION_SCROLL_CLASS + "{min-height:0!important;max-height:66.666%!important;flex:0 1 66.666%!important;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}",
       "#root ." + ACTION_SCROLL_CLASS + " button.m36-ui-migration-disabled-choice{position:relative!important;display:flex!important;align-items:center!important;justify-content:space-between!important;gap:.35rem!important;box-sizing:border-box!important;width:100%!important;min-width:0!important;min-height:1.75rem!important;margin:.08rem 0!important;padding:.28rem .4rem!important;border:1px solid rgb(68 64 60)!important;border-radius:.4rem!important;background:rgba(28,25,23,.72)!important;color:rgb(168 162 158)!important;text-align:left!important;font-size:0!important;line-height:1.15!important;opacity:.7!important;overflow:hidden!important;white-space:nowrap!important}",
       "#root ." + ACTION_SCROLL_CLASS + " button.m36-ui-migration-disabled-choice>*{display:none!important}",
       "#root ." + ACTION_SCROLL_CLASS + " button.m36-ui-migration-disabled-choice::before{content:attr(data-m36-ui-disabled-label);display:block!important;flex:1 1 auto!important;min-width:0!important;overflow:hidden!important;text-overflow:ellipsis!important;white-space:nowrap!important;font-size:.68rem!important;line-height:1.15!important}",
       "#root ." + ACTION_SCROLL_CLASS + " button.m36-ui-migration-disabled-choice::after{content:attr(data-m36-ui-disabled-status);display:block!important;flex:0 1 auto!important;max-width:44%!important;min-width:0!important;overflow:hidden!important;color:rgb(148 163 184)!important;font-size:.61rem!important;line-height:1.15!important;text-align:right!important;text-overflow:ellipsis!important;white-space:nowrap!important}",
       "#root .m36-ui-migration-fullscreen-button{box-sizing:border-box;flex:0 0 auto}",
-      "@media screen and (max-width:1023px) and (orientation:portrait){#root ." + PINNED_PANEL_CLASS + "{display:block}#root .m36-ui-migration-customer-identity{display:flex;flex:1 1 auto;flex-direction:column;min-width:0;max-width:100%;overflow:hidden}#root .m36-ui-migration-customer-identity>span:first-child{display:block;max-width:100%!important;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}#root .m36-ui-migration-customer-meta{display:block;min-width:0;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;line-height:1.15;font-size:.64rem}#root .m36-ui-migration-event-root{display:flex;flex-direction:column;width:100%;height:100%;min-width:0;min-height:0;max-height:100%;overflow:hidden;box-sizing:border-box}#root .m36-ui-migration-event-fixed{flex:0 1 auto;min-width:0;max-width:100%;max-height:48vh;overflow-x:hidden;overflow-y:auto;overscroll-behavior:contain;padding:4px 4px 5px;background:rgba(28,25,23,.98);border-bottom:1px solid rgba(120,113,108,.48)}#root .m36-ui-migration-event-description{display:block;min-width:0;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}#root .m36-ui-migration-event-gauges{margin-bottom:.45rem}#root .m36-ui-migration-event-scroll{flex:1 1 auto;min-width:0;min-height:0;overflow-x:hidden;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;padding:4px 3px 8px}#root .m36-ui-migration-question-choices{margin:0 0 .75rem}}",
+      "@media screen and (max-width:1023px) and (orientation:portrait){#root ." + PINNED_PANEL_CLASS + "{display:block}#root .m36-ui-migration-customer-row{align-items:flex-start!important}#root .m36-ui-migration-customer-identity{display:flex;flex:1 1 auto;flex-direction:column;min-width:0;max-width:100%;overflow:hidden}#root .m36-ui-migration-customer-identity>span:first-child{display:block;max-width:100%!important;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}#root .m36-ui-migration-customer-meta{display:flex;align-items:center;gap:.35rem;min-width:0;max-width:100%;overflow:hidden;white-space:nowrap;line-height:1.15;font-size:.64rem}#root .m36-ui-migration-customer-meta>span{flex:0 1 auto;min-width:0;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}#root .m36-ui-migration-event-root{display:flex;flex-direction:column;width:100%;height:100%;min-width:0;min-height:0;max-height:100%;overflow:hidden;box-sizing:border-box}#root .m36-ui-migration-event-fixed{flex:0 1 auto;min-width:0;max-width:100%;max-height:48vh;overflow-x:hidden;overflow-y:auto;overscroll-behavior:contain;padding:4px 4px 5px;background:rgba(28,25,23,.98);border-bottom:1px solid rgba(120,113,108,.48)}#root .m36-ui-migration-event-description{display:block;min-width:0;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}#root .m36-ui-migration-event-gauges{margin-bottom:.45rem}#root .m36-ui-migration-event-scroll{flex:0 1 66.666%;min-width:0;min-height:0;max-height:66.666%;overflow-x:hidden;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;padding:4px 3px 8px}#root .m36-ui-migration-question-choices{margin:0 0 .75rem}}",
       "@media screen and (orientation:landscape),(min-width:1024px){#root ." + PINNED_PANEL_CLASS + "{display:none!important}#root .m36-ui-migration-fullscreen-button{display:none!important}}"
     ].join("\n");
     document.head.appendChild(style);
@@ -607,26 +611,82 @@ WML.define({
     }
 
     let fullscreenButton = null;
+    const FULLSCREEN_PREFERENCE_KEY = "m36-mobile-ui-migration-fullscreen-wanted";
+    function readFullscreenPreference() {
+      try {
+        return window.localStorage.getItem(FULLSCREEN_PREFERENCE_KEY) === "1";
+      } catch (_) {
+        return false;
+      }
+    }
+    let fullscreenWanted = readFullscreenPreference();
+    let fullscreenRestoreInFlight = false;
+    function writeFullscreenPreference(wanted) {
+      fullscreenWanted = wanted;
+      try {
+        window.localStorage.setItem(FULLSCREEN_PREFERENCE_KEY, wanted ? "1" : "0");
+      } catch (_) {
+        // Retain the preference in this page session if storage is unavailable.
+      }
+    }
+    function hasFullscreen() {
+      return !!(document.fullscreenElement || document.webkitFullscreenElement);
+    }
     function updateFullscreenButton() {
       if (!fullscreenButton) return;
-      const active = !!document.fullscreenElement;
+      const active = hasFullscreen();
       fullscreenButton.textContent = active ? "↙" : "⛶";
       fullscreenButton.title = active ? "전체화면 종료" : "전체화면";
       fullscreenButton.setAttribute("aria-label", active ? "전체화면 종료" : "전체화면");
       fullscreenButton.setAttribute("aria-pressed", active ? "true" : "false");
     }
+    async function requestGameFullscreen() {
+      const element = document.documentElement;
+      if (element.requestFullscreen) {
+        await element.requestFullscreen({ navigationUI: "hide" });
+      } else if (element.webkitRequestFullscreen) {
+        element.webkitRequestFullscreen();
+      } else {
+        throw new Error("이 실행 환경은 전체화면 API를 지원하지 않습니다.");
+      }
+    }
+    async function restoreFullscreenIfWanted(event) {
+      if (event?.isTrusted === false || !fullscreenWanted || document.hidden ||
+          !mobileHost || !MOBILE_PORTRAIT.matches || hasFullscreen() ||
+          fullscreenRestoreInFlight) return;
+      fullscreenRestoreInFlight = true;
+      try {
+        await requestGameFullscreen();
+      } catch (error) {
+        // A browser may require a fresh user gesture after an app switch.
+        // The next trusted pointer/touch/key interaction retries without
+        // changing the saved preference or treating that interaction as exit.
+        console.info("[WML mobile-ui-migration] automatic fullscreen restore was blocked", error);
+      } finally {
+        fullscreenRestoreInFlight = false;
+        updateFullscreenButton();
+      }
+    }
+    function onFullscreenChange() {
+      updateFullscreenButton();
+      if (fullscreenWanted && !document.hidden) restoreFullscreenIfWanted();
+    }
+    function onResumeGesture(event) {
+      if (event?.isTrusted === false) return;
+      restoreFullscreenIfWanted(event);
+    }
     async function toggleFullscreen(event) {
       event.preventDefault();
       event.stopPropagation();
       try {
-        if (document.fullscreenElement) {
-          await document.exitFullscreen();
-        } else if (document.documentElement.requestFullscreen) {
-          await document.documentElement.requestFullscreen({ navigationUI: "hide" });
-        } else if (document.documentElement.webkitRequestFullscreen) {
-          document.documentElement.webkitRequestFullscreen();
+        if (hasFullscreen()) {
+          // Only this explicit button turns the persistent preference off.
+          writeFullscreenPreference(false);
+          if (document.exitFullscreen) await document.exitFullscreen();
+          else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
         } else {
-          throw new Error("이 실행 환경은 전체화면 API를 지원하지 않습니다.");
+          writeFullscreenPreference(true);
+          await requestGameFullscreen();
         }
       } catch (error) {
         console.warn("[WML mobile-ui-migration] fullscreen request failed", error);
@@ -687,17 +747,25 @@ WML.define({
     window.addEventListener("resize", queueSync, { passive: true });
     window.addEventListener("orientationchange", queueSync, { passive: true });
     MOBILE_PORTRAIT.addEventListener?.("change", queueSync);
-    document.addEventListener("fullscreenchange", updateFullscreenButton);
+    document.addEventListener("fullscreenchange", onFullscreenChange);
+    document.addEventListener("webkitfullscreenchange", onFullscreenChange);
+    document.addEventListener("visibilitychange", onFullscreenChange);
+    window.addEventListener("pageshow", restoreFullscreenIfWanted);
+    window.addEventListener("focus", restoreFullscreenIfWanted);
+    document.addEventListener("pointerdown", onResumeGesture, true);
+    document.addEventListener("touchstart", onResumeGesture, { capture: true, passive: true });
+    document.addEventListener("keydown", onResumeGesture, true);
     queueSync();
+    restoreFullscreenIfWanted();
 
     Object.defineProperty(window, "__M36_MOBILE_UI_MIGRATION__", {
       configurable: true,
       value: {
-        version: "1.3.1",
+        version: "1.3.4",
         game: api.game,
         hostPlatform,
         getStatus: () => ({
-          version: "1.3.1",
+          version: "1.3.4",
           game: api.game,
           hostPlatform,
           mobileHost,
@@ -722,7 +790,14 @@ WML.define({
           window.removeEventListener("resize", queueSync);
           window.removeEventListener("orientationchange", queueSync);
           MOBILE_PORTRAIT.removeEventListener?.("change", queueSync);
-          document.removeEventListener("fullscreenchange", updateFullscreenButton);
+          document.removeEventListener("fullscreenchange", onFullscreenChange);
+          document.removeEventListener("webkitfullscreenchange", onFullscreenChange);
+          document.removeEventListener("visibilitychange", onFullscreenChange);
+          window.removeEventListener("pageshow", restoreFullscreenIfWanted);
+          window.removeEventListener("focus", restoreFullscreenIfWanted);
+          document.removeEventListener("pointerdown", onResumeGesture, true);
+          document.removeEventListener("touchstart", onResumeGesture, true);
+          document.removeEventListener("keydown", onResumeGesture, true);
           unhookCustomerRow?.();
           unhookActionRenderer?.();
           unhookLayout();
@@ -730,7 +805,7 @@ WML.define({
       }
     });
 
-    console.info("[WML] M36 mobile UI migration 1.3.1 ready", {
+    console.info("[WML] M36 mobile UI migration 1.3.4 ready", {
       game: api.game,
       hostPlatform,
       mobileHost,
