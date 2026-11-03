@@ -1,0 +1,30 @@
+name: Package CloudSave 0.4.4
+on:
+  push:
+    branches:
+      - delivery/cloud-save-044-zip
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate and package
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd Wayward_MOD_v4.0_WML_검수완료/wml/mods
+          node --check cloud-save/mod.js
+          node --check cloud-save/crypto.js
+          grep -q "version: '0.4.4'" cloud-save/mod.js
+          zip -qr "$GITHUB_WORKSPACE/Wayward_Google_Drive_CloudSave_v0.4.4.zip" cloud-save
+          unzip -t "$GITHUB_WORKSPACE/Wayward_Google_Drive_CloudSave_v0.4.4.zip"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Wayward_Google_Drive_CloudSave_v0.4.4
+          path: Wayward_Google_Drive_CloudSave_v0.4.4.zip
+          if-no-files-found: error
+          retention-days: 30
