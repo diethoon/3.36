@@ -5,6 +5,10 @@ const path = require("node:path");
 const fs = require("node:fs");
 
 const ELEMENT = Symbol.for("react.element");
+const portalTargets = {
+  "m36-ui-migration-patron-dialogue-portal": { id: "m36-ui-migration-patron-dialogue-portal" },
+  "m36-ui-migration-patron-choices-portal": { id: "m36-ui-migration-patron-choices-portal" }
+};
 function flatten(input, output = []) {
   if (Array.isArray(input)) {
     for (const value of input) flatten(value, output);
@@ -16,6 +20,16 @@ function flatten(input, output = []) {
 }
 
 const React = {
+  Fragment: Symbol.for("react.fragment"),
+  useState(initial) {
+    return [typeof initial === "function" ? initial() : initial, () => {}];
+  },
+  useEffect(callback) {
+    callback();
+  },
+  useRef(initial) {
+    return { current: initial };
+  },
   createElement(type, props, ...children) {
     const nextProps = { ...(props || {}) };
     if (children.length === 1) nextProps.children = children[0];
@@ -65,7 +79,7 @@ const doc = {
   },
   querySelector() { return null; },
   querySelectorAll() { return []; },
-  getElementById() { return null; },
+  getElementById(id) { return portalTargets[id] || null; },
   addEventListener() {},
   removeEventListener() {}
 };
@@ -86,6 +100,12 @@ globalThis.MutationObserver = class {
   disconnect() {}
 };
 
+const ReactDOM = {
+  createPortal(children, container) {
+    return React.createElement("portal", { container }, children);
+  }
+};
+
 let definition;
 globalThis.WML = {
   define(value) { definition = value; }
@@ -95,7 +115,11 @@ const registeredHooks = Object.create(null);
 const api = {
   game: "2026-10-24-pre7",
   host: { platform: "mobile" },
-  fn(name) { return name === "React" ? React : undefined; },
+  fn(name) {
+    if (name === "React") return React;
+    if (name === "ReactDOM") return ReactDOM;
+    return undefined;
+  },
   has(name) { return name === "layout"; },
   hook(name, handlers) {
     registeredHooks[name] = handlers;
@@ -108,6 +132,7 @@ assert.ok(definition, "WML.define registered the module");
 definition.setup(api);
 assert.ok(registeredHooks.customerRow, "customer row hook registered");
 assert.ok(registeredHooks.actionRenderer, "action renderer hook registered");
+assert.ok(registeredHooks.patronInteractionCard, "third-tab patron interaction card hook registered");
 assert.ok(registeredHooks.layout, "layout hook registered");
 
 function findByClass(node, className) {
@@ -277,6 +302,79 @@ assert.equal(normalButton.props.onClick, normalPick, "normal choice callback pre
 assert.equal(questionButton.props["data-choice-id"], "question-yes", "question choice identity preserved");
 assert.equal(normalButton.props["data-choice-id"], "main-choice", "menu choice identity preserved");
 
+
+/*
+ * Third-tab customer interaction:
+ * keep the original card/buttons in the wife's tab, mirror the exact
+ * header/narration into the pinned panel, and mirror the original buttons
+ * into the ordinary action scroll area (never the pinned target).
+ */
+const patronChoiceClick = () => "patron-choice";
+const patronHeader = React.createElement("div", {
+  className: "flex items-baseline justify-between gap-2"
+}, "톨렌 호크스 & 피파");
+const patronDescription = React.createElement("div", {
+  className: "text-[0.7rem] text-violet-300/80 mt-0.5"
+}, "다른 손님 한 명이 합류했습니다.");
+const patronNarration = React.createElement("div", {
+  className: "text-stone-300 text-xs mt-1.5 italic"
+}, "둘이 이야기하고 있습니다.");
+const patronChoiceButton = React.createElement("button", {
+  onClick: patronChoiceClick,
+  "data-choice-id": "patron-continue"
+}, "계속 일하기 — 상황은 그대로 두기");
+const patronChoiceGrid = React.createElement("div", {
+  className: "grid gap-1 mt-2"
+}, patronChoiceButton);
+const patronContent = React.createElement("div", { className: "px-3 py-2" },
+  patronHeader, patronDescription, patronNarration, patronChoiceGrid
+);
+const originalPatronCard = React.createElement("div", {
+  className: "bg-stone-800/80 border-l-2 border-violet-600 text-sm overflow-hidden"
+}, patronContent);
+const wrappedPatronCard = registeredHooks.patronInteractionCard.around(
+  () => originalPatronCard
+);
+assert.equal(wrappedPatronCard.type.name, "PatronInteractionPortal",
+  "the original third-tab card is wrapped without being removed");
+const mirroredPatronTree = wrappedPatronCard.type(wrappedPatronCard.props);
+assert.equal(mirroredPatronTree.type, React.Fragment,
+  "original third-tab card and portal mirrors share one React fragment");
+assert.equal(mirroredPatronTree.props.children[0], originalPatronCard,
+  "original third-tab card remains present");
+const patronPortals = allElements(mirroredPatronTree)
+  .filter((element) => element.type === "portal");
+assert.equal(patronPortals.length, 2,
+  "one fixed dialogue portal and one scrolling choices portal are rendered");
+const fixedPatronPortal = patronPortals.find((element) =>
+  element.props.container.id === "m36-ui-migration-patron-dialogue-portal"
+);
+const scrollingPatronPortal = patronPortals.find((element) =>
+  element.props.container.id === "m36-ui-migration-patron-choices-portal"
+);
+assert.ok(fixedPatronPortal && scrollingPatronPortal,
+  "the dialogue and choices use their intended separate targets");
+assert.ok(collectText(fixedPatronPortal).includes("톨렌 호크스 & 피파"),
+  "customer/wife header is mirrored into the fixed panel");
+assert.ok(collectText(fixedPatronPortal).includes("둘이 이야기하고 있습니다."),
+  "dialogue narration is mirrored into the fixed panel");
+assert.equal(allElements(fixedPatronPortal).some((element) => element.type === "button"), false,
+  "no action choice is pinned");
+assert.ok(collectText(scrollingPatronPortal).includes("계속 일하기"),
+  "the exact third-tab choice appears in the action scroll area");
+const mirroredPatronButton = allElements(scrollingPatronPortal).find((element) =>
+  element.type === "button" && element.props["data-choice-id"] === "patron-continue"
+);
+assert.equal(mirroredPatronButton.props.onClick, patronChoiceClick,
+  "mirrored choice preserves the original dispatch callback");
+assert.equal(
+  allElements(originalPatronCard).some((element) =>
+    element.type === "button" && element.props["data-choice-id"] === "patron-continue"
+  ),
+  true,
+  "the original third-tab choice is not deleted or hidden"
+);
+
 // Landscape returns the original React trees, with no wrapper added.
 portrait = false;
 assert.equal(
@@ -293,6 +391,12 @@ assert.equal(
 const modSource = fs.readFileSync(path.join(__dirname, "..", "mod.js"), "utf8");
 assert.match(modSource, /max-height:66\.666%/,
   "action scroll area is capped at approximately two-thirds height");
+assert.match(modSource, /ReactDOM: \{ raw: \{ "2026-10-24-pre7": "nte" \} \}/,
+  "ReactDOM is bound to the source-confirmed createPortal module");
+assert.match(modSource, /patronInteractionCard: \{ raw: \{ "2026-10-24-pre7": "cst" \} \}/,
+  "the original same-room interaction renderer is hooked by its source symbol");
+assert.match(modSource, /ReactDOM\.createPortal/,
+  "the original dialogue and choices are mirrored through React portals");
 assert.match(modSource, /FULLSCREEN_PREFERENCE_KEY/,
   "fullscreen intent is persisted");
 assert.match(modSource, /visibilitychange/,
