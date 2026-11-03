@@ -387,6 +387,11 @@ assert.equal(
   customerComponentResult,
   "landscape customer row remains unchanged"
 );
+assert.equal(
+  registeredHooks.patronInteractionCard.around(() => originalPatronCard),
+  originalPatronCard,
+  "landscape third-tab interaction card remains unchanged"
+);
 
 const modSource = fs.readFileSync(path.join(__dirname, "..", "mod.js"), "utf8");
 assert.match(modSource, /max-height:66\.666%/,
@@ -404,4 +409,4 @@ assert.match(modSource, /visibilitychange/,
 assert.match(modSource, /pointerdown/,
   "fullscreen restoration retries on the next trusted user gesture");
 
-console.log("PASS 1.3.4: native customer row split, ellipsis metadata container, dialogue/gauge pinning, question/menu scroll split, callbacks and landscape passthrough");
+console.log("PASS 1.3.5: customer rows, pinned status, third-tab dialogue mirror, scroll-only original choices, callbacks and landscape passthrough");
