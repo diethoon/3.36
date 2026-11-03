@@ -1,23 +1,28 @@
 WML.define({
   id: "mobile-ui-migration",
   name: "M36 모바일 UI 마이그레이션",
-  version: "1.3.4",
+  version: "1.3.5",
   game: "2026-10-24-pre7",
   platform: "mobile",
   description: "4.38MB WML 빌드용: 고객 2행 헤더, 선택지 영역 축소, 전체화면 복귀 유지",
   symbols: {
     React: { raw: { "2026-10-24-pre7": "J" } },
+    ReactDOM: { raw: { "2026-10-24-pre7": "nte" } },
+    patronInteractionCard: { raw: { "2026-10-24-pre7": "cst" } },
     layout: { raw: { "2026-10-24-pre7": "Ast" } },
     actionRenderer: { raw: { "2026-10-24-pre7": "sB" } },
     customerRow: { raw: { "2026-10-24-pre7": "_B" } },
   },
   setup(api) {
     const React = api.fn("React");
+    const ReactDOM = api.fn("ReactDOM");
     const h = React.createElement;
     const GAME_SELECTOR = "#root";
     const ACTION_PANEL_CLASS = "m36-ui-migration-action-panel";
     const ACTION_SCROLL_CLASS = "m36-ui-migration-action-scroll";
     const PINNED_PANEL_CLASS = "m36-ui-migration-pinned-panel";
+    const PATRON_DIALOGUE_TARGET_ID = "m36-ui-migration-patron-dialogue-portal";
+    const PATRON_CHOICES_TARGET_ID = "m36-ui-migration-patron-choices-portal";
     const STYLE_ID = "m36-mobile-ui-migration-style";
     const MOBILE_PORTRAIT = window.matchMedia("(max-width: 1023px) and (orientation: portrait)");
     const hostPlatform = api.host?.platform || "unknown";
@@ -78,7 +83,12 @@ WML.define({
         className: PINNED_PANEL_CLASS,
         "aria-label": "원본 인물·위치 상태"
       },
-        h("div", { className: "m36-ui-migration-original-status" }, ...elements)
+        h("div", { className: "m36-ui-migration-original-status" }, ...elements),
+        h("div", {
+          id: PATRON_DIALOGUE_TARGET_ID,
+          className: "m36-ui-migration-patron-dialogue-portal",
+          "aria-label": "손님 대화 내용"
+        })
       );
     }
 
@@ -111,7 +121,20 @@ WML.define({
             const scrollClass = child.props.className.includes(ACTION_SCROLL_CLASS)
               ? child.props.className
               : child.props.className + " " + ACTION_SCROLL_CLASS;
-            return React.cloneElement(child, { className: scrollClass });
+            const scrollChildren = React.Children.toArray(child.props?.children);
+            const hasPatronTarget = scrollChildren.some((item) =>
+              React.isValidElement(item) &&
+              item.props?.id === PATRON_CHOICES_TARGET_ID
+            );
+            const nextScrollChildren = portraitMode && !hasPatronTarget
+              ? [...scrollChildren, h("div", {
+                  key: "m36-ui-migration-patron-choices-portal",
+                  id: PATRON_CHOICES_TARGET_ID,
+                  className: "m36-ui-migration-patron-choices-portal",
+                  "aria-label": "손님 대화 선택지"
+                })]
+              : scrollChildren;
+            return React.cloneElement(child, { className: scrollClass }, ...nextScrollChildren);
           }
           return transformTree(child, statusElements, portraitMode, false);
         });
@@ -434,6 +457,115 @@ WML.define({
       }
     });
 
+
+    function splitPatronInteraction(result) {
+      if (!React.isValidElement(result) || result.type !== "div") return null;
+      const rootClass = typeof result.props?.className === "string"
+        ? result.props.className
+        : "";
+      if (!rootClass.includes("border-l-2 border-violet-600")) return null;
+
+      const rootChildren = React.Children.toArray(result.props?.children);
+      const content = rootChildren.find((node) =>
+        React.isValidElement(node) &&
+        node.type === "div" &&
+        typeof node.props?.className === "string" &&
+        node.props.className.includes("px-3 py-2")
+      );
+      if (!content) return null;
+
+      const children = React.Children.toArray(content.props?.children);
+      const header = children.find((node) =>
+        React.isValidElement(node) &&
+        node.type === "div" &&
+        typeof node.props?.className === "string" &&
+        node.props.className.includes("flex items-baseline justify-between gap-2")
+      );
+      const description = children.find((node) =>
+        React.isValidElement(node) &&
+        node.type === "div" &&
+        typeof node.props?.className === "string" &&
+        node.props.className.includes("text-[0.7rem] text-violet-300/80 mt-0.5")
+      );
+      const narration = children.find((node) =>
+        React.isValidElement(node) &&
+        node.type === "div" &&
+        typeof node.props?.className === "string" &&
+        node.props.className.includes("text-stone-300 text-xs mt-1.5 italic")
+      );
+      const choices = children.find((node) =>
+        React.isValidElement(node) &&
+        node.type === "div" &&
+        typeof node.props?.className === "string" &&
+        node.props.className.includes("grid gap-1 mt-2")
+      );
+
+      // cst is the original same-room customer-interaction renderer.
+      // Keep its complete result in the wife's third tab. Mirror only the
+      // original header/narration into the pinned panel and the exact
+      // original choice grid into the action scroll region.
+      if (!header || !narration || !choices) return null;
+      return {
+        fixed: h("div", { className: "m36-ui-migration-patron-dialogue" },
+          header,
+          description || null,
+          narration
+        ),
+        scrolling: h("div", { className: "m36-ui-migration-patron-choices" }, choices)
+      };
+    }
+
+    function readPatronPortalTargets() {
+      return {
+        fixed: document.getElementById(PATRON_DIALOGUE_TARGET_ID),
+        scrolling: document.getElementById(PATRON_CHOICES_TARGET_ID)
+      };
+    }
+
+    function PatronInteractionPortal({ result }) {
+      const [targets, setTargets] = React.useState(readPatronPortalTargets);
+
+      React.useEffect(() => {
+        let active = true;
+        const refreshTargets = () => {
+          if (!active) return;
+          const next = readPatronPortalTargets();
+          setTargets((current) =>
+            current.fixed === next.fixed && current.scrolling === next.scrolling
+              ? current
+              : next
+          );
+        };
+        refreshTargets();
+        const observedRoot = document.querySelector(GAME_SELECTOR) || document.documentElement;
+        const observer = typeof MutationObserver !== "undefined"
+          ? new MutationObserver(refreshTargets)
+          : null;
+        observer?.observe(observedRoot, { childList: true, subtree: true });
+        return () => {
+          active = false;
+          observer?.disconnect();
+        };
+      }, []);
+
+      const parts = splitPatronInteraction(result);
+      const portals = [];
+      if (parts && targets.fixed && targets.scrolling &&
+          typeof ReactDOM?.createPortal === "function") {
+        portals.push(ReactDOM.createPortal(parts.fixed, targets.fixed));
+        portals.push(ReactDOM.createPortal(parts.scrolling, targets.scrolling));
+      }
+      return h(React.Fragment, null, result, ...portals);
+    }
+
+    const unhookPatronInteractionCard = api.hook("patronInteractionCard", {
+      around(next, ...args) {
+        const result = next(...args);
+        if (!mobileHost || !MOBILE_PORTRAIT.matches) return result;
+        return h(PatronInteractionPortal, { result });
+      }
+    });
+
     const unhookLayout = api.hook("layout", {
       after(result) {
         if (!mobileHost) return result;
@@ -446,6 +578,12 @@ WML.define({
     style.textContent = [
       "#root ." + PINNED_PANEL_CLASS + "{display:none;box-sizing:border-box;flex:0 0 auto;min-width:0;max-width:100%;max-height:44vh;padding:4px 4px 5px;color:#e7e5e4;background:rgba(28,25,23,.98);border-bottom:1px solid rgba(120,113,108,.48);overflow-x:hidden;overflow-y:auto;overscroll-behavior:contain}",
       "#root .m36-ui-migration-original-status{min-width:0;max-width:100%;overflow-x:hidden}",
+      "#root .m36-ui-migration-patron-dialogue-portal{display:block;min-width:0;max-width:100%;overflow:hidden}",
+      "#root .m36-ui-migration-patron-dialogue{min-width:0;max-width:100%;overflow:hidden}",
+      "#root .m36-ui-migration-patron-choices-portal{display:block;min-width:0;max-width:100%}",
+      "#root .m36-ui-migration-patron-choices{min-width:0;max-width:100%}",
+      "#root .m36-ui-migration-patron-choices button{box-sizing:border-box;width:100%;max-width:100%;min-width:0}",
+
       "#root ." + ACTION_SCROLL_CLASS + "{min-height:0!important;max-height:66.666%!important;flex:0 1 66.666%!important;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}",
       "#root ." + ACTION_SCROLL_CLASS + " button.m36-ui-migration-disabled-choice{position:relative!important;display:flex!important;align-items:center!important;justify-content:space-between!important;gap:.35rem!important;box-sizing:border-box!important;width:100%!important;min-width:0!important;min-height:1.75rem!important;margin:.08rem 0!important;padding:.28rem .4rem!important;border:1px solid rgb(68 64 60)!important;border-radius:.4rem!important;background:rgba(28,25,23,.72)!important;color:rgb(168 162 158)!important;text-align:left!important;font-size:0!important;line-height:1.15!important;opacity:.7!important;overflow:hidden!important;white-space:nowrap!important}",
       "#root ." + ACTION_SCROLL_CLASS + " button.m36-ui-migration-disabled-choice>*{display:none!important}",
@@ -761,7 +899,7 @@ WML.define({
     Object.defineProperty(window, "__M36_MOBILE_UI_MIGRATION__", {
       configurable: true,
       value: {
-        version: "1.3.4",
+        version: "1.3.5",
         game: api.game,
         hostPlatform,
         getStatus: () => ({
@@ -774,6 +912,8 @@ WML.define({
           actionScroll: !!document.querySelector(GAME_SELECTOR + " ." + ACTION_SCROLL_CLASS),
           pinnedPanel: !!document.querySelector(GAME_SELECTOR + " ." + PINNED_PANEL_CLASS),
           fixedEventRoots: document.querySelectorAll(GAME_SELECTOR + " .m36-ui-migration-event-root").length,
+          patronDialoguePortal: !!document.getElementById(PATRON_DIALOGUE_TARGET_ID),
+          patronChoicesPortal: !!document.getElementById(PATRON_CHOICES_TARGET_ID),
           fixedCustomerMetaRows: document.querySelectorAll(GAME_SELECTOR + " .m36-ui-migration-customer-meta").length,
           fullscreenButton: !!document.querySelector(GAME_SELECTOR + " [data-m36-ui-migration-fullscreen]"),
           disabledChoices: document.querySelectorAll(
@@ -800,16 +940,19 @@ WML.define({
           document.removeEventListener("keydown", onResumeGesture, true);
           unhookCustomerRow?.();
           unhookActionRenderer?.();
+          unhookPatronInteractionCard?.();
           unhookLayout();
         }
       }
     });
 
-    console.info("[WML] M36 mobile UI migration 1.3.4 ready", {
+    console.info("[WML] M36 mobile UI migration 1.3.5 ready", {
       game: api.game,
       hostPlatform,
       mobileHost,
-      layoutHook: api.has("layout")
+      layoutHook: api.has("layout"),
+      patronInteractionCardHook: true,
+      patronPortal: typeof ReactDOM?.createPortal === "function"
     });
   }
 });
