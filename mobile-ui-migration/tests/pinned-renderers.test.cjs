@@ -37,6 +37,9 @@ const React = {
   isValidElement(value) {
     return !!value && value.$$typeof === ELEMENT;
   },
+  useState(initial) { return [typeof initial === "function" ? initial() : initial, () => {}]; },
+  useRef(initial) { return { current: initial }; },
+  useEffect() {},
   Children: {
     toArray(children) { return flatten(children); },
     forEach(children, callback) { flatten(children).forEach(callback); }
@@ -51,8 +54,9 @@ const media = {
   addListener() {},
   removeListener() {}
 };
+const appendedStyles = [];
 const doc = {
-  head: { appendChild() {} },
+  head: { appendChild(node) { appendedStyles.push(node); } },
   documentElement: {},
   createElement() {
     return {
@@ -139,6 +143,77 @@ function allElements(node, result = []) {
   }
   return result;
 }
+
+// Prep panel: move the original WML $ot component (not a recreated control
+// panel) out of the portrait story scroller and above the choice scroller.
+function loe() {}
+function $ot() {}
+function itt() {}
+function sB() {}
+const prepClick = () => "original-prep-callback";
+const originalPrep = React.createElement($ot, { onClick: prepClick, marker: "native-prep" });
+const storyPane = React.createElement("div", {
+  className: "flex-1 min-h-0 overflow-y-auto p-2 text-[0.78rem]"
+},
+  React.createElement("div", { className: "mb-2 pb-2 border-b border-stone-800" },
+    React.createElement(loe, {})),
+  React.createElement("div", { className: "min-w-0" }, originalPrep, React.createElement(itt, {}))
+);
+const originalChoiceRenderer = React.createElement(sB, {});
+const choiceScroll = React.createElement("div", {
+  className: "flex-1 min-h-0 overflow-y-auto py-1 text-[0.72rem]"
+}, originalChoiceRenderer);
+const sideToggleClick = () => "toggle-side";
+const sideToggle = React.createElement("button", {
+  title: "행동 버튼을 반대쪽으로 이동",
+  "aria-label": "행동 버튼을 왼쪽으로 이동",
+  className: "shrink-0 flex items-center text-lg leading-none px-3",
+  onClick: sideToggleClick
+}, "⇤");
+const originalActionPanel = React.createElement("div", {
+  className: "w-[37%] max-w-[13rem] shrink-0 flex flex-col min-h-0"
+}, choiceScroll, sideToggle);
+const originalLayout = React.createElement("main", {}, storyPane, originalActionPanel);
+const portraitLayoutElement = registeredHooks.layout.after(originalLayout);
+const portraitLayout = portraitLayoutElement.type(portraitLayoutElement.props);
+const prepPanel = findByClass(portraitLayout, "m36-ui-migration-prep-panel");
+const actionPanel = findByClass(portraitLayout, "m36-ui-migration-action-panel");
+const storyAfterMove = findByClass(portraitLayout, "flex-1 min-h-0 overflow-y-auto p-2 text-[0.78rem]");
+assert.ok(prepPanel && actionPanel, "native prep component is mounted in the action panel");
+assert.equal(allElements(prepPanel).filter((node) => node.type === $ot).length, 1,
+  "the original prep component is moved exactly once");
+assert.equal(allElements(prepPanel)[1], originalPrep,
+  "the exact original React element is reused, not reconstructed");
+assert.equal(allElements(storyAfterMove).some((node) => node.type === $ot), false,
+  "the original prep component is removed from the story pane");
+assert.equal(findByClass(actionPanel, "m36-ui-migration-action-scroll")?.props.children, originalChoiceRenderer,
+  "the original choice renderer remains in its independent scroll region");
+const movedToggle = allElements(actionPanel).find((node) => node.type === "button" &&
+  node.props.title === "행동 버튼을 반대쪽으로 이동");
+assert.ok(movedToggle.props.className.includes("m36-ui-migration-side-toggle"),
+  "the side toggle receives an independent fixed-size class");
+assert.equal(movedToggle.props.onClick, sideToggleClick, "the original side-toggle callback is preserved");
+assert.equal(allElements(prepPanel)[1].props.onClick, prepClick,
+  "the original prep callback is preserved");
+assert.ok(appendedStyles.find((node) => node.id === "m36-mobile-ui-migration-style").textContent.includes(
+  "flex:1 1 0%!important"), "choice scrolling uses remaining height, not a percentage coupled to the header");
+const migrationCss = appendedStyles.find((node) => node.id === "m36-mobile-ui-migration-style").textContent;
+assert.ok(migrationCss.includes("max-height:30vh;overflow-x:hidden;overflow-y:auto"),
+  "prep panel has a 30vh cap and its own internal scroll");
+assert.ok(migrationCss.includes(
+  "height:30px!important;min-height:30px!important;max-height:30px!important"),
+  "side toggle height is explicitly fixed");
+
+// Landscape keeps the native story placement and does not add the portrait prep panel.
+portrait = false;
+const landscapeLayoutElement = registeredHooks.layout.after(originalLayout);
+const landscapeLayout = landscapeLayoutElement.type(landscapeLayoutElement.props);
+assert.equal(findByClass(landscapeLayout, "m36-ui-migration-prep-panel"), null,
+  "landscape does not create a portrait prep panel");
+const landscapeStory = findByClass(landscapeLayout, "flex-1 min-h-0 overflow-y-auto p-2 text-[0.78rem]");
+assert.ok(allElements(landscapeStory).some((node) => node.type === $ot),
+  "landscape keeps the original prep component in the story pane");
+portrait = true;
 
 // Customer row: the original name, activity, order and action text must
 // become a two-line identity block, without changing the parent click or
@@ -300,4 +375,4 @@ assert.match(modSource, /visibilitychange/,
 assert.match(modSource, /pointerdown/,
   "fullscreen restoration retries on the next trusted user gesture");
 
-console.log("PASS 1.3.4: native customer row split, ellipsis metadata container, dialogue/gauge pinning, question/menu scroll split, callbacks and landscape passthrough");
+console.log("PASS 1.3.5: native prep component move, separate prep/choice scroll, fixed side toggle, native callbacks, customer/dialogue transforms and landscape passthrough");

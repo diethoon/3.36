@@ -1,10 +1,10 @@
 WML.define({
   id: "mobile-ui-migration",
   name: "M36 모바일 UI 마이그레이션",
-  version: "1.3.4",
+  version: "1.3.5",
   game: "2026-10-24-pre7",
   platform: "mobile",
-  description: "4.38MB WML 빌드용: 고객 2행 헤더, 선택지 영역 축소, 전체화면 복귀 유지",
+  description: "4.38MB WML 빌드용: 원본 영업 준비 패널 이동, 선택지 스크롤 분리, 좌우 전환 버튼 고정",
   symbols: {
     React: { raw: { "2026-10-24-pre7": "J" } },
     layout: { raw: { "2026-10-24-pre7": "Ast" } },
@@ -17,6 +17,8 @@ WML.define({
     const GAME_SELECTOR = "#root";
     const ACTION_PANEL_CLASS = "m36-ui-migration-action-panel";
     const ACTION_SCROLL_CLASS = "m36-ui-migration-action-scroll";
+    const PREP_PANEL_CLASS = "m36-ui-migration-prep-panel";
+    const SIDE_TOGGLE_CLASS = "m36-ui-migration-side-toggle";
     const PINNED_PANEL_CLASS = "m36-ui-migration-pinned-panel";
     const STYLE_ID = "m36-mobile-ui-migration-style";
     const MOBILE_PORTRAIT = window.matchMedia("(max-width: 1023px) and (orientation: portrait)");
@@ -58,9 +60,13 @@ WML.define({
       const storyPane = inStoryPane ||
         className.includes("flex-1 min-h-0 overflow-y-auto p-2 text-[0.78rem]");
 
-      // Capture only the original story-tab location/character/family block.
+      // Capture the original story status and the real prep component before
+      // the portrait transform removes them from the story pane.
       if (!found.locations && isOriginalLocationWrapper(node, storyPane)) {
         found.locations = node;
+      }
+      if (!found.prep && storyPane && componentName(node) === "$ot") {
+        found.prep = node;
         return;
       }
 
@@ -94,6 +100,9 @@ WML.define({
       if (portraitMode && isOriginalLocationWrapper(node, storyPane)) {
         return null;
       }
+      if (portraitMode && storyPane && typeName === "$ot") {
+        return null;
+      }
 
       // "hoe" is the response-needed alert, not the narration log ("itt").
       // Keep only the original story log in the story tab.
@@ -105,6 +114,15 @@ WML.define({
             componentName(child) === "PinnedPanel"));
 
         const children = originalChildren.map((child, index) => {
+          if (portraitMode && React.isValidElement(child) && child.type === "button" &&
+              child.props?.title === "행동 버튼을 반대쪽으로 이동") {
+            const buttonClassName = typeof child.props?.className === "string"
+              ? child.props.className
+              : "";
+            return React.cloneElement(child, {
+              className: (buttonClassName + " " + SIDE_TOGGLE_CLASS).trim()
+            });
+          }
           if (index === 0 && React.isValidElement(child) &&
               typeof child.props?.className === "string" &&
               child.props.className.includes("overflow-y-auto")) {
@@ -123,6 +141,13 @@ WML.define({
             key: "m36-ui-migration-pinned-panel",
             statusElements
           }),
+          portraitMode && statusElements.prep
+            ? h("div", {
+                key: "m36-ui-migration-prep-panel",
+                className: PREP_PANEL_CLASS,
+                "aria-label": "영업 준비"
+              }, statusElements.prep)
+            : null,
           ...children
         );
       }
@@ -154,7 +179,7 @@ WML.define({
       }, []);
 
       try {
-        const currentStatusElements = { locations: null };
+        const currentStatusElements = { locations: null, prep: null };
         if (portraitMode) collectOriginalStatus(tree, currentStatusElements);
         if (currentStatusElements.locations) {
           originalLocationRef.current = currentStatusElements.locations;
@@ -162,7 +187,8 @@ WML.define({
         const statusElements = {
           locations: portraitMode
             ? currentStatusElements.locations || originalLocationRef.current
-            : null
+            : null,
+          prep: portraitMode ? currentStatusElements.prep : null
         };
         return transformTree(tree, statusElements, portraitMode);
       } catch (error) {
@@ -446,13 +472,13 @@ WML.define({
     style.textContent = [
       "#root ." + PINNED_PANEL_CLASS + "{display:none;box-sizing:border-box;flex:0 0 auto;min-width:0;max-width:100%;max-height:44vh;padding:4px 4px 5px;color:#e7e5e4;background:rgba(28,25,23,.98);border-bottom:1px solid rgba(120,113,108,.48);overflow-x:hidden;overflow-y:auto;overscroll-behavior:contain}",
       "#root .m36-ui-migration-original-status{min-width:0;max-width:100%;overflow-x:hidden}",
-      "#root ." + ACTION_SCROLL_CLASS + "{min-height:0!important;max-height:66.666%!important;flex:0 1 66.666%!important;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}",
+      "#root ." + ACTION_SCROLL_CLASS + "{min-height:0!important;max-height:none!important;flex:1 1 0%!important;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}",
       "#root ." + ACTION_SCROLL_CLASS + " button.m36-ui-migration-disabled-choice{position:relative!important;display:flex!important;align-items:center!important;justify-content:space-between!important;gap:.35rem!important;box-sizing:border-box!important;width:100%!important;min-width:0!important;min-height:1.75rem!important;margin:.08rem 0!important;padding:.28rem .4rem!important;border:1px solid rgb(68 64 60)!important;border-radius:.4rem!important;background:rgba(28,25,23,.72)!important;color:rgb(168 162 158)!important;text-align:left!important;font-size:0!important;line-height:1.15!important;opacity:.7!important;overflow:hidden!important;white-space:nowrap!important}",
       "#root ." + ACTION_SCROLL_CLASS + " button.m36-ui-migration-disabled-choice>*{display:none!important}",
       "#root ." + ACTION_SCROLL_CLASS + " button.m36-ui-migration-disabled-choice::before{content:attr(data-m36-ui-disabled-label);display:block!important;flex:1 1 auto!important;min-width:0!important;overflow:hidden!important;text-overflow:ellipsis!important;white-space:nowrap!important;font-size:.68rem!important;line-height:1.15!important}",
       "#root ." + ACTION_SCROLL_CLASS + " button.m36-ui-migration-disabled-choice::after{content:attr(data-m36-ui-disabled-status);display:block!important;flex:0 1 auto!important;max-width:44%!important;min-width:0!important;overflow:hidden!important;color:rgb(148 163 184)!important;font-size:.61rem!important;line-height:1.15!important;text-align:right!important;text-overflow:ellipsis!important;white-space:nowrap!important}",
       "#root .m36-ui-migration-fullscreen-button{box-sizing:border-box;flex:0 0 auto}",
-      "@media screen and (max-width:1023px) and (orientation:portrait){#root ." + PINNED_PANEL_CLASS + "{display:block}#root .m36-ui-migration-customer-row{align-items:flex-start!important}#root .m36-ui-migration-customer-identity{display:flex;flex:1 1 auto;flex-direction:column;min-width:0;max-width:100%;overflow:hidden}#root .m36-ui-migration-customer-identity>span:first-child{display:block;max-width:100%!important;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}#root .m36-ui-migration-customer-meta{display:flex;align-items:center;gap:.35rem;min-width:0;max-width:100%;overflow:hidden;white-space:nowrap;line-height:1.15;font-size:.64rem}#root .m36-ui-migration-customer-meta>span{flex:0 1 auto;min-width:0;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}#root .m36-ui-migration-event-root{display:flex;flex-direction:column;width:100%;height:100%;min-width:0;min-height:0;max-height:100%;overflow:hidden;box-sizing:border-box}#root .m36-ui-migration-event-fixed{flex:0 1 auto;min-width:0;max-width:100%;max-height:48vh;overflow-x:hidden;overflow-y:auto;overscroll-behavior:contain;padding:4px 4px 5px;background:rgba(28,25,23,.98);border-bottom:1px solid rgba(120,113,108,.48)}#root .m36-ui-migration-event-description{display:block;min-width:0;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}#root .m36-ui-migration-event-gauges{margin-bottom:.45rem}#root .m36-ui-migration-event-scroll{flex:0 1 66.666%;min-width:0;min-height:0;max-height:66.666%;overflow-x:hidden;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;padding:4px 3px 8px}#root .m36-ui-migration-question-choices{margin:0 0 .75rem}}",
+      "@media screen and (max-width:1023px) and (orientation:portrait){#root ." + PINNED_PANEL_CLASS + "{display:block}#root ." + ACTION_PANEL_CLASS + "{box-sizing:border-box;min-height:0;padding-bottom:env(safe-area-inset-bottom)}#root ." + PREP_PANEL_CLASS + "{box-sizing:border-box;flex:0 1 30vh;min-width:0;min-height:0;max-width:100%;max-height:30vh;overflow-x:hidden;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;padding:4px 4px 6px;border-bottom:1px solid rgba(120,113,108,.48)}#root ." + SIDE_TOGGLE_CLASS + "{box-sizing:border-box!important;flex:0 0 30px!important;width:100%!important;height:30px!important;min-height:30px!important;max-height:30px!important;padding:0 8px!important;line-height:1!important;align-items:center!important;overflow:hidden!important}#root .m36-ui-migration-customer-row{align-items:flex-start!important}#root .m36-ui-migration-customer-identity{display:flex;flex:1 1 auto;flex-direction:column;min-width:0;max-width:100%;overflow:hidden}#root .m36-ui-migration-customer-identity>span:first-child{display:block;max-width:100%!important;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}#root .m36-ui-migration-customer-meta{display:flex;align-items:center;gap:.35rem;min-width:0;max-width:100%;overflow:hidden;white-space:nowrap;line-height:1.15;font-size:.64rem}#root .m36-ui-migration-customer-meta>span{flex:0 1 auto;min-width:0;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}#root .m36-ui-migration-event-root{display:flex;flex-direction:column;width:100%;height:100%;min-width:0;min-height:0;max-height:100%;overflow:hidden;box-sizing:border-box}#root .m36-ui-migration-event-fixed{flex:0 1 auto;min-width:0;max-width:100%;max-height:48vh;overflow-x:hidden;overflow-y:auto;overscroll-behavior:contain;padding:4px 4px 5px;background:rgba(28,25,23,.98);border-bottom:1px solid rgba(120,113,108,.48)}#root .m36-ui-migration-event-description{display:block;min-width:0;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}#root .m36-ui-migration-event-gauges{margin-bottom:.45rem}#root .m36-ui-migration-event-scroll{flex:0 1 66.666%;min-width:0;min-height:0;max-height:66.666%;overflow-x:hidden;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;padding:4px 3px 8px}#root .m36-ui-migration-question-choices{margin:0 0 .75rem}}",
       "@media screen and (orientation:landscape),(min-width:1024px){#root ." + PINNED_PANEL_CLASS + "{display:none!important}#root .m36-ui-migration-fullscreen-button{display:none!important}}"
     ].join("\n");
     document.head.appendChild(style);
@@ -761,17 +787,19 @@ WML.define({
     Object.defineProperty(window, "__M36_MOBILE_UI_MIGRATION__", {
       configurable: true,
       value: {
-        version: "1.3.4",
+        version: "1.3.5",
         game: api.game,
         hostPlatform,
         getStatus: () => ({
-          version: "1.3.4",
+          version: "1.3.5",
           game: api.game,
           hostPlatform,
           mobileHost,
           portrait: MOBILE_PORTRAIT.matches,
           actionPanel: !!document.querySelector(GAME_SELECTOR + " ." + ACTION_PANEL_CLASS),
           actionScroll: !!document.querySelector(GAME_SELECTOR + " ." + ACTION_SCROLL_CLASS),
+          prepPanel: !!document.querySelector(GAME_SELECTOR + " ." + PREP_PANEL_CLASS),
+          sideToggle: !!document.querySelector(GAME_SELECTOR + " ." + SIDE_TOGGLE_CLASS),
           pinnedPanel: !!document.querySelector(GAME_SELECTOR + " ." + PINNED_PANEL_CLASS),
           fixedEventRoots: document.querySelectorAll(GAME_SELECTOR + " .m36-ui-migration-event-root").length,
           fixedCustomerMetaRows: document.querySelectorAll(GAME_SELECTOR + " .m36-ui-migration-customer-meta").length,
@@ -805,7 +833,7 @@ WML.define({
       }
     });
 
-    console.info("[WML] M36 mobile UI migration 1.3.4 ready", {
+    console.info("[WML] M36 mobile UI migration 1.3.5 ready", {
       game: api.game,
       hostPlatform,
       mobileHost,
