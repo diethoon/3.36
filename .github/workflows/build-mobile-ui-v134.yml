@@ -1,0 +1,63 @@
+name: Build mobile UI migration 1.3.4
+
+on:
+  push:
+    branches:
+      - mobile-ui-migration-438-v9-customer-fullscreen
+    paths:
+      - "mobile-ui-migration/mod.js"
+      - "mobile-ui-migration/README_ko.md"
+      - "mobile-ui-migration/tests/**"
+      - "mobile-ui-migration/.build-trigger"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: mobile-ui-v134-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate-and-package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: mobile-ui-migration-438-v9-customer-fullscreen
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Validate JavaScript and behavior contracts
+        run: |
+          set -euo pipefail
+          node --check mobile-ui-migration/mod.js
+          node --check mobile-ui-migration/tests/pinned-renderers.test.cjs
+          node mobile-ui-migration/tests/pinned-renderers.test.cjs
+          git diff --check HEAD~1..HEAD
+      - name: Rebuild and verify distributable ZIP
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/m36-mobile-package
+          mkdir -p /tmp/m36-mobile-package/mobile-ui-migration
+          cp mobile-ui-migration/mod.js /tmp/m36-mobile-package/mobile-ui-migration/mod.js
+          cp mobile-ui-migration/README_ko.md /tmp/m36-mobile-package/mobile-ui-migration/README_ko.md
+          rm -f mobile-ui-migration/mobile-ui-migration-438.zip
+          (cd /tmp/m36-mobile-package && zip -qr "$GITHUB_WORKSPACE/mobile-ui-migration/mobile-ui-migration-438.zip" mobile-ui-migration)
+          unzip -t mobile-ui-migration/mobile-ui-migration-438.zip
+          unzip -p mobile-ui-migration/mobile-ui-migration-438.zip mobile-ui-migration/mod.js | cmp - mobile-ui-migration/mod.js
+          unzip -p mobile-ui-migration/mobile-ui-migration-438.zip mobile-ui-migration/README_ko.md | cmp - mobile-ui-migration/README_ko.md
+          sha256sum mobile-ui-migration/mobile-ui-migration-438.zip
+      - name: Commit verified package
+        run: |
+          set -euo pipefail
+          rm -f mobile-ui-migration/.build-trigger
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add mobile-ui-migration/mobile-ui-migration-438.zip mobile-ui-migration/.build-trigger
+          if git diff --cached --quiet; then
+            echo "Package already current"
+            exit 0
+          fi
+          git commit -m "build(mobile): package validated UI 1.3.4 [skip ci]"
+          git push origin HEAD:refs/heads/mobile-ui-migration-438-v9-customer-fullscreen
