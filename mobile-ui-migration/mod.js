@@ -1,10 +1,10 @@
 WML.define({
   id: "mobile-ui-migration",
   name: "M36 모바일 UI 마이그레이션",
-  version: "1.3.5",
+  version: "1.3.6",
   game: "2026-10-24-pre7",
   platform: "mobile",
-  description: "4.38MB WML 빌드용: 고객 2행 헤더, 선택지 영역 축소, 전체화면 복귀 유지",
+  description: "4.38MB WML 빌드용: 피파 탭 대화 중복 제거, 원본 선택지 스크롤 미러링",
   symbols: {
     React: { raw: { "2026-10-24-pre7": "J" } },
     ReactDOM: { raw: { "2026-10-24-pre7": "nte" } },
@@ -126,13 +126,16 @@ WML.define({
               React.isValidElement(item) &&
               item.props?.id === PATRON_CHOICES_TARGET_ID
             );
+            // Put the patron choices first so the mirrored actions are visible
+            // immediately when the player opens the focus tab (not below the
+            // rest of the action list, where they were effectively hidden).
             const nextScrollChildren = portraitMode && !hasPatronTarget
-              ? [...scrollChildren, h("div", {
+              ? [h("div", {
                   key: "m36-ui-migration-patron-choices-portal",
                   id: PATRON_CHOICES_TARGET_ID,
                   className: "m36-ui-migration-patron-choices-portal",
                   "aria-label": "손님 대화 선택지"
-                })]
+                }), ...scrollChildren]
               : scrollChildren;
             return React.cloneElement(child, { className: scrollClass }, ...nextScrollChildren);
           }
@@ -501,11 +504,26 @@ WML.define({
       );
 
       // cst is the original same-room customer-interaction renderer.
-      // Keep its complete result in the wife's third tab. Mirror only the
-      // original header/narration into the pinned panel and the exact
-      // original choice grid into the action scroll region.
+      // Move only the header/description/narration to the pinned panel.
+      // Keep the original choice grid in the wife's tab and mirror the same
+      // React elements (and therefore the same dispatch/choice IDs) to the
+      // top of the ordinary action scroll region.
       if (!header || !narration || !choices) return null;
+
+      const originalContent = React.cloneElement(
+        content,
+        null,
+        ...children.filter((node) =>
+          node !== header && node !== description && node !== narration
+        )
+      );
+      const originalChildren = rootChildren.map((node) =>
+        node === content ? originalContent : node
+      );
+      const original = React.cloneElement(result, null, ...originalChildren);
+
       return {
+        original,
         fixed: h("div", { className: "m36-ui-migration-patron-dialogue" },
           header,
           description || null,
@@ -550,12 +568,24 @@ WML.define({
 
       const parts = splitPatronInteraction(result);
       const portals = [];
-      if (parts && targets.fixed && targets.scrolling &&
-          typeof ReactDOM?.createPortal === "function") {
+      const canCreatePortal = typeof ReactDOM?.createPortal === "function";
+      const pinDialogue = !!(parts && targets.fixed && canCreatePortal);
+      const mirrorChoices = !!(parts && targets.scrolling && canCreatePortal);
+
+      if (pinDialogue) {
         portals.push(ReactDOM.createPortal(parts.fixed, targets.fixed));
+      }
+      if (mirrorChoices) {
         portals.push(ReactDOM.createPortal(parts.scrolling, targets.scrolling));
       }
-      return h(React.Fragment, null, result, ...portals);
+
+      // If the pinned target is available, omit the duplicate text in the
+      // native third-tab card but leave its original buttons in place.
+      // If it is not available, fall back to the complete untouched result.
+      return h(React.Fragment, null,
+        pinDialogue ? parts.original : result,
+        ...portals
+      );
     }
 
     const unhookPatronInteractionCard = api.hook("patronInteractionCard", {
@@ -899,11 +929,11 @@ WML.define({
     Object.defineProperty(window, "__M36_MOBILE_UI_MIGRATION__", {
       configurable: true,
       value: {
-        version: "1.3.5",
+        version: "1.3.6",
         game: api.game,
         hostPlatform,
         getStatus: () => ({
-          version: "1.3.5",
+          version: "1.3.6",
           game: api.game,
           hostPlatform,
           mobileHost,
@@ -946,7 +976,7 @@ WML.define({
       }
     });
 
-    console.info("[WML] M36 mobile UI migration 1.3.5 ready", {
+    console.info("[WML] M36 mobile UI migration 1.3.6 ready", {
       game: api.game,
       hostPlatform,
       mobileHost,

@@ -304,12 +304,18 @@ assert.equal(normalButton.props["data-choice-id"], "main-choice", "menu choice i
 
 
 /*
- * Third-tab customer interaction:
- * keep the original card/buttons in the wife's tab, mirror the exact
- * header/narration into the pinned panel, and mirror the original buttons
- * into the ordinary action scroll area (never the pinned target).
+ * Third-tab patron interaction:
+ * render the dialogue text once in the pinned panel, preserve all three
+ * native third-tab actions, and mirror those exact actions to action scroll.
  */
-const patronChoiceClick = () => "patron-choice";
+const dispatchedPatronActions = [];
+const patronDispatch = (action) => dispatchedPatronActions.push(action);
+const patronWaitClick = () => patronDispatch({ type: "wait" });
+const patronEngageClick = () => patronDispatch({ type: "engage_patron" });
+const patronCallClick = () => patronDispatch({
+  type: "patron_interaction_choice",
+  choiceId: "step_in"
+});
 const patronHeader = React.createElement("div", {
   className: "flex items-baseline justify-between gap-2"
 }, "톨렌 호크스 & 피파");
@@ -319,13 +325,23 @@ const patronDescription = React.createElement("div", {
 const patronNarration = React.createElement("div", {
   className: "text-stone-300 text-xs mt-1.5 italic"
 }, "둘이 이야기하고 있습니다.");
-const patronChoiceButton = React.createElement("button", {
-  onClick: patronChoiceClick,
-  "data-choice-id": "patron-continue"
-}, "계속 일하기 — 상황은 그대로 두기");
+const patronChoiceButtons = [
+  React.createElement("button", {
+    onClick: patronWaitClick,
+    "data-choice-id": "patron-wait"
+  }, "계속 일하기 — 상황은 그대로 두기"),
+  React.createElement("button", {
+    onClick: patronEngageClick,
+    "data-choice-id": "patron-engage"
+  }, "대화에 끼기"),
+  React.createElement("button", {
+    onClick: patronCallClick,
+    "data-choice-id": "patron-call"
+  }, "그녀를 부르기")
+];
 const patronChoiceGrid = React.createElement("div", {
   className: "grid gap-1 mt-2"
-}, patronChoiceButton);
+}, ...patronChoiceButtons);
 const patronContent = React.createElement("div", { className: "px-3 py-2" },
   patronHeader, patronDescription, patronNarration, patronChoiceGrid
 );
@@ -336,12 +352,30 @@ const wrappedPatronCard = registeredHooks.patronInteractionCard.around(
   () => originalPatronCard
 );
 assert.equal(wrappedPatronCard.type.name, "PatronInteractionPortal",
-  "the original third-tab card is wrapped without being removed");
+  "the original third-tab card is wrapped without losing its native renderer");
 const mirroredPatronTree = wrappedPatronCard.type(wrappedPatronCard.props);
 assert.equal(mirroredPatronTree.type, React.Fragment,
-  "original third-tab card and portal mirrors share one React fragment");
-assert.equal(mirroredPatronTree.props.children[0], originalPatronCard,
-  "original third-tab card remains present");
+  "the native card and portal locations share one React fragment");
+const nativePatronCard = mirroredPatronTree.props.children[0];
+assert.notEqual(nativePatronCard, originalPatronCard,
+  "the original card has only its duplicated dialogue text removed");
+assert.doesNotMatch(collectText(nativePatronCard), /톨렌 호크스 & 피파/,
+  "the title is not repeated in the original third-tab card");
+assert.doesNotMatch(collectText(nativePatronCard), /둘이 이야기하고 있습니다\./,
+  "the narration is not repeated in the original third-tab card");
+const expectedPatronChoiceIds = ["patron-wait", "patron-engage", "patron-call"];
+const nativePatronButtons = allElements(nativePatronCard).filter((element) =>
+  element.type === "button" && expectedPatronChoiceIds.includes(element.props["data-choice-id"])
+);
+assert.deepEqual(nativePatronButtons.map((button) => button.props["data-choice-id"]),
+  expectedPatronChoiceIds,
+  "all three original third-tab actions remain in the native card");
+const expectedPatronCallbacks = [patronWaitClick, patronEngageClick, patronCallClick];
+for (let i = 0; i < expectedPatronChoiceIds.length; i++) {
+  assert.equal(nativePatronButtons[i].props.onClick, expectedPatronCallbacks[i],
+    "native third-tab action callback is preserved");
+}
+
 const patronPortals = allElements(mirroredPatronTree)
   .filter((element) => element.type === "portal");
 assert.equal(patronPortals.length, 2,
@@ -355,25 +389,87 @@ const scrollingPatronPortal = patronPortals.find((element) =>
 assert.ok(fixedPatronPortal && scrollingPatronPortal,
   "the dialogue and choices use their intended separate targets");
 assert.ok(collectText(fixedPatronPortal).includes("톨렌 호크스 & 피파"),
-  "customer/wife header is mirrored into the fixed panel");
+  "customer/wife heading is rendered in the fixed panel");
 assert.ok(collectText(fixedPatronPortal).includes("둘이 이야기하고 있습니다."),
-  "dialogue narration is mirrored into the fixed panel");
+  "dialogue narration is rendered in the fixed panel");
 assert.equal(allElements(fixedPatronPortal).some((element) => element.type === "button"), false,
   "no action choice is pinned");
-assert.ok(collectText(scrollingPatronPortal).includes("계속 일하기"),
-  "the exact third-tab choice appears in the action scroll area");
-const mirroredPatronButton = allElements(scrollingPatronPortal).find((element) =>
-  element.type === "button" && element.props["data-choice-id"] === "patron-continue"
-);
-assert.equal(mirroredPatronButton.props.onClick, patronChoiceClick,
-  "mirrored choice preserves the original dispatch callback");
 assert.equal(
-  allElements(originalPatronCard).some((element) =>
-    element.type === "button" && element.props["data-choice-id"] === "patron-continue"
-  ),
-  true,
-  "the original third-tab choice is not deleted or hidden"
+  (collectText(mirroredPatronTree).match(/톨렌 호크스 & 피파/g) || []).length,
+  1,
+  "the combined portrait render contains exactly one customer/wife heading"
 );
+for (const label of ["계속 일하기", "대화에 끼기", "그녀를 부르기"]) {
+  assert.ok(collectText(scrollingPatronPortal).includes(label),
+    "the original action " + label + " is mirrored into the ordinary scroll area");
+}
+const mirroredPatronButtons = allElements(scrollingPatronPortal).filter((element) =>
+  element.type === "button" && expectedPatronChoiceIds.includes(element.props["data-choice-id"])
+);
+assert.deepEqual(mirroredPatronButtons.map((button) => button.props["data-choice-id"]),
+  expectedPatronChoiceIds,
+  "all three actions are present in the ordinary action scroll area");
+for (let i = 0; i < expectedPatronChoiceIds.length; i++) {
+  assert.equal(mirroredPatronButtons[i].props.onClick, expectedPatronCallbacks[i],
+    "mirrored action keeps the original dispatch callback");
+  assert.equal(mirroredPatronButtons[i].props.onClick, nativePatronButtons[i].props.onClick,
+    "native and mirrored buttons share the exact callback function");
+  mirroredPatronButtons[i].props.onClick();
+}
+assert.deepEqual(dispatchedPatronActions, [
+  { type: "wait" },
+  { type: "engage_patron" },
+  { type: "patron_interaction_choice", choiceId: "step_in" }
+], "the mirrored buttons dispatch the original WML action payloads");
+
+// Missing action target must not remove the native third-tab buttons.
+const savedChoicesTarget = portalTargets["m36-ui-migration-patron-choices-portal"];
+portalTargets["m36-ui-migration-patron-choices-portal"] = null;
+const noActionTargetTree = wrappedPatronCard.type(wrappedPatronCard.props);
+const noActionTargetNative = noActionTargetTree.props.children[0];
+assert.equal(allElements(noActionTargetNative).filter((element) =>
+  element.type === "button" && expectedPatronChoiceIds.includes(element.props["data-choice-id"])
+).length, 3, "all native choices remain when the mirror target is unavailable");
+assert.equal(allElements(noActionTargetTree).filter((element) => element.type === "portal").length, 1,
+  "the fixed dialogue can render independently of the action-scroll mirror");
+portalTargets["m36-ui-migration-patron-choices-portal"] = savedChoicesTarget;
+
+// Missing fixed target falls back to the complete original card.
+const savedDialogueTarget = portalTargets["m36-ui-migration-patron-dialogue-portal"];
+portalTargets["m36-ui-migration-patron-dialogue-portal"] = null;
+const noDialogueTargetTree = wrappedPatronCard.type(wrappedPatronCard.props);
+assert.equal(noDialogueTargetTree.props.children[0], originalPatronCard,
+  "the complete native card remains without the fixed target");
+assert.ok(collectText(noDialogueTargetTree).includes("톨렌 호크스 & 피파"),
+  "the native title is never lost when the fixed target is unavailable");
+portalTargets["m36-ui-migration-patron-dialogue-portal"] = savedDialogueTarget;
+
+// The mirror target is inserted before existing actions, not at the bottom.
+function loe() {}
+const locationWrapper = React.createElement("div", {
+  className: "mb-2 pb-2 border-b border-stone-800"
+}, React.createElement(loe, {}));
+const layoutStoryPane = React.createElement("div", {
+  className: "flex-1 min-h-0 overflow-y-auto p-2 text-[0.78rem]"
+}, locationWrapper);
+const existingActionChoice = React.createElement("button", { "data-choice-id": "existing-action" },
+  "기존 행동 선택지");
+const actionScrollFixture = React.createElement("div", {
+  className: "flex-1 min-h-0 overflow-y-auto py-1 text-[0.72rem]"
+}, existingActionChoice);
+const actionPanelFixture = React.createElement("div", {
+  className: "w-[37%] max-w-[13rem] shrink-0 flex flex-col min-h-0"
+}, actionScrollFixture);
+const layoutFixture = React.createElement("main", {}, layoutStoryPane, actionPanelFixture);
+const layoutElement = registeredHooks.layout.after(layoutFixture);
+const transformedLayout = layoutElement.type(layoutElement.props);
+const transformedActionScroll = findByClass(transformedLayout, "m36-ui-migration-action-scroll");
+assert.ok(transformedActionScroll, "portrait layout has a dedicated action scroll container");
+const transformedScrollChildren = React.Children.toArray(transformedActionScroll.props.children);
+assert.equal(transformedScrollChildren[0].props.id, "m36-ui-migration-patron-choices-portal",
+  "patron choices target is the first child in the action scroll area");
+assert.equal(transformedScrollChildren[1], existingActionChoice,
+  "the original action list remains after the patron choices target");
 
 // Landscape returns the original React trees, with no wrapper added.
 portrait = false;
@@ -409,4 +505,37 @@ assert.match(modSource, /visibilitychange/,
 assert.match(modSource, /pointerdown/,
   "fullscreen restoration retries on the next trusted user gesture");
 
-console.log("PASS 1.3.5: customer rows, pinned status, third-tab dialogue mirror, scroll-only original choices, callbacks and landscape passthrough");
+// Audit the target WML source in bounded 4KB reads; guard the exact Znt -> hst -> cst path.
+const gameHtmlPath = path.resolve(__dirname, "..", "..", "Wayward_WML_ko.html");
+const requiredGameSource = [
+  "function Znt({hideWifeColumn:e,peekOnly:t,wife:o,wifeLoc:n,slot:s,activePatronInteraction:r,crowdNames:a,dispatch:i",
+  "r&&!r.playerEngaged&&u.jsx(hst,{customerName:r.customerName,crowdNames:a,wifeName:A,stage:r.stage,primarySlot:r.primarySlot,goldEarned:r.goldEarned??0,dispatch:i})",
+  "function hst(e){const t=ie(n=>Qe(n.state));return ie(n=>NS(n.state))?u.jsx(cst,{...e}):u.jsx(dst,{...e,interactionLoc:t})}",
+  "function cst({customerName:e,crowdNames:t,wifeName:o,stage:n,primarySlot:s,goldEarned:r,dispatch:a})",
+  'className:"grid gap-1 mt-2"',
+  'children:"계속 일하기 — 상황은 그대로 두기"',
+  '"대화에 끼기"',
+  '"그녀를 부르기"'
+];
+const unresolvedGameSource = new Set(requiredGameSource);
+const gameHtmlFd = fs.openSync(gameHtmlPath, "r");
+const gameHtmlBuffer = Buffer.alloc(4096);
+const overlapBytes = Math.max(...requiredGameSource.map((value) => Buffer.byteLength(value))) - 1;
+let gameHtmlCarry = Buffer.alloc(0);
+try {
+  let bytesRead;
+  while ((bytesRead = fs.readSync(gameHtmlFd, gameHtmlBuffer, 0, gameHtmlBuffer.length, null)) > 0) {
+    const data = Buffer.concat([gameHtmlCarry, gameHtmlBuffer.subarray(0, bytesRead)]);
+    for (const token of unresolvedGameSource) {
+      if (data.includes(Buffer.from(token))) unresolvedGameSource.delete(token);
+    }
+    gameHtmlCarry = data.subarray(Math.max(0, data.length - overlapBytes));
+  }
+} finally {
+  fs.closeSync(gameHtmlFd);
+}
+assert.equal(unresolvedGameSource.size, 0,
+  "the exact target WML Znt/hst/cst route or its original action labels changed: " +
+  [...unresolvedGameSource].join(" | "));
+
+console.log("PASS 1.3.6: customer rows, pinned status, third-tab dialogue mirror, scroll-only original choices, callbacks and landscape passthrough");
