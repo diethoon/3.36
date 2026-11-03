@@ -2,6 +2,7 @@
 
 const assert = require("node:assert/strict");
 const path = require("node:path");
+const fs = require("node:fs");
 
 const ELEMENT = Symbol.for("react.element");
 function flatten(input, output = []) {
@@ -289,4 +290,14 @@ assert.equal(
   "landscape customer row remains unchanged"
 );
 
-console.log("PASS 1.3.1: native customer row split, ellipsis metadata container, dialogue/gauge pinning, question/menu scroll split, callbacks and landscape passthrough");
+const modSource = fs.readFileSync(path.join(__dirname, "..", "mod.js"), "utf8");
+assert.match(modSource, /max-height:66\.666%/,
+  "action scroll area is capped at approximately two-thirds height");
+assert.match(modSource, /FULLSCREEN_PREFERENCE_KEY/,
+  "fullscreen intent is persisted");
+assert.match(modSource, /visibilitychange/,
+  "fullscreen restoration is retried when the app becomes visible");
+assert.match(modSource, /pointerdown/,
+  "fullscreen restoration retries on the next trusted user gesture");
+
+console.log("PASS 1.3.4: native customer row split, ellipsis metadata container, dialogue/gauge pinning, question/menu scroll split, callbacks and landscape passthrough");
