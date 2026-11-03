@@ -903,7 +903,7 @@ WML.define({
         game: api.game,
         hostPlatform,
         getStatus: () => ({
-          version: "1.3.4",
+          version: "1.3.5",
           game: api.game,
           hostPlatform,
           mobileHost,
