@@ -1,7 +1,7 @@
 WML.define({
   id: "mobile-ui-migration",
   name: "M36 모바일 UI 마이그레이션",
-  version: "1.3.6",
+  version: "1.3.8",
   game: "2026-10-24-pre7",
   platform: "mobile",
   description: "4.38MB WML 빌드용: 피파 탭 대화 중복 제거, 원본 선택지 스크롤 미러링",
@@ -621,6 +621,7 @@ WML.define({
       "#root ." + ACTION_SCROLL_CLASS + " button.m36-ui-migration-disabled-choice::after{content:attr(data-m36-ui-disabled-status);display:block!important;flex:0 1 auto!important;max-width:44%!important;min-width:0!important;overflow:hidden!important;color:rgb(148 163 184)!important;font-size:.61rem!important;line-height:1.15!important;text-align:right!important;text-overflow:ellipsis!important;white-space:nowrap!important}",
       "#root .m36-ui-migration-fullscreen-button{box-sizing:border-box;flex:0 0 auto}",
       "@media screen and (max-width:1023px) and (orientation:portrait){#root ." + PINNED_PANEL_CLASS + "{display:block}#root .m36-ui-migration-customer-row{align-items:flex-start!important}#root .m36-ui-migration-customer-identity{display:flex;flex:1 1 auto;flex-direction:column;min-width:0;max-width:100%;overflow:hidden}#root .m36-ui-migration-customer-identity>span:first-child{display:block;max-width:100%!important;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}#root .m36-ui-migration-customer-meta{display:flex;align-items:center;gap:.35rem;min-width:0;max-width:100%;overflow:hidden;white-space:nowrap;line-height:1.15;font-size:.64rem}#root .m36-ui-migration-customer-meta>span{flex:0 1 auto;min-width:0;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}#root .m36-ui-migration-event-root{display:flex;flex-direction:column;width:100%;height:100%;min-width:0;min-height:0;max-height:100%;overflow:hidden;box-sizing:border-box}#root .m36-ui-migration-event-fixed{flex:0 1 auto;min-width:0;max-width:100%;max-height:48vh;overflow-x:hidden;overflow-y:auto;overscroll-behavior:contain;padding:4px 4px 5px;background:rgba(28,25,23,.98);border-bottom:1px solid rgba(120,113,108,.48)}#root .m36-ui-migration-event-description{display:block;min-width:0;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}#root .m36-ui-migration-event-gauges{margin-bottom:.45rem}#root .m36-ui-migration-event-scroll{flex:0 1 66.666%;min-width:0;min-height:0;max-height:66.666%;overflow-x:hidden;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;padding:4px 3px 8px}#root .m36-ui-migration-question-choices{margin:0 0 .75rem}}",
+      "@media screen and (max-width:1023px) and (orientation:portrait){#root div[class*='w-[37%]']{box-sizing:border-box!important;padding-bottom:env(safe-area-inset-bottom,0px)!important}#root div[class*='w-[37%]']>button[title='행동 버튼을 반대쪽으로 이동']{box-sizing:border-box!important;display:flex!important;flex:0 0 1.5rem!important;height:1.5rem!important;min-height:1.5rem!important;max-height:1.5rem!important;padding:0 .4rem!important;font-size:.75rem!important;line-height:1!important;overflow:hidden!important}}",
       "@media screen and (orientation:landscape),(min-width:1024px){#root ." + PINNED_PANEL_CLASS + "{display:none!important}#root .m36-ui-migration-fullscreen-button{display:none!important}}"
     ].join("\n");
     document.head.appendChild(style);
@@ -819,17 +820,17 @@ WML.define({
       }
     }
     async function restoreFullscreenIfWanted(event) {
-      if (event?.isTrusted === false || !fullscreenWanted || document.hidden ||
+      // Fullscreen requires transient activation. Only call this from an
+      // activation-triggering input event, never from focus/pageshow/visibility.
+      if (event?.isTrusted !== true || !fullscreenWanted || document.hidden ||
           !mobileHost || !MOBILE_PORTRAIT.matches || hasFullscreen() ||
           fullscreenRestoreInFlight) return;
       fullscreenRestoreInFlight = true;
       try {
         await requestGameFullscreen();
       } catch (error) {
-        // A browser may require a fresh user gesture after an app switch.
-        // The next trusted pointer/touch/key interaction retries without
-        // changing the saved preference or treating that interaction as exit.
-        console.info("[WML mobile-ui-migration] automatic fullscreen restore was blocked", error);
+        // Keep the saved preference; the next genuine user activation retries.
+        console.info("[WML mobile-ui-migration] fullscreen restore was blocked", error);
       } finally {
         fullscreenRestoreInFlight = false;
         updateFullscreenButton();
@@ -837,10 +838,15 @@ WML.define({
     }
     function onFullscreenChange() {
       updateFullscreenButton();
-      if (fullscreenWanted && !document.hidden) restoreFullscreenIfWanted();
+    }
+    function onResumeStateChange() {
+      // App return itself is not a user gesture; wait for the user's first input.
+      updateFullscreenButton();
     }
     function onResumeGesture(event) {
-      if (event?.isTrusted === false) return;
+      if (event?.isTrusted !== true) return;
+      if (event.type === "pointerup" && event.pointerType === "mouse") return;
+      if (event.type === "keydown" && (event.key === "Escape" || event.repeat)) return;
       restoreFullscreenIfWanted(event);
     }
     async function toggleFullscreen(event) {
@@ -917,23 +923,28 @@ WML.define({
     MOBILE_PORTRAIT.addEventListener?.("change", queueSync);
     document.addEventListener("fullscreenchange", onFullscreenChange);
     document.addEventListener("webkitfullscreenchange", onFullscreenChange);
-    document.addEventListener("visibilitychange", onFullscreenChange);
-    window.addEventListener("pageshow", restoreFullscreenIfWanted);
-    window.addEventListener("focus", restoreFullscreenIfWanted);
-    document.addEventListener("pointerdown", onResumeGesture, true);
-    document.addEventListener("touchstart", onResumeGesture, { capture: true, passive: true });
+    document.addEventListener("visibilitychange", onResumeStateChange);
+    window.addEventListener("pageshow", onResumeStateChange);
+    window.addEventListener("focus", onResumeStateChange);
+    if (typeof window.PointerEvent === "function") {
+      // Touch/pen pointerup is a user-activation event; pointerdown is not.
+      document.addEventListener("pointerup", onResumeGesture, true);
+    } else {
+      // Compatibility path for browsers without Pointer Events.
+      document.addEventListener("touchend", onResumeGesture, { capture: true, passive: true });
+    }
+    document.addEventListener("mousedown", onResumeGesture, true);
     document.addEventListener("keydown", onResumeGesture, true);
     queueSync();
-    restoreFullscreenIfWanted();
 
     Object.defineProperty(window, "__M36_MOBILE_UI_MIGRATION__", {
       configurable: true,
       value: {
-        version: "1.3.6",
+        version: "1.3.8",
         game: api.game,
         hostPlatform,
         getStatus: () => ({
-          version: "1.3.6",
+          version: "1.3.8",
           game: api.game,
           hostPlatform,
           mobileHost,
@@ -962,11 +973,15 @@ WML.define({
           MOBILE_PORTRAIT.removeEventListener?.("change", queueSync);
           document.removeEventListener("fullscreenchange", onFullscreenChange);
           document.removeEventListener("webkitfullscreenchange", onFullscreenChange);
-          document.removeEventListener("visibilitychange", onFullscreenChange);
-          window.removeEventListener("pageshow", restoreFullscreenIfWanted);
-          window.removeEventListener("focus", restoreFullscreenIfWanted);
-          document.removeEventListener("pointerdown", onResumeGesture, true);
-          document.removeEventListener("touchstart", onResumeGesture, true);
+          document.removeEventListener("visibilitychange", onResumeStateChange);
+          window.removeEventListener("pageshow", onResumeStateChange);
+          window.removeEventListener("focus", onResumeStateChange);
+          if (typeof window.PointerEvent === "function") {
+            document.removeEventListener("pointerup", onResumeGesture, true);
+          } else {
+            document.removeEventListener("touchend", onResumeGesture, true);
+          }
+          document.removeEventListener("mousedown", onResumeGesture, true);
           document.removeEventListener("keydown", onResumeGesture, true);
           unhookCustomerRow?.();
           unhookActionRenderer?.();
@@ -976,7 +991,7 @@ WML.define({
       }
     });
 
-    console.info("[WML] M36 mobile UI migration 1.3.6 ready", {
+    console.info("[WML] M36 mobile UI migration 1.3.8 ready", {
       game: api.game,
       hostPlatform,
       mobileHost,
