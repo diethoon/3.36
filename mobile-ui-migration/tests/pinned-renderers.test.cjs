@@ -490,6 +490,21 @@ assert.equal(
 );
 
 const modSource = fs.readFileSync(path.join(__dirname, "..", "mod.js"), "utf8");
+assert.equal(modSource.split('version: "1.3.9"').length - 1, 3,
+  "all exposed module status versions match 1.3.9");
+assert.ok(modSource.includes("#root .m36-ui-migration-action-panel>.m36-ui-migration-action-scroll{box-sizing:border-box!important;padding-bottom:calc(.25rem + env(safe-area-inset-bottom,0px))!important}"),
+  "safe-area padding is contained inside the action scroll region");
+assert.ok(!modSource.includes('padding-bottom:env(safe-area-inset-bottom,0px)!important'),
+  "the side-panel parent no longer receives safe-area padding");
+assert.ok(modSource.includes("flex:0 0 1.5rem!important;height:1.5rem!important;min-height:1.5rem!important;max-height:1.5rem!important;padding:0 .4rem!important"),
+  "the bottom side-switch target stays fixed at 1.5rem without vertical padding");
+assert.ok(modSource.includes('document.addEventListener("pointerup", onResumeGesture, true);'),
+  "fullscreen restoration uses the trusted pointerup activation event");
+assert.ok(modSource.includes('document.addEventListener("touchend", onResumeGesture, { capture: true, passive: true });'),
+  "fullscreen restoration retains a touchend fallback");
+assert.ok(!modSource.includes('document.addEventListener("pointerdown"') &&
+          !modSource.includes('document.addEventListener("touchstart"'),
+  "non-activation input events cannot race the first fullscreen activation");
 assert.match(modSource, /max-height:66\.666%/,
   "action scroll area is capped at approximately two-thirds height");
 assert.match(modSource, /ReactDOM: \{ raw: \{ "2026-10-24-pre7": "nte" \} \}/,
@@ -500,10 +515,10 @@ assert.match(modSource, /ReactDOM\.createPortal/,
   "the original dialogue and choices are mirrored through React portals");
 assert.match(modSource, /FULLSCREEN_PREFERENCE_KEY/,
   "fullscreen intent is persisted");
-assert.match(modSource, /visibilitychange/,
-  "fullscreen restoration is retried when the app becomes visible");
-assert.match(modSource, /pointerdown/,
-  "fullscreen restoration retries on the next trusted user gesture");
+assert.match(modSource, /onResumeStateChange/,
+  "app resume events only refresh fullscreen state");
+assert.match(modSource, /pointerup/,
+  "fullscreen restoration retries on the first trusted pointerup");
 
 // Audit the target WML source in bounded 4KB reads; guard the exact Znt -> hst -> cst path.
 const gameHtmlPath = path.resolve(__dirname, "..", "..", "Wayward_WML_ko.html");
@@ -538,4 +553,4 @@ assert.equal(unresolvedGameSource.size, 0,
   "the exact target WML Znt/hst/cst route or its original action labels changed: " +
   [...unresolvedGameSource].join(" | "));
 
-console.log("PASS 1.3.6: customer rows, pinned status, third-tab dialogue mirror, scroll-only original choices, callbacks and landscape passthrough");
+console.log("PASS 1.3.9 regression: customer rows, pinned status, third-tab dialogue mirror, scroll-only original choices, callbacks and landscape passthrough");
