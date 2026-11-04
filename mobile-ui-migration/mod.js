@@ -1,7 +1,7 @@
 WML.define({
   id: "mobile-ui-migration",
   name: "M36 모바일 UI 마이그레이션",
-  version: "1.3.6",
+  version: "1.3.7",
   game: "2026-10-24-pre7",
   platform: "mobile",
   description: "4.38MB WML 빌드용: 피파 탭 대화 중복 제거, 원본 선택지 스크롤 미러링",
@@ -621,6 +621,19 @@ WML.define({
       "#root ." + ACTION_SCROLL_CLASS + " button.m36-ui-migration-disabled-choice::after{content:attr(data-m36-ui-disabled-status);display:block!important;flex:0 1 auto!important;max-width:44%!important;min-width:0!important;overflow:hidden!important;color:rgb(148 163 184)!important;font-size:.61rem!important;line-height:1.15!important;text-align:right!important;text-overflow:ellipsis!important;white-space:nowrap!important}",
       "#root .m36-ui-migration-fullscreen-button{box-sizing:border-box;flex:0 0 auto}",
       "@media screen and (max-width:1023px) and (orientation:portrait){#root ." + PINNED_PANEL_CLASS + "{display:block}#root .m36-ui-migration-customer-row{align-items:flex-start!important}#root .m36-ui-migration-customer-identity{display:flex;flex:1 1 auto;flex-direction:column;min-width:0;max-width:100%;overflow:hidden}#root .m36-ui-migration-customer-identity>span:first-child{display:block;max-width:100%!important;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}#root .m36-ui-migration-customer-meta{display:flex;align-items:center;gap:.35rem;min-width:0;max-width:100%;overflow:hidden;white-space:nowrap;line-height:1.15;font-size:.64rem}#root .m36-ui-migration-customer-meta>span{flex:0 1 auto;min-width:0;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}#root .m36-ui-migration-event-root{display:flex;flex-direction:column;width:100%;height:100%;min-width:0;min-height:0;max-height:100%;overflow:hidden;box-sizing:border-box}#root .m36-ui-migration-event-fixed{flex:0 1 auto;min-width:0;max-width:100%;max-height:48vh;overflow-x:hidden;overflow-y:auto;overscroll-behavior:contain;padding:4px 4px 5px;background:rgba(28,25,23,.98);border-bottom:1px solid rgba(120,113,108,.48)}#root .m36-ui-migration-event-description{display:block;min-width:0;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}#root .m36-ui-migration-event-gauges{margin-bottom:.45rem}#root .m36-ui-migration-event-scroll{flex:0 1 66.666%;min-width:0;min-height:0;max-height:66.666%;overflow-x:hidden;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;padding:4px 3px 8px}#root .m36-ui-migration-question-choices{margin:0 0 .75rem}}",
+      "@media screen and (max-width:1023px) and (orientation:portrait){" +
+        "#root div[class*='w-[37%]']>button[title='행동 버튼을 반대쪽으로 이동']{box-sizing:border-box!important;flex:0 0 calc(1.8rem + env(safe-area-inset-bottom,0px))!important;height:calc(1.8rem + env(safe-area-inset-bottom,0px))!important;min-height:calc(1.8rem + env(safe-area-inset-bottom,0px))!important;max-height:calc(1.8rem + env(safe-area-inset-bottom,0px))!important;padding:.1rem .45rem max(.3rem,env(safe-area-inset-bottom,0px))!important;font-size:.85rem!important;line-height:1!important;align-items:center!important;overflow:hidden!important}" +
+        "#root ." + ACTION_SCROLL_CLASS + "{padding:2px 2px 3px!important}" +
+        "#root .m36-ui-migration-patron-dialogue{display:flex;flex-direction:column;gap:.16rem!important;line-height:1.2!important}" +
+        "#root .m36-ui-migration-patron-dialogue>div{margin:0!important;line-height:1.2!important}" +
+        "#root .m36-ui-migration-patron-dialogue>.flex{column-gap:.3rem!important;row-gap:.1rem!important}" +
+        "#root .m36-ui-migration-patron-choices .grid{gap:.25rem!important;margin-top:.3rem!important}" +
+        "#root .m36-ui-migration-patron-choices button{box-sizing:border-box!important;min-height:1.8rem!important;padding:.28rem .42rem!important;font-size:.74rem!important;line-height:1.2!important}" +
+        "#root ." + PINNED_PANEL_CLASS + "{padding:3px 3px 4px!important}" +
+        "#root .m36-ui-migration-event-fixed{padding:3px 3px 4px!important}" +
+        "#root .m36-ui-migration-event-gauges{margin-bottom:.2rem!important}" +
+        "#root .m36-ui-migration-event-scroll{padding:3px 3px 4px!important}" +
+        "#root .m36-ui-migration-question-choices{margin:0 0 .35rem!important}}",
       "@media screen and (orientation:landscape),(min-width:1024px){#root ." + PINNED_PANEL_CLASS + "{display:none!important}#root .m36-ui-migration-fullscreen-button{display:none!important}}"
     ].join("\n");
     document.head.appendChild(style);
@@ -929,11 +942,11 @@ WML.define({
     Object.defineProperty(window, "__M36_MOBILE_UI_MIGRATION__", {
       configurable: true,
       value: {
-        version: "1.3.6",
+        version: "1.3.7",
         game: api.game,
         hostPlatform,
         getStatus: () => ({
-          version: "1.3.6",
+          version: "1.3.7",
           game: api.game,
           hostPlatform,
           mobileHost,
@@ -976,7 +989,7 @@ WML.define({
       }
     });
 
-    console.info("[WML] M36 mobile UI migration 1.3.6 ready", {
+    console.info("[WML] M36 mobile UI migration 1.3.7 ready", {
       game: api.game,
       hostPlatform,
       mobileHost,
